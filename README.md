@@ -41,9 +41,11 @@ Copy-Item ..\.env.example ..\.env   # optional; set MODEL_API_KEY for live model
 
 ```powershell
 cd C:\dev\FieldRook\frontend
-npm install
-npm run dev
+pnpm install
+pnpm run dev
 ```
+
+(`npm install` / `npm run dev` are an alternative if you prefer npm.)
 
 Open <http://localhost:5173>. The Vite dev server proxies `/api` to the backend.
 
