@@ -13,13 +13,13 @@ from datetime import datetime, timezone
 from ..config import Settings
 from ..schemas import DiagnosticBundle, EvidenceItem, ServiceListResponse, ServiceSummary
 from . import fixtures as fx
+from .event_search import search_events_live
 from .service_allowlist import validate_service_name
 from .windows_tools import (
     SOURCE_EVENTS,
     SOURCE_STARTUP,
     SOURCE_STATUS,
     DiagnosticCommandError,
-    get_event_logs,
     get_service_status,
     get_startup_type,
     list_services,
@@ -29,6 +29,50 @@ from .windows_tools import (
 
 def _now() -> datetime:
     return datetime.now(timezone.utc)
+
+
+def _live_event_item(name: str, display_name: str, timeout_s: float) -> EvidenceItem:
+    try:
+        result = search_events_live([name], ["System"], 24, 25, timeout_s)
+    except (DiagnosticCommandError, ValueError) as exc:
+        return EvidenceItem(
+            id="ev-3",
+            category="event_log",
+            source=SOURCE_EVENTS,
+            collected_at=_now(),
+            data={},
+            error=str(exc),
+        )
+    first = result["logs"][0]
+    data = {
+        "log": "System",
+        "window_hours": result["window_hours"],
+        "scanned": first["scanned"],
+        "matched": first["matched"],
+        "filter": f"entries mentioning '{name}'",
+        "display_name_hint": display_name,
+        "events": first["events"],
+        "completed": first["completed"],
+        "scan_cap": result["scan_cap"],
+        "levels": result["levels"],
+        "note": first["note"],
+    }
+    if not first["completed"]:
+        return EvidenceItem(
+            id="ev-3",
+            category="event_log",
+            source=SOURCE_EVENTS,
+            collected_at=_now(),
+            data=data,
+            error=str(first.get("error", "Log query did not complete.")),
+        )
+    return EvidenceItem(
+        id="ev-3",
+        category="event_log",
+        source=SOURCE_EVENTS,
+        collected_at=_now(),
+        data=data,
+    )
 
 
 def _collect_live(name: str, timeout_s: float) -> list[EvidenceItem]:
@@ -70,25 +114,7 @@ def _collect_live(name: str, timeout_s: float) -> list[EvidenceItem]:
             data={},
             error=str(exc),
         )
-    try:
-        events_data = get_event_logs(name, display_name, timeout_s)
-        events_item = EvidenceItem(
-            id="ev-3",
-            category="event_log",
-            source=SOURCE_EVENTS,
-            collected_at=_now(),
-            data=events_data,
-        )
-    except (DiagnosticCommandError, ValueError) as exc:
-        events_item = EvidenceItem(
-            id="ev-3",
-            category="event_log",
-            source=SOURCE_EVENTS,
-            collected_at=_now(),
-            data={},
-            error=str(exc),
-        )
-    return [status_item, startup_item, events_item]
+    return [status_item, startup_item, _live_event_item(name, display_name, timeout_s)]
 
 
 def _live_unavailable_items() -> list[EvidenceItem]:
@@ -154,7 +180,8 @@ def _collect_fixture(name: str, warnings: list[str]) -> list[EvidenceItem]:
             ),
         ]
     startup = fx.get_fixture_startup(name) or {}
-    events = fx.get_fixture_events(name) or []
+    search = fx.search_fixture_events([name], ["System"], 24, 25)
+    first = search["logs"][0]
     return [
         EvidenceItem(
             id="ev-1",
@@ -166,6 +193,7 @@ def _collect_fixture(name: str, warnings: list[str]) -> list[EvidenceItem]:
                 "display_name": status["display_name"],
                 "status": status["status"],
                 "service_type": "(fixture)",
+                "service_type_value": None,
             },
         ),
         EvidenceItem(
@@ -182,12 +210,16 @@ def _collect_fixture(name: str, warnings: list[str]) -> list[EvidenceItem]:
             collected_at=_now(),
             data={
                 "log": "System",
-                "window_hours": 24,
-                "scanned": len(events),
-                "matched": len(events),
+                "window_hours": search["window_hours"],
+                "scanned": first["scanned"],
+                "matched": first["matched"],
                 "filter": f"entries mentioning '{name}'",
                 "display_name_hint": status["display_name"],
-                "events": events,
+                "events": first["events"],
+                "completed": first["completed"],
+                "scan_cap": search["scan_cap"],
+                "levels": search["levels"],
+                "note": first["note"],
             },
         ),
     ]
@@ -200,6 +232,7 @@ def collect_diagnostics(
     force_fixture = settings.fixtures_mode == "always" or use_fixtures is True
     force_live = settings.fixtures_mode == "never" or use_fixtures is False
     warnings: list[str] = []
+    timeout_s = settings.command_timeout_s
 
     if force_fixture:
         items = _collect_fixture(validated, warnings)
@@ -220,7 +253,7 @@ def collect_diagnostics(
             items = _collect_fixture(validated, warnings)
             mode = "fixture"
     else:
-        items = _collect_live(validated, settings.command_timeout_s)
+        items = _collect_live(validated, timeout_s)
         if any(item.error is None for item in items):
             mode = "live"
         elif force_live:

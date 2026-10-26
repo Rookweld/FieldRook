@@ -3,11 +3,11 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from .routers import incidents, services
+from .routers import incidents, investigations, services
 
 app = FastAPI(
     title="FieldRook API",
-    version="0.1.0",
+    version="0.2.0",
     description="Evidence-driven troubleshooting: Diagnose. Verify. Resolve.",
 )
 
@@ -20,6 +20,7 @@ app.add_middleware(
 
 app.include_router(services.router)
 app.include_router(incidents.router)
+app.include_router(investigations.router)
 
 
 @app.get("/")

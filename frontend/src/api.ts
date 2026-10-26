@@ -1,8 +1,10 @@
 import type {
   DiagnosticBundle,
   IncidentAssessment,
+  InvestigationResponse,
   ServiceListResponse,
   StatusResponse,
+  ToolInfo,
 } from "./types";
 
 export class ApiError extends Error {
@@ -65,4 +67,43 @@ export function analyzeIncident(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ service_name: name, use_fixtures: useFixtures ?? null }),
   });
+}
+
+export interface StartInvestigationArgs {
+  problem: string;
+  serviceName?: string;
+  useFixtures?: boolean;
+  shareConsent: boolean;
+  screenshot?: File | null;
+}
+
+export function startInvestigation(args: StartInvestigationArgs): Promise<InvestigationResponse> {
+  const form = new FormData();
+  form.append("problem", args.problem);
+  if (args.serviceName) form.append("service_name", args.serviceName);
+  if (args.useFixtures !== undefined) form.append("use_fixtures", args.useFixtures ? "true" : "false");
+  form.append("share_consent", args.shareConsent ? "true" : "false");
+  if (args.screenshot) form.append("screenshot", args.screenshot, args.screenshot.name);
+  return request<InvestigationResponse>("/api/investigations", {
+    method: "POST",
+    body: form,
+  });
+}
+
+export function followUpInvestigation(
+  id: string,
+  message: string,
+): Promise<InvestigationResponse> {
+  return request<InvestigationResponse>(
+    `/api/investigations/${encodeURIComponent(id)}/followup`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message }),
+    },
+  );
+}
+
+export function listTools(): Promise<ToolInfo[]> {
+  return request<ToolInfo[]>("/api/tools");
 }

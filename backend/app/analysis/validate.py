@@ -7,7 +7,7 @@ from typing import Any
 
 from pydantic import ValidationError
 
-from ..schemas import AnalysisResult, DiagnosticBundle
+from ..schemas import AnalysisMode, AnalysisResult, DiagnosticBundle
 
 
 class ModelAnalysisError(RuntimeError):
@@ -43,7 +43,10 @@ def _extract_json(raw: str) -> dict[str, Any]:
     return data
 
 
-def validate_model_output(raw: str, bundle: DiagnosticBundle, model: str) -> AnalysisResult:
+def validate_assessment_output(
+    raw: str, known_ids: set[str], model: str, mode: AnalysisMode
+) -> AnalysisResult:
+    """Validate assessment JSON against a set of known evidence ids."""
     data = _extract_json(raw)
     missing = [key for key in REQUIRED_KEYS if key not in data]
     if missing:
@@ -57,21 +60,20 @@ def validate_model_output(raw: str, bundle: DiagnosticBundle, model: str) -> Ana
             missing_evidence=data["missing_evidence"],
             next_actions=data["next_actions"],
             explanation=data["explanation"],
-            mode="live",
+            mode=mode,
             model=model,
         )
     except ValidationError as exc:
         raise ModelAnalysisError(f"Model output failed schema validation: {exc}") from exc
 
-    known = {item.id for item in bundle.items}
     dropped: list[str] = []
     for fact in result.facts:
-        kept = [eid for eid in fact.evidence_ids if eid in known]
-        dropped.extend(eid for eid in fact.evidence_ids if eid not in known)
+        kept = [eid for eid in fact.evidence_ids if eid in known_ids]
+        dropped.extend(eid for eid in fact.evidence_ids if eid not in known_ids)
         fact.evidence_ids = kept
     for cause in result.causes:
-        kept = [eid for eid in cause.evidence_ids if eid in known]
-        dropped.extend(eid for eid in cause.evidence_ids if eid not in known)
+        kept = [eid for eid in cause.evidence_ids if eid in known_ids]
+        dropped.extend(eid for eid in cause.evidence_ids if eid not in known_ids)
         cause.evidence_ids = kept
     if dropped:
         unique = ", ".join(sorted(set(dropped)))
@@ -79,4 +81,16 @@ def validate_model_output(raw: str, bundle: DiagnosticBundle, model: str) -> Ana
             f"Dropped {len(dropped)} evidence reference(s) not present in the bundle: "
             f"{unique}."
         )
+    uncited = [fact for fact in result.facts if not fact.evidence_ids]
+    if uncited:
+        result.validation_warnings.append(
+            f"{len(uncited)} fact(s) cite no evidence; treat them as unverified."
+        )
     return result
+
+
+def validate_model_output(raw: str, bundle: DiagnosticBundle, model: str) -> AnalysisResult:
+    """Validate M001 single-service assessment output (live mode)."""
+    return validate_assessment_output(
+        raw, {item.id for item in bundle.items}, model, "live"
+    )

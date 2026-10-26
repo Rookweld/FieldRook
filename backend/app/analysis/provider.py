@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import httpx
 
 from ..config import Settings
@@ -17,17 +19,27 @@ class MetaModelProvider:
     def __init__(self, settings: Settings) -> None:
         self._settings = settings
 
-    async def analyze(self, bundle: DiagnosticBundle) -> AnalysisResult:
+    async def chat(
+        self,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]] | None = None,
+        json_only: bool = False,
+    ) -> dict[str, Any]:
+        """One chat turn, optionally with tool definitions. Returns the assistant message."""
         settings = self._settings
         if not settings.model_api_key:
             raise ModelAnalysisError("MODEL_API_KEY is not set.")
         url = settings.model_base_url.rstrip("/") + "/chat/completions"
-        payload = {
+        payload: dict[str, Any] = {
             "model": settings.model_name,
-            "messages": build_messages(bundle),
+            "messages": messages,
             "temperature": 0.2,
-            "response_format": {"type": "json_object"},
         }
+        if tools:
+            payload["tools"] = tools
+            payload["tool_choice"] = "auto"
+        if json_only:
+            payload["response_format"] = {"type": "json_object"}
         headers = {"Authorization": f"Bearer {settings.model_api_key}"}
         try:
             async with httpx.AsyncClient(timeout=settings.model_timeout_s) as client:
@@ -45,12 +57,24 @@ class MetaModelProvider:
         except ValueError as exc:
             raise ModelAnalysisError("Meta API returned a non-JSON response.") from exc
         try:
-            content = data["choices"][0]["message"]["content"]
+            message = data["choices"][0]["message"]
         except (KeyError, IndexError, TypeError) as exc:
             raise ModelAnalysisError(
-                "Meta API response is missing choices[0].message.content."
+                "Meta API response is missing choices[0].message."
             ) from exc
-        return validate_model_output(str(content or ""), bundle, settings.model_name)
+        if not isinstance(message, dict):
+            raise ModelAnalysisError("Meta API returned a malformed message.")
+        # Omit an empty tool_calls list: the API rejects it in history.
+        result: dict[str, Any] = {"role": "assistant", "content": message.get("content") or ""}
+        if message.get("tool_calls"):
+            result["tool_calls"] = message["tool_calls"]
+        return result
+
+    async def analyze(self, bundle: DiagnosticBundle) -> AnalysisResult:
+        message = await self.chat(build_messages(bundle), json_only=True)
+        return validate_model_output(
+            str(message.get("content") or ""), bundle, self._settings.model_name
+        )
 
 
 class SimulatedProvider:

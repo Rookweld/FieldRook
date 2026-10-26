@@ -1,12 +1,12 @@
-"""Allowlisted, read-only Windows diagnostics.
+"""Allowlisted, read-only Windows service diagnostics.
 
-Exactly three read-only operations exist:
+Read-only operations in this module:
 
   1. Get-Service (list + status)
   2. Get-CimInstance Win32_Service (startup type)
-  3. Get-WinEvent on the System log (bounded sample)
 
-No other command can run through this module, and service names are validated
+Event-log searches live in event_search.py; OS/network tools in windows_net.py.
+No other command can run through this layer, and service names are validated
 before interpolation. Nothing here changes system state.
 """
 
@@ -21,6 +21,12 @@ ALLOWLISTED_COMMANDS: tuple[str, ...] = (
     "Get-Service",
     "Get-CimInstance Win32_Service",
     "Get-WinEvent -LogName System",
+    "Get-WinEvent -LogName Application",
+    "Get-CimInstance Win32_OperatingSystem",
+    "Get-NetAdapter",
+    "Get-NetIPAddress",
+    "Get-DnsClientServerAddress",
+    "Get-NetTCPConnection Established",
 )
 
 SOURCE_LIST = "powershell:Get-Service"
@@ -39,15 +45,6 @@ _STARTUP_SCRIPT_TEMPLATE = (
     "Get-CimInstance -ClassName Win32_Service -Filter \"Name='{name}'\" "
     "| Select-Object Name,StartMode,State,StartName | ConvertTo-Json -Compress -Depth 3"
 )
-_EVENTS_SCRIPT = (
-    "Get-WinEvent -FilterHashtable @{LogName='System'; Level=1,2,3; "
-    "StartTime=(Get-Date).AddHours(-24)} -MaxEvents 100 -ErrorAction SilentlyContinue "
-    "| Select-Object TimeCreated,Id,LevelDisplayName,ProviderName,Message "
-    "| ConvertTo-Json -Compress -Depth 3"
-)
-
-MAX_EVENT_MESSAGE_CHARS = 500
-MAX_MATCHED_EVENTS = 25
 
 # Windows PowerShell serializes ServiceControllerStatus as its numeric value.
 _SERVICE_STATUS_NAMES = {
@@ -105,6 +102,16 @@ def _service_type_name(value: object) -> str:
     if remainder:
         parts.append(str(remainder))
     return " | ".join(parts) if parts else "Unknown"
+
+
+def _service_type_value(value: object) -> int | None:
+    """Preserve the original numeric ServiceType alongside the mapped name."""
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return value
+    text = str(value or "").strip()
+    return int(text) if text.isdigit() else None
 
 
 class DiagnosticCommandError(RuntimeError):
@@ -176,11 +183,13 @@ def get_service_status(name: str, timeout_s: float) -> dict:
     if not entries:
         raise DiagnosticCommandError(f"Service '{name}' was not found.", SOURCE_STATUS)
     entry = entries[0]
+    raw_type = entry.get("ServiceType", "")
     return {
         "name": str(entry.get("Name", name)),
         "display_name": str(entry.get("DisplayName", "")),
         "status": _status_name(entry.get("Status", "")),
-        "service_type": _service_type_name(entry.get("ServiceType", "")),
+        "service_type": _service_type_name(raw_type),
+        "service_type_value": _service_type_value(raw_type),
     }
 
 
@@ -196,35 +205,4 @@ def get_startup_type(name: str, timeout_s: float) -> dict:
         "startup_type": str(entry.get("StartMode", "")),
         "state": str(entry.get("State", "")),
         "start_name": str(entry.get("StartName", "")),
-    }
-
-
-def get_event_logs(name: str, display_name: str, timeout_s: float) -> dict:
-    payload = _run_powershell(_EVENTS_SCRIPT, SOURCE_EVENTS, timeout_s)
-    needle = name.lower()
-    matched: list[dict] = []
-    scanned = 0
-    for entry in _as_dict_list(payload, SOURCE_EVENTS):
-        scanned += 1
-        haystack = f"{entry.get('ProviderName', '')} {entry.get('Message', '')}".lower()
-        if needle and needle in haystack:
-            matched.append(
-                {
-                    "time_created": str(entry.get("TimeCreated", "")),
-                    "id": entry.get("Id"),
-                    "level": str(entry.get("LevelDisplayName", "")),
-                    "provider": str(entry.get("ProviderName", "")),
-                    "message": str(entry.get("Message", ""))[:MAX_EVENT_MESSAGE_CHARS],
-                }
-            )
-        if len(matched) >= MAX_MATCHED_EVENTS:
-            break
-    return {
-        "log": "System",
-        "window_hours": 24,
-        "scanned": scanned,
-        "matched": len(matched),
-        "filter": f"entries mentioning '{name}'",
-        "display_name_hint": display_name,
-        "events": matched,
     }

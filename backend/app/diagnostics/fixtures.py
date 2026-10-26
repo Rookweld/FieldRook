@@ -3,13 +3,15 @@
 Fixtures stand in where real Windows diagnostics cannot run (tests, demos,
 non-Windows hosts). Fixture payloads are fixed constants; only the collection
 timestamps vary. Simulated analysis is derived strictly from the evidence
-bundle it receives and always labels itself `simulated`.
+it receives and always labels itself `simulated`.
 """
 
 from __future__ import annotations
 
+from typing import Any
+
 from ..config import SIMULATED_MODEL_NAME
-from ..schemas import AnalysisResult, DiagnosticBundle, ObservedFact, RootCause
+from ..schemas import AnalysisResult, DiagnosticBundle, EvidenceItem, ObservedFact, RootCause
 
 FIXTURE_SERVICES: list[dict[str, str]] = [
     {"name": "wuauserv", "display_name": "Windows Update", "status": "Stopped"},
@@ -80,6 +82,61 @@ _FIXTURE_EVENTS: dict[str, list[dict[str, object]]] = {
     ],
 }
 
+_FIXTURE_OS_INFO: dict[str, str] = {
+    "caption": "Microsoft Windows 11 Pro (fixture)",
+    "version": "10.0.22631",
+    "build_number": "22631",
+    "os_architecture": "64-bit",
+    "last_boot_up_time": "2026-10-26T07:58:11",
+    "windows_directory": "C:\\Windows",
+}
+
+_FIXTURE_ADAPTERS: list[dict[str, Any]] = [
+    {
+        "name": "Wi-Fi",
+        "description": "Intel Wireless Adapter (fixture)",
+        "status": "Up",
+        "link_speed": "866 Mbps",
+        "mac_address": "AA-BB-CC-DD-EE-01",
+        "interface_index": 12,
+    },
+    {
+        "name": "Ethernet",
+        "description": "Realtek Ethernet Adapter (fixture)",
+        "status": "Disconnected",
+        "link_speed": "",
+        "mac_address": "AA-BB-CC-DD-EE-02",
+        "interface_index": 7,
+    },
+]
+
+_FIXTURE_IP_ADDRESSES: list[dict[str, Any]] = [
+    {"interface": "Wi-Fi", "ip_address": "192.168.1.20", "prefix_length": 24, "address_family": "IPv4", "prefix_origin": "Dhcp"},
+    {"interface": "Wi-Fi", "ip_address": "fe80::1", "prefix_length": 64, "address_family": "IPv6", "prefix_origin": "WellKnown"},
+    {"interface": "Loopback", "ip_address": "127.0.0.1", "prefix_length": 8, "address_family": "IPv4", "prefix_origin": "WellKnown"},
+]
+
+_FIXTURE_DNS: list[dict[str, Any]] = [
+    {"interface": "Wi-Fi", "servers": ["192.168.1.1", "1.1.1.1"]},
+    {"interface": "Ethernet", "servers": []},
+]
+
+_FIXTURE_CONNECTIONS: list[dict[str, Any]] = [
+    {"local_address": "127.0.0.1", "local_port": 8000, "remote_address": "127.0.0.1", "remote_port": 52134, "state": "Established", "owning_process_id": 1234},
+    {"local_address": "192.168.1.20", "local_port": 52311, "remote_address": "93.184.216.34", "remote_port": 443, "state": "Established", "owning_process_id": 5678},
+]
+
+# Generic entries so keyword searches have a deterministic pool beyond
+# service-specific fixtures. None of these mention wuauserv/BITS, keeping the
+# M001 per-service samples exact.
+_GENERIC_EVENTS: list[tuple[str, dict[str, object]]] = [
+    ("System", {"time_created": "2026-10-26T07:59:52", "id": 7036, "level": "Information", "provider": "Service Control Manager", "message": "The Print Spooler service entered the running state."}),
+    ("System", {"time_created": "2026-10-26T08:01:20", "id": 7036, "level": "Information", "provider": "Service Control Manager", "message": "The DNS Client service entered the running state."}),
+    ("System", {"time_created": "2026-10-26T08:02:44", "id": 1014, "level": "Warning", "provider": "DNS Client Events", "message": "Name resolution for the name example.local timed out after none of the configured DNS servers responded."}),
+    ("Application", {"time_created": "2026-10-26T09:15:00", "id": 1000, "level": "Error", "provider": "Application Error", "message": "Faulting application name: ContosoVPN.exe, faulting module: UNKNOWN. Exception code 0xc0000005."}),
+    ("Application", {"time_created": "2026-10-26T09:15:31", "id": 1002, "level": "Warning", "provider": "Application Hang", "message": "The program ContosoVPN.exe stopped responding and was closed."}),
+]
+
 
 def _key(name: str) -> str:
     return name.strip().lower()
@@ -101,6 +158,83 @@ def get_fixture_events(name: str) -> list[dict[str, object]] | None:
     if get_fixture_status(name) is None:
         return None
     return [dict(event) for event in _FIXTURE_EVENTS.get(_key(name), [])]
+
+
+def get_fixture_os_info() -> dict[str, Any]:
+    return dict(_FIXTURE_OS_INFO)
+
+
+def get_fixture_adapters() -> list[dict[str, Any]]:
+    return [dict(adapter) for adapter in _FIXTURE_ADAPTERS]
+
+
+def get_fixture_ip_addresses() -> list[dict[str, Any]]:
+    return [dict(address) for address in _FIXTURE_IP_ADDRESSES]
+
+
+def get_fixture_dns() -> list[dict[str, Any]]:
+    return [dict(entry) for entry in _FIXTURE_DNS]
+
+
+def get_fixture_connections() -> list[dict[str, Any]]:
+    return [dict(connection) for connection in _FIXTURE_CONNECTIONS]
+
+
+def _fixture_event_pool() -> list[tuple[str, dict[str, object], str]]:
+    pool: list[tuple[str, dict[str, object], str]] = [
+        (log, dict(event), "") for log, event in _GENERIC_EVENTS
+    ]
+    displays = {
+        service["name"].strip().lower(): service["display_name"]
+        for service in FIXTURE_SERVICES
+    }
+    for key, events in _FIXTURE_EVENTS.items():
+        tags = f"{key} {displays.get(key, '')}"
+        for event in events:
+            pool.append(("System", dict(event), tags))
+    return pool
+
+
+def search_fixture_events(
+    keywords: list[str], logs: list[str], hours: int, max_events: int
+) -> dict[str, Any]:
+    """Deterministic mirror of the live event search over fixture data."""
+    lowered = [keyword.lower() for keyword in keywords if keyword]
+    per_log: list[dict[str, Any]] = []
+    for log in logs:
+        pool = [
+            (event, tags)
+            for entry_log, event, tags in _fixture_event_pool()
+            if entry_log == log
+        ]
+        matched = [
+            event
+            for event, tags in pool
+            if any(
+                kw in f"{event.get('provider', '')} {event.get('message', '')} {tags}".lower()
+                for kw in lowered
+            )
+        ]
+        per_log.append(
+            {
+                "log": log,
+                "completed": True,
+                "scanned": len(pool),
+                "matched": len(matched),
+                "events": matched[:max_events],
+                "note": (
+                    f"Fixture pool: examined {len(pool)} entries (last {hours}h window "
+                    f"claimed); showing {min(len(matched), max_events)} of {len(matched)} matches."
+                ),
+            }
+        )
+    return {
+        "window_hours": hours,
+        "levels": [1, 2, 3],
+        "scan_cap": len(_fixture_event_pool()),
+        "keywords": keywords,
+        "logs": per_log,
+    }
 
 
 def build_simulated_analysis(bundle: DiagnosticBundle) -> AnalysisResult:
@@ -266,6 +400,113 @@ def build_simulated_analysis(bundle: DiagnosticBundle) -> AnalysisResult:
             "facts restate those readings with evidence references. INFERRED causes are "
             "generic hypotheses consistent with the readings. UNVERIFIED items list what "
             "this sample cannot prove. No corrective action was taken and none is claimed."
+        ),
+        mode="simulated",
+        model=SIMULATED_MODEL_NAME,
+    )
+
+
+def _summarize_investigation_item(item: EvidenceItem) -> str:
+    data = item.data
+    category = item.category
+    if category == "service_status":
+        return f"Service '{data.get('name', '?')}' reports status '{data.get('status', '?')}'."
+    if category == "startup_type":
+        return f"Startup type is '{data.get('startup_type', '?')}' (account '{data.get('start_name', '?')}')."
+    if category == "event_log":
+        return f"Event search examined {data.get('scanned', 0)} entries and matched {data.get('matched', 0)}."
+    if category == "service_list":
+        return f"Service list returned {data.get('count', 0)} entries."
+    if category == "service_details":
+        status = data.get("status", {})
+        state = status.get("status", "?") if isinstance(status, dict) else "?"
+        return f"Service '{data.get('name', '?')}' reports status '{state}'."
+    if category == "os_info":
+        return f"OS reports {data.get('caption', '?')}, build {data.get('build_number', '?')}."
+    if category == "net_adapters":
+        adapters = data.get("adapters", []) if isinstance(data.get("adapters"), list) else []
+        states = ", ".join(f"{a.get('name', '?')}={a.get('status', '?')}" for a in adapters[:4])
+        return f"{data.get('count', 0)} network adapters returned ({states})."
+    if category == "ip_config":
+        return f"{data.get('count', 0)} IP addresses configured."
+    if category == "dns_config":
+        return f"DNS servers reported for {data.get('count', 0)} interfaces."
+    if category == "connections":
+        return f"{data.get('count', 0)} established connections sampled."
+    return f"Collected {category} evidence."
+
+
+def build_simulated_investigation_analysis(
+    problem: str, evidence: list[EvidenceItem]
+) -> AnalysisResult:
+    """Deterministic simulated assessment over multi-tool investigation evidence."""
+    usable = [item for item in evidence if item.error is None]
+    failed = [item for item in evidence if item.error is not None]
+    facts = [
+        ObservedFact(
+            statement=_summarize_investigation_item(item),
+            evidence_ids=[item.id],
+        )
+        for item in usable[:8]
+    ]
+    if not facts:
+        facts = [
+            ObservedFact(
+                statement="No usable evidence items were collected.",
+                evidence_ids=[],
+            )
+        ]
+    first_ids = [item.id for item in usable[:2]]
+    short_problem = problem.strip().replace("\n", " ")[:120]
+    causes = [
+        RootCause(
+            title="Observed state is consistent with the reported symptoms",
+            description=(
+                f"The collected readings may explain '{short_problem}'. This is a generic "
+                "hypothesis: correlation in a small sample is not proof of cause."
+            ),
+            likelihood="medium",
+            evidence_ids=first_ids,
+        ),
+        RootCause(
+            title="Cause lies outside the collected evidence",
+            description=(
+                "The bounded, read-only sample may have missed the faulty component, the "
+                "relevant log, or the failure window. Unverified without wider evidence."
+            ),
+            likelihood="low",
+            evidence_ids=[],
+        ),
+    ]
+    uncertainties = [
+        "Simulated mode: the causes above are generic hypotheses, not Meta model conclusions.",
+        "Bounded samples cannot prove absence of failure; zero matches only mean zero matches in the examined window.",
+    ]
+    uncertainties.extend(f"Evidence {item.id} ({item.category}) failed to collect: {item.error}" for item in failed[:3])
+    return AnalysisResult(
+        summary=(
+            f"Simulated investigation of '{short_problem}': {len(usable)} of {len(evidence)} "
+            "evidence items usable. Causes below are unverified hypotheses."
+        ),
+        facts=facts,
+        causes=causes,
+        uncertainties=uncertainties,
+        missing_evidence=[
+            "Live diagnostic readings (when running on fixtures).",
+            "Full event-log history around the reported failure time.",
+            "User-reported symptom details: when it started, exact messages, reproducibility.",
+        ],
+        next_actions=[
+            "Re-run with live diagnostics on the affected host.",
+            "Widen the event search to the Application log and a longer window.",
+            "Collect the exact error text or code from the reporter.",
+            "Compare against a known-good host or a prior working state.",
+        ],
+        explanation=(
+            f"FieldRook ran a bounded read-only investigation and kept {len(usable)} usable "
+            "evidence items. OBSERVED facts restate those readings. INFERRED causes are "
+            "generic hypotheses. UNVERIFIED items list what the sample cannot prove. No "
+            "corrective action was taken and none is claimed."
         ),
         mode="simulated",
         model=SIMULATED_MODEL_NAME,

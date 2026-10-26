@@ -33,6 +33,22 @@ def test_fixture_bundle_shape() -> None:
     assert bundle.items[2].data["matched"] == 2
 
 
+def test_fixture_status_preserves_type_fields() -> None:
+    bundle = collect_diagnostics("Spooler", _settings())
+    assert bundle.items[0].data["service_type"] == "(fixture)"
+    assert bundle.items[0].data["service_type_value"] is None
+
+
+def test_fixture_event_item_reports_search_stats() -> None:
+    bundle = collect_diagnostics("wuauserv", _settings())
+    data = bundle.items[2].data
+    assert data["completed"] is True
+    assert data["scanned"] > 0
+    assert data["scan_cap"] > 0
+    assert data["levels"] == [1, 2, 3]
+    assert data["note"]
+
+
 def test_fixture_collection_is_deterministic() -> None:
     first = collect_diagnostics("Spooler", _settings())
     second = collect_diagnostics("Spooler", _settings())

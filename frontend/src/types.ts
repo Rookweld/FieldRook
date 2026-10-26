@@ -72,3 +72,44 @@ export interface StatusResponse {
   model_name: string;
   fixtures_available: boolean;
 }
+
+export type ActivityKind =
+  | "plan"
+  | "tool_request"
+  | "tool_result"
+  | "evidence"
+  | "note"
+  | "done"
+  | "error";
+
+export interface ActivityRecord {
+  seq: number;
+  kind: ActivityKind;
+  title: string;
+  detail: string;
+  tool_name: string | null;
+  duration_ms: number | null;
+  evidence_ids: string[];
+}
+
+export interface InvestigationResponse {
+  investigation_id: string;
+  problem: string;
+  service_name: string | null;
+  status: "complete" | "partial" | "error";
+  created_at: string;
+  uses_fixtures: boolean;
+  analysis_mode: "live" | "simulated";
+  model: string;
+  evidence: EvidenceItem[];
+  activity: ActivityRecord[];
+  assessment: AnalysisResult | null;
+  warnings: string[];
+  has_screenshot: boolean;
+}
+
+export interface ToolInfo {
+  name: string;
+  description: string;
+  category: string;
+}

@@ -95,12 +95,37 @@ body {
   color: var(--accent);
 }
 
+.tabs {
+  display: flex;
+  gap: 0.5rem;
+  width: min(1100px, 100% - 2rem);
+  margin: 1rem auto 0;
+}
+
+.tab {
+  background: var(--panel);
+  color: var(--muted);
+  border: 1px solid var(--panel-edge);
+  border-bottom: none;
+  border-radius: 6px 6px 0 0;
+  padding: 0.55rem 1.1rem;
+  font-size: 0.92rem;
+  cursor: pointer;
+}
+
+.tab-active {
+  color: var(--accent);
+  font-weight: 700;
+}
+
 .main {
   width: min(1100px, 100% - 2rem);
-  margin: 1.2rem auto 2rem;
+  margin: 0 auto 2rem;
   display: flex;
   flex-direction: column;
   gap: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--panel-edge);
 }
 
 .card {
@@ -172,13 +197,20 @@ body {
   flex: 1;
 }
 
-.field select {
+.field select,
+.problem {
   background: var(--bg);
   color: var(--ink);
   border: 1px solid var(--panel-edge);
   border-radius: 4px;
   padding: 0.55rem 0.6rem;
   font-size: 0.95rem;
+}
+
+.problem {
+  font-family: inherit;
+  resize: vertical;
+  width: 100%;
 }
 
 .check {
@@ -209,6 +241,50 @@ body {
 .button:disabled {
   opacity: 0.55;
   cursor: default;
+}
+
+.link-button {
+  background: none;
+  border: none;
+  color: var(--accent);
+  cursor: pointer;
+  font-size: 0.85rem;
+  padding: 0;
+  text-decoration: underline;
+}
+
+.file-row {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  margin-top: 0.8rem;
+}
+
+.file-row input[type="file"] {
+  color: var(--ink);
+  font-size: 0.88rem;
+}
+
+.preview-box {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  align-items: flex-start;
+}
+
+.preview {
+  max-width: min(340px, 100%);
+  border: 1px solid var(--panel-edge);
+  border-radius: 4px;
+}
+
+.quote {
+  background: var(--bg);
+  border: 1px solid var(--panel-edge);
+  border-radius: 4px;
+  padding: 0.6rem 0.8rem;
+  margin: 0.4rem 0;
 }
 
 .steps {
@@ -253,6 +329,72 @@ body {
   background: var(--green);
 }
 
+.timeline {
+  list-style: none;
+  margin: 0.4rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.tl {
+  display: flex;
+  gap: 0.6rem;
+  align-items: flex-start;
+}
+
+.tl-mark {
+  color: var(--muted);
+  width: 1.2rem;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.tl-tool_request .tl-mark,
+.tl-plan .tl-mark {
+  color: var(--accent);
+}
+
+.tl-tool_result .tl-mark,
+.tl-evidence .tl-mark,
+.tl-done .tl-mark {
+  color: var(--green);
+}
+
+.tl-error .tl-mark {
+  color: var(--red);
+}
+
+.tl-error .tl-title {
+  color: var(--red);
+}
+
+.tl-title {
+  font-size: 0.92rem;
+}
+
+.tl-seq {
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  color: var(--muted);
+  margin-right: 0.3rem;
+}
+
+.tl-detail {
+  margin: 0.15rem 0 0;
+  font-size: 0.84rem;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.tl-refs {
+  margin-top: 0.2rem;
+  display: flex;
+  gap: 0.3rem;
+  flex-wrap: wrap;
+}
+
 .evidence-list {
   display: flex;
   flex-direction: column;
@@ -265,6 +407,10 @@ body {
   border: 1px solid var(--panel-edge);
   border-radius: 4px;
   padding: 0.7rem 0.9rem;
+}
+
+.ev-selected {
+  border-color: var(--accent);
 }
 
 .evidence-head {
@@ -284,6 +430,15 @@ body {
   padding: 0.1rem 0.4rem;
 }
 
+button.chip {
+  font: inherit;
+}
+
+.chip-button {
+  cursor: pointer;
+  color: var(--accent);
+}
+
 .mono {
   font-family: var(--mono);
   font-size: 0.78rem;
@@ -300,6 +455,13 @@ body {
   margin: 0;
   max-height: 320px;
   overflow-y: auto;
+}
+
+details summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 0.85rem;
+  margin-top: 0.4rem;
 }
 
 .item-error {

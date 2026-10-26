@@ -1,7 +1,20 @@
-import type { IncidentAssessment } from "../types";
+import type { AnalysisResult } from "../types";
+import { EvidenceChip } from "./EvidenceChip";
 
-export function DiagnosisPanel({ assessment }: { assessment: IncidentAssessment }) {
-  const a = assessment.analysis;
+export function DiagnosisPanel({
+  analysis,
+  incidentId,
+  createdAt,
+  warnings,
+  onEvidenceClick,
+}: {
+  analysis: AnalysisResult;
+  incidentId: string;
+  createdAt: string;
+  warnings: string[];
+  onEvidenceClick?: (id: string) => void;
+}) {
+  const a = analysis;
   return (
     <section className="card">
       <div className="card-head">
@@ -11,10 +24,9 @@ export function DiagnosisPanel({ assessment }: { assessment: IncidentAssessment 
         </span>
       </div>
       <p className="muted">
-        Incident {assessment.incident_id} &middot;{" "}
-        {new Date(assessment.created_at).toLocaleString()}
+        Incident {incidentId} &middot; {new Date(createdAt).toLocaleString()}
       </p>
-      {assessment.warnings.map((w, i) => (
+      {warnings.map((w, i) => (
         <p key={i} className="warn">
           {w}
         </p>
@@ -40,9 +52,7 @@ export function DiagnosisPanel({ assessment }: { assessment: IncidentAssessment 
           <li key={i}>
             <span className="tag tag-obs">OBSERVED</span> <span>{f.statement}</span>{" "}
             {f.evidence_ids.map((eid) => (
-              <code key={eid} className="chip">
-                {eid}
-              </code>
+              <EvidenceChip key={eid} id={eid} onSelect={onEvidenceClick} />
             ))}
           </li>
         ))}
@@ -58,9 +68,7 @@ export function DiagnosisPanel({ assessment }: { assessment: IncidentAssessment 
               <strong>{c.title}</strong>
               <span className="likelihood">{c.likelihood}</span>
               {c.evidence_ids.map((eid) => (
-                <code key={eid} className="chip">
-                  {eid}
-                </code>
+                <EvidenceChip key={eid} id={eid} onSelect={onEvidenceClick} />
               ))}
             </div>
             <p>{c.description}</p>

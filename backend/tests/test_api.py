@@ -63,9 +63,14 @@ def test_analyze_end_to_end_fixture_and_simulated() -> None:
 
 def test_no_system_modifying_routes_exposed() -> None:
     mutating = {"PUT", "PATCH", "DELETE"}
+    allowed_posts = {
+        "/api/incidents/analyze",
+        "/api/investigations",
+        "/api/investigations/{investigation_id}/followup",
+    }
     for route in app.routes:
         if isinstance(route, APIRoute):
             methods = set(route.methods or set())
             assert not (methods & mutating), route.path
             if "POST" in methods:
-                assert route.path == "/api/incidents/analyze"
+                assert route.path in allowed_posts, route.path
