@@ -72,6 +72,41 @@ def _status_name(value: object) -> str:
     return text or "Unknown"
 
 
+# ServiceType is a flags enum; Windows PowerShell serializes it numerically.
+_SERVICE_TYPE_NAMES = (
+    (256, "InteractiveProcess"),
+    (32, "Win32ShareProcess"),
+    (16, "Win32OwnProcess"),
+    (8, "RecognizerDriver"),
+    (4, "Adapter"),
+    (2, "SystemDriver"),
+    (1, "KernelDriver"),
+)
+
+
+def _service_type_name(value: object) -> str:
+    if isinstance(value, bool):
+        return str(value)
+    number: int | None = None
+    if isinstance(value, int):
+        number = value
+    else:
+        text = str(value or "").strip()
+        if not text:
+            return "Unknown"
+        if text.isdigit():
+            number = int(text)
+        else:
+            return text
+    parts = [name for bit, name in _SERVICE_TYPE_NAMES if number & bit]
+    remainder = number
+    for bit, _ in _SERVICE_TYPE_NAMES:
+        remainder &= ~bit
+    if remainder:
+        parts.append(str(remainder))
+    return " | ".join(parts) if parts else "Unknown"
+
+
 class DiagnosticCommandError(RuntimeError):
     def __init__(self, message: str, source: str) -> None:
         super().__init__(message)
@@ -145,7 +180,7 @@ def get_service_status(name: str, timeout_s: float) -> dict:
         "name": str(entry.get("Name", name)),
         "display_name": str(entry.get("DisplayName", "")),
         "status": _status_name(entry.get("Status", "")),
-        "service_type": str(entry.get("ServiceType", "")),
+        "service_type": _service_type_name(entry.get("ServiceType", "")),
     }
 
 

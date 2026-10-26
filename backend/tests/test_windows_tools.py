@@ -1,6 +1,11 @@
 """Windows tool helpers: enum mapping and availability probing."""
 
-from app.diagnostics.windows_tools import ALLOWLISTED_COMMANDS, _status_name, powershell_available
+from app.diagnostics.windows_tools import (
+    ALLOWLISTED_COMMANDS,
+    _service_type_name,
+    _status_name,
+    powershell_available,
+)
 
 
 def test_status_enum_numbers_map_to_names() -> None:
@@ -13,6 +18,14 @@ def test_status_strings_pass_through() -> None:
     assert _status_name("Running") == "Running"
     assert _status_name("1") == "Stopped"
     assert _status_name("") == "Unknown"
+
+
+def test_service_type_flags_map_to_names() -> None:
+    assert _service_type_name(32) == "Win32ShareProcess"
+    assert _service_type_name(16) == "Win32OwnProcess"
+    assert _service_type_name(272) == "InteractiveProcess | Win32OwnProcess"
+    assert _service_type_name("Win32ShareProcess") == "Win32ShareProcess"
+    assert _service_type_name("") == "Unknown"
 
 
 def test_allowlist_is_read_only() -> None:
