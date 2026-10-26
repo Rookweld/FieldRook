@@ -1,0 +1,398 @@
+:root {
+  --bg: #0b0e12;
+  --panel: #141a22;
+  --panel-edge: #2a3340;
+  --ink: #d7dee8;
+  --muted: #8b96a5;
+  --accent: #e8a33d;
+  --accent-ink: #1a1206;
+  --green: #4cc38a;
+  --red: #e06c5b;
+  --mono: "Cascadia Code", Consolas, "Courier New", monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: "Segoe UI", system-ui, sans-serif;
+  line-height: 1.5;
+}
+
+.app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: 0.9rem 1.4rem;
+  background: #0e1319;
+  border-bottom: 2px solid var(--accent);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+}
+
+.brand-mark {
+  font-size: 2rem;
+  color: var(--accent);
+  line-height: 1;
+}
+
+.brand h1 {
+  margin: 0;
+  font-size: 1.35rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.tagline {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+  letter-spacing: 0.06em;
+}
+
+.badges {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.badge {
+  display: inline-block;
+  padding: 0.25rem 0.6rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  border: 1px solid var(--panel-edge);
+  border-radius: 3px;
+  background: var(--panel);
+  color: var(--ink);
+  font-family: var(--mono);
+}
+
+.badge-live {
+  border-color: var(--green);
+  color: var(--green);
+}
+
+.badge-sim {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.main {
+  width: min(1100px, 100% - 2rem);
+  margin: 1.2rem auto 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.card {
+  background: var(--panel);
+  border: 1px solid var(--panel-edge);
+  border-radius: 6px;
+  padding: 1rem 1.2rem;
+}
+
+.card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.4rem;
+}
+
+.card h2 {
+  margin: 0;
+  font-size: 1.05rem;
+  letter-spacing: 0.04em;
+}
+
+.card h3 {
+  margin: 1.1rem 0 0.4rem;
+  font-size: 0.95rem;
+  color: var(--accent);
+  letter-spacing: 0.03em;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.error {
+  border-color: var(--red);
+}
+
+.hint {
+  color: var(--muted);
+  font-size: 0.85rem;
+  margin-bottom: 0;
+}
+
+.warn {
+  background: #2a2113;
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  padding: 0.5rem 0.7rem;
+  font-size: 0.86rem;
+}
+
+.controls {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  margin-top: 0.6rem;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.82rem;
+  color: var(--muted);
+  min-width: min(420px, 100%);
+  flex: 1;
+}
+
+.field select {
+  background: var(--bg);
+  color: var(--ink);
+  border: 1px solid var(--panel-edge);
+  border-radius: 4px;
+  padding: 0.55rem 0.6rem;
+  font-size: 0.95rem;
+}
+
+.check {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  font-size: 0.9rem;
+  padding-bottom: 0.55rem;
+}
+
+.check input {
+  width: 1rem;
+  height: 1rem;
+  accent-color: var(--accent);
+}
+
+.button {
+  background: var(--accent);
+  color: var(--accent-ink);
+  border: none;
+  border-radius: 4px;
+  padding: 0.6rem 1.4rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.steps {
+  list-style: none;
+  display: flex;
+  gap: 1.2rem;
+  padding: 0.8rem 0 0;
+  margin: 0.8rem 0 0;
+  border-top: 1px solid var(--panel-edge);
+  flex-wrap: wrap;
+}
+
+.step {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.step-dot {
+  width: 0.65rem;
+  height: 0.65rem;
+  border-radius: 50%;
+  background: var(--panel-edge);
+  display: inline-block;
+}
+
+.step-active {
+  color: var(--ink);
+}
+
+.step-active .step-dot {
+  background: var(--accent);
+}
+
+.step-done {
+  color: var(--green);
+}
+
+.step-done .step-dot {
+  background: var(--green);
+}
+
+.evidence-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  margin-top: 0.6rem;
+}
+
+.evidence-item {
+  background: var(--bg);
+  border: 1px solid var(--panel-edge);
+  border-radius: 4px;
+  padding: 0.7rem 0.9rem;
+}
+
+.evidence-head {
+  display: flex;
+  gap: 0.6rem;
+  align-items: baseline;
+  flex-wrap: wrap;
+  margin-bottom: 0.5rem;
+}
+
+.chip {
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  background: var(--panel);
+  border: 1px solid var(--panel-edge);
+  border-radius: 3px;
+  padding: 0.1rem 0.4rem;
+}
+
+.mono {
+  font-family: var(--mono);
+  font-size: 0.78rem;
+}
+
+.pre {
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  background: #07090c;
+  border: 1px solid var(--panel-edge);
+  border-radius: 4px;
+  padding: 0.7rem;
+  overflow-x: auto;
+  margin: 0;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.item-error {
+  color: var(--red);
+  margin: 0;
+}
+
+.summary {
+  font-size: 1.02rem;
+}
+
+.legend {
+  display: flex;
+  gap: 1.2rem;
+  flex-wrap: wrap;
+  font-size: 0.85rem;
+  color: var(--muted);
+  border-top: 1px solid var(--panel-edge);
+  border-bottom: 1px solid var(--panel-edge);
+  padding: 0.55rem 0;
+  margin: 0.8rem 0 0.4rem;
+}
+
+.tag {
+  display: inline-block;
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  border-radius: 3px;
+  padding: 0.12rem 0.45rem;
+  margin-right: 0.3rem;
+  border: 1px solid;
+}
+
+.tag-obs {
+  color: var(--green);
+  border-color: var(--green);
+}
+
+.tag-inf {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.tag-unv {
+  color: var(--red);
+  border-color: var(--red);
+}
+
+.facts,
+.causes,
+.unverified,
+.actions {
+  margin: 0.3rem 0;
+  padding-left: 1.2rem;
+}
+
+.facts li,
+.causes li,
+.unverified li,
+.actions li {
+  margin-bottom: 0.45rem;
+}
+
+.cause-head {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.likelihood {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  color: var(--muted);
+  border: 1px dashed var(--panel-edge);
+  border-radius: 3px;
+  padding: 0.1rem 0.4rem;
+}
+
+.footer {
+  margin-top: auto;
+  padding: 0.9rem 1.4rem;
+  border-top: 1px solid var(--panel-edge);
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-family: var(--mono);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    animation: none !important;
+  }
+}

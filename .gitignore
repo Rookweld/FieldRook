@@ -1,0 +1,13 @@
+# FieldRook
+.env
+node_modules/
+dist/
+dist-ssr/
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.coverage
+vite.config.ts.timestamp-*
+*.tsbuildinfo
