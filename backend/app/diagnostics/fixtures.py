@@ -273,6 +273,28 @@ def get_fixture_scheduled_tasks() -> list[dict[str, Any]]:
     return copy.deepcopy(_FIXTURE_TASKS)
 
 
+_FIXTURE_DEMO_WORKER: dict[str, Any] = {
+    "worker_id": "demo-worker",
+    "status": "healthy",
+    "pid": 4242,
+    "detail": "ok",
+    "updated_at": 1793050800.0,
+    "heartbeat_age_s": 1.2,
+    "process_verified": True,
+}
+
+
+def get_fixture_demo_worker() -> dict[str, Any]:
+    """Fixture worker health; FIELDROOK_FIXTURE_WORKER=failing simulates a fault."""
+    import os
+
+    record = dict(_FIXTURE_DEMO_WORKER)
+    if os.environ.get("FIELDROOK_FIXTURE_WORKER", "").strip().lower() == "failing":
+        record["status"] = "failed"
+        record["detail"] = "Simulated fault (mode=failing)."
+    return record
+
+
 def _fixture_event_pool() -> list[tuple[str, dict[str, object], str]]:
     pool: list[tuple[str, dict[str, object], str]] = [
         (log, dict(event), "") for log, event in _GENERIC_EVENTS
@@ -528,6 +550,13 @@ def _summarize_investigation_item(item: EvidenceItem) -> str:
         return f"{data.get('count', 0)} established connections sampled."
     if category == "scheduled_tasks":
         return f"{data.get('count', 0)} scheduled tasks matched (scanned {data.get('total_scanned', 0)})."
+    if category == "demo_worker":
+        return (
+            f"Demo worker '{data.get('worker_id', '?')}' reports {data.get('status', '?')} "
+            f"(heartbeat {data.get('heartbeat_age_s', '?')}s old)."
+        )
+    if category == "error_code":
+        return f"Error code {data.get('hex', '?')}: {data.get('name') or 'unrecognized'}."
     return f"Collected {category} evidence."
 
 
@@ -578,6 +607,20 @@ def build_simulated_investigation_analysis(
         "Bounded samples cannot prove absence of failure; zero matches only mean zero matches in the examined window.",
     ]
     uncertainties.extend(f"Evidence {item.id} ({item.category}) failed to collect: {item.error}" for item in failed[:3])
+    proposed_action = None
+    failed_workers = [
+        item for item in usable
+        if item.category == "demo_worker" and str(item.data.get("status", "")) != "healthy"
+    ]
+    if failed_workers:
+        from ..schemas import ProposedAction
+
+        proposed_action = ProposedAction(
+            action_id="recover_demo_worker",
+            target="demo-worker",
+            reason="Simulated evidence shows the demo worker is not healthy; recovery is applicable.",
+            evidence_ids=[item.id for item in failed_workers],
+        )
     return AnalysisResult(
         summary=(
             f"Simulated investigation of '{short_problem}': {len(usable)} of {len(evidence)} "
@@ -605,4 +648,5 @@ def build_simulated_investigation_analysis(
         ),
         mode="simulated",
         model=SIMULATED_MODEL_NAME,
+        proposed_action=proposed_action,
     )

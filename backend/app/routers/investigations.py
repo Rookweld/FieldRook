@@ -6,6 +6,8 @@ import base64
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 
+from fastapi.responses import PlainTextResponse, Response
+
 from ..analysis.loop import (
     MAX_FOLLOWUP_CALLS,
     MAX_TOOL_CALLS,
@@ -14,8 +16,9 @@ from ..analysis.loop import (
 )
 from ..config import load_settings
 from ..diagnostics.service_allowlist import InvalidServiceNameError, validate_service_name
+from ..investigations import export as exporters
 from ..investigations.store import store
-from ..schemas import FollowupRequest, InvestigationResponse, ToolInfo
+from ..schemas import FollowupRequest, InvestigationResponse, InvestigationSummary, ToolInfo
 from ..tools.registry import REGISTRY
 
 router = APIRouter(tags=["investigations"])
@@ -113,7 +116,13 @@ async def start_investigation(
     state.messages = build_investigation_messages(problem.strip(), validated_service, image_b64, image_mime, screenshot_evidence_id)
     await run_rounds(state, settings, use_fixtures)
     uses_fixtures = settings.fixtures_mode == "always" or use_fixtures is True or state.mode == "simulated"
+    store.save(state)
     return state.to_response(uses_fixtures=uses_fixtures)
+
+
+@router.get("/api/investigations", response_model=list[InvestigationSummary])
+def list_investigations() -> list[InvestigationSummary]:
+    return store.list_recent()
 
 
 @router.get("/api/investigations/{investigation_id}", response_model=InvestigationResponse)
@@ -143,4 +152,26 @@ async def followup_investigation(
         state.warnings.append("Tool budget exhausted; follow-up answered from existing evidence only.")
     await run_rounds(state, settings, None, max_new_calls=grant, is_followup=True)
     uses_fixtures = settings.fixtures_mode == "always" or state.mode == "simulated"
+    store.save(state)
     return state.to_response(uses_fixtures=uses_fixtures)
+
+
+@router.get("/api/investigations/{investigation_id}/export")
+def export_investigation(investigation_id: str, format: str = "markdown") -> Response:
+    state = store.get(investigation_id)
+    if state is None:
+        raise HTTPException(status_code=404, detail=f"Unknown investigation {investigation_id!r}.")
+    kind = (format or "").strip().lower()
+    if kind == "json":
+        return Response(
+            content=exporters.build_json(state),
+            media_type="application/json",
+            headers={"Content-Disposition": f'attachment; filename="{investigation_id}.json"'},
+        )
+    if kind in ("markdown", "md"):
+        return PlainTextResponse(
+            content=exporters.build_markdown(state),
+            media_type="text/markdown",
+            headers={"Content-Disposition": f'attachment; filename="{investigation_id}.md"'},
+        )
+    raise HTTPException(status_code=400, detail="format must be 'markdown' or 'json'.")

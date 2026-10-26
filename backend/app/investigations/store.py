@@ -1,26 +1,24 @@
-"""Session-scoped investigation state.
+"""Investigation state objects over SQLite persistence.
 
-Keeps the original symptoms, message history, collected evidence, tool-call
-records, and conclusions for each investigation so follow-up requests can
-continue without starting over. In-memory only: state is lost on restart.
-This is deliberately not a persistent memory platform yet.
+Working state lives in InvestigationState; every mutation is saved to the
+local database so history survives backend restarts.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from uuid import uuid4
 
 from ..schemas import (
+    ActionExecution,
+    ActionProposal,
     ActivityRecord,
     AnalysisResult,
     DiagnosticBundle,  # noqa: F401  (re-exported for convenience)
     EvidenceItem,
     InvestigationResponse,
+    InvestigationSummary,
 )
-
-MAX_SESSIONS = 50
 
 
 def _now() -> datetime:
@@ -46,6 +44,8 @@ class InvestigationState:
     model: str = ""
     created_at: datetime = field(default_factory=_now)
     updated_at: datetime = field(default_factory=_now)
+    proposals: list[ActionProposal] = field(default_factory=list)
+    executions: list[ActionExecution] = field(default_factory=list)
 
     def add_activity(
         self,
@@ -108,31 +108,45 @@ class InvestigationState:
             assessment=self.assessment,
             warnings=list(self.warnings),
             has_screenshot=self.has_image,
+            proposals=list(self.proposals),
+            executions=list(self.executions),
         )
 
 
 class InvestigationStore:
-    def __init__(self, max_sessions: int = MAX_SESSIONS) -> None:
-        self._max_sessions = max_sessions
-        self._data: dict[str, InvestigationState] = {}
+    """Thin facade over SQLite persistence."""
 
     def create(
         self, problem: str, service_name: str | None, has_image: bool
     ) -> InvestigationState:
+        from uuid import uuid4
+
+        from . import persistence
+
         state = InvestigationState(
             id=f"inv-{uuid4().hex[:12]}",
             problem=problem,
             service_name=service_name,
             has_image=has_image,
         )
-        self._data[state.id] = state
-        while len(self._data) > self._max_sessions:
-            oldest = min(self._data.values(), key=lambda s: s.updated_at)
-            del self._data[oldest.id]
+        persistence.save_state(state)
         return state
 
     def get(self, investigation_id: str) -> InvestigationState | None:
-        return self._data.get(investigation_id)
+        from . import persistence
+
+        return persistence.load_state(investigation_id)
+
+    def save(self, state: InvestigationState) -> None:
+        from . import persistence
+
+        state.updated_at = _now()
+        persistence.save_state(state)
+
+    def list_recent(self, limit: int = 50) -> list[InvestigationSummary]:
+        from . import persistence
+
+        return [InvestigationSummary(**row) for row in persistence.list_states(limit)]
 
 
 store = InvestigationStore()

@@ -6,13 +6,18 @@ import {
   startInvestigation,
 } from "../api";
 import type { InvestigationResponse, ServiceSummary } from "../types";
+import { ActionCenter } from "./ActionCenter";
 import { DiagnosisPanel } from "./DiagnosisPanel";
 import { EvidenceCards } from "./EvidenceCards";
 import { Timeline } from "./Timeline";
 
 const MAX_FILE_BYTES = 5 * 1024 * 1024;
 
-export function ProblemWorkstation() {
+export function ProblemWorkstation({
+  initial,
+}: {
+  initial?: InvestigationResponse | null;
+}) {
   const [services, setServices] = useState<ServiceSummary[]>([]);
   const [problem, setProblem] = useState<string>("");
   const [serviceName, setServiceName] = useState<string>("");
@@ -21,7 +26,17 @@ export function ProblemWorkstation() {
   const [consent, setConsent] = useState<boolean>(false);
   const [useFixtures, setUseFixtures] = useState<boolean>(false);
   const [busy, setBusy] = useState<null | "investigating" | "followup">(null);
-  const [investigation, setInvestigation] = useState<InvestigationResponse | null>(null);
+  const [investigation, setInvestigation] = useState<InvestigationResponse | null>(
+    initial ?? null,
+  );
+
+  useEffect(() => {
+    if (initial) {
+      setInvestigation(initial);
+      setSelectedEvidence(null);
+      setError(null);
+    }
+  }, [initial]);
   const [followup, setFollowup] = useState<string>("");
   const [selectedEvidence, setSelectedEvidence] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -277,6 +292,32 @@ export function ProblemWorkstation() {
               onEvidenceClick={setSelectedEvidence}
             />
           )}
+
+          <ActionCenter investigation={investigation} onUpdate={setInvestigation} />
+
+          <section className="card">
+            <div className="card-head">
+              <h2>Report export</h2>
+              <div className="history-links">
+                <a
+                  className="link-button"
+                  href={`/api/investigations/${encodeURIComponent(investigation.investigation_id)}/export?format=markdown`}
+                >
+                  Download Markdown
+                </a>
+                <a
+                  className="link-button"
+                  href={`/api/investigations/${encodeURIComponent(investigation.investigation_id)}/export?format=json`}
+                >
+                  Download JSON
+                </a>
+              </div>
+            </div>
+            <p className="muted">
+              Ticket-ready report: summary, timeline, evidence, proposals, approvals, execution
+              records, and the verified outcome.
+            </p>
+          </section>
 
           <section className="card">
             <div className="card-head">

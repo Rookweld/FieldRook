@@ -1,13 +1,15 @@
 import { useEffect, useState } from "react";
 import { getStatus } from "./api";
 import { Header } from "./components/Header";
+import { History } from "./components/History";
 import { ProblemWorkstation } from "./components/ProblemWorkstation";
 import { ServiceWorkstation } from "./components/ServiceWorkstation";
-import type { StatusResponse } from "./types";
+import type { InvestigationResponse, StatusResponse } from "./types";
 
 export function App() {
-  const [tab, setTab] = useState<"problem" | "service">("problem");
+  const [tab, setTab] = useState<"problem" | "service" | "history">("problem");
   const [status, setStatus] = useState<StatusResponse | null>(null);
+  const [seeded, setSeeded] = useState<InvestigationResponse | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -42,12 +44,33 @@ export function App() {
         >
           Service lookup
         </button>
+        <button
+          type="button"
+          className={tab === "history" ? "tab tab-active" : "tab"}
+          onClick={() => setTab("history")}
+        >
+          History
+        </button>
       </nav>
       <main className="main">
-        {tab === "problem" ? <ProblemWorkstation /> : <ServiceWorkstation />}
+        {tab === "problem" ? (
+          <ProblemWorkstation
+            key={seeded?.investigation_id ?? "new"}
+            initial={seeded}
+          />
+        ) : tab === "service" ? (
+          <ServiceWorkstation />
+        ) : (
+          <History
+            onOpen={(inv) => {
+              setSeeded(inv);
+              setTab("problem");
+            }}
+          />
+        )}
       </main>
       <footer className="footer">
-        <span>FieldRook Milestone 002 · Diagnose. Verify. Resolve.</span>
+        <span>FieldRook Milestone 003 · Diagnose. Verify. Resolve.</span>
       </footer>
     </div>
   );

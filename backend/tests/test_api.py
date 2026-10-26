@@ -67,6 +67,11 @@ def test_no_system_modifying_routes_exposed() -> None:
         "/api/incidents/analyze",
         "/api/investigations",
         "/api/investigations/{investigation_id}/followup",
+        # M003 controlled actions: registry-only, single-use approval, local-origin gated.
+        "/api/investigations/{investigation_id}/proposals",
+        "/api/proposals/{proposal_id}/approve",
+        "/api/proposals/{proposal_id}/reject",
+        "/api/proposals/{proposal_id}/execute",
     }
     for route in app.routes:
         if isinstance(route, APIRoute):

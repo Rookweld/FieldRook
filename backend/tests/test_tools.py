@@ -42,8 +42,8 @@ def _run(name: str, args_dict: dict) -> tuple[ToolOutput, int]:
     return asyncio.run(execute_prepared(spec, args, _ctx()))
 
 
-def test_registry_has_nine_read_only_tools() -> None:
-    assert len(REGISTRY) == 9
+def test_registry_has_eleven_read_only_tools() -> None:
+    assert len(REGISTRY) == 11
     for spec in REGISTRY.values():
         assert "(read-only" in spec.description
 

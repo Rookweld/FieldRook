@@ -174,8 +174,38 @@ def test_tools_endpoint_lists_registry() -> None:
     response = client.get("/api/tools")
     assert response.status_code == 200
     names = {tool["name"] for tool in response.json()}
-    assert len(names) == 9
+    assert len(names) == 11
     assert {"get_dns_config", "search_event_logs", "get_scheduled_tasks"} <= names
+
+
+def test_demo_worker_problem_uses_health_tool() -> None:
+    body = client.post(
+        "/api/investigations",
+        data={"problem": "The FieldRook demo worker is down."},
+    ).json()
+    tools_used = {record["tool_name"] for record in body["activity"] if record["tool_name"]}
+    assert "get_demo_worker_health" in tools_used
+
+
+def test_failing_fixture_worker_creates_proposal(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.setenv("FIELDROOK_FIXTURE_WORKER", "failing")
+    body = client.post(
+        "/api/investigations",
+        data={"problem": "The FieldRook demo worker is down."},
+    ).json()
+    assert len(body["proposals"]) == 1
+    proposal = body["proposals"][0]
+    assert proposal["action_id"] == "recover_demo_worker"
+    assert proposal["target"] == "demo-worker"
+    assert proposal["status"] == "AWAITING_APPROVAL"
+
+
+def test_healthy_fixture_worker_creates_no_proposal() -> None:
+    body = client.post(
+        "/api/investigations",
+        data={"problem": "The FieldRook demo worker is down."},
+    ).json()
+    assert body["proposals"] == []
 
 
 def test_powershell_popup_problem_uses_task_tool() -> None:

@@ -8,6 +8,8 @@ __pycache__/
 *.pyc
 *.pyo
 .pytest_cache/
+backend/data/
+demo_worker/state/
 .coverage
 vite.config.ts.timestamp-*
 *.tsbuildinfo

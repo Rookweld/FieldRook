@@ -11,9 +11,34 @@ Likelihood = Literal["high", "medium", "low"]
 BundleMode = Literal["live", "fixture"]
 AnalysisMode = Literal["live", "simulated"]
 ActivityKind = Literal[
-    "plan", "tool_request", "tool_result", "evidence", "note", "done", "error"
+    "plan",
+    "tool_request",
+    "tool_result",
+    "evidence",
+    "note",
+    "done",
+    "error",
+    "proposed",
+    "approval_requested",
+    "approved",
+    "rejected",
+    "executed",
+    "verification_started",
+    "verified",
 ]
 InvestigationStatus = Literal["complete", "partial", "error"]
+ActionProposalStatus = Literal[
+    "PROPOSED",
+    "AWAITING_APPROVAL",
+    "APPROVED",
+    "REJECTED",
+    "EXECUTING",
+    "EXECUTED_UNVERIFIED",
+    "VERIFIED_RESOLVED",
+    "VERIFIED_UNRESOLVED",
+    "EXECUTION_FAILED",
+    "VERIFICATION_FAILED",
+]
 
 
 class ServiceSummary(BaseModel):
@@ -59,6 +84,13 @@ class RootCause(BaseModel):
     evidence_ids: list[str] = Field(default_factory=list)
 
 
+class ProposedAction(BaseModel):
+    action_id: str
+    target: str
+    reason: str = ""
+    evidence_ids: list[str] = Field(default_factory=list)
+
+
 class AnalysisResult(BaseModel):
     summary: str
     facts: list[ObservedFact] = Field(default_factory=list)
@@ -70,6 +102,7 @@ class AnalysisResult(BaseModel):
     mode: AnalysisMode
     model: str
     validation_warnings: list[str] = Field(default_factory=list)
+    proposed_action: ProposedAction | None = None
 
 
 class IncidentAssessment(BaseModel):
@@ -120,10 +153,59 @@ class InvestigationResponse(BaseModel):
     assessment: AnalysisResult | None = None
     warnings: list[str] = Field(default_factory=list)
     has_screenshot: bool = False
+    proposals: list[ActionProposal] = Field(default_factory=list)
+    executions: list[ActionExecution] = Field(default_factory=list)
 
 
 class FollowupRequest(BaseModel):
     message: str = Field(min_length=1, max_length=2000)
+
+
+class ActionProposal(BaseModel):
+    proposal_id: str
+    investigation_id: str
+    action_id: str
+    target: str
+    args: dict[str, Any] = Field(default_factory=dict)
+    reason: str = ""
+    evidence_ids: list[str] = Field(default_factory=list)
+    risk: str = "low"
+    action_description: str = ""
+    expected_result: str = ""
+    verification_method: str = ""
+    status: ActionProposalStatus = "PROPOSED"
+    created_at: datetime
+    decided_at: datetime | None = None
+    decision: str | None = None
+    approval_token_hash: str | None = None
+    approval_expires_at: float | None = None
+    approval_used: bool = False
+    approval_args_hash: str | None = None
+    approval_digest: str | None = None
+
+
+class ActionExecution(BaseModel):
+    execution_id: str
+    proposal_id: str
+    before_state: dict[str, Any] = Field(default_factory=dict)
+    after_state: dict[str, Any] = Field(default_factory=dict)
+    outcome: str = ""
+    error: str | None = None
+    started_at: datetime
+    finished_at: datetime | None = None
+
+
+class InvestigationSummary(BaseModel):
+    investigation_id: str
+    problem: str
+    status: InvestigationStatus
+    analysis_mode: AnalysisMode
+    model: str
+    created_at: str
+    updated_at: str
+    evidence_count: int = 0
+    proposal_count: int = 0
+    latest_outcome: str | None = None
 
 
 class ToolInfo(BaseModel):

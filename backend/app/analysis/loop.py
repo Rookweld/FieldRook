@@ -48,7 +48,12 @@ tools; each result returns as a tool message with structured evidence. Rules:
   with reported symptoms, but do not claim causation from timing alone.
 - When you have enough evidence (or the budget runs out), reply with ONLY a JSON
   object using keys: summary, facts, causes, uncertainties, missing_evidence,
-  next_actions, explanation.
+  next_actions, explanation, and optionally proposed_action.
+- proposed_action is null unless evidence shows the FieldRook demo worker
+  failed AND its health was actually read with get_demo_worker_health. Then it
+  must be exactly {"action_id": "recover_demo_worker", "target": "demo-worker",
+  "reason": "...", "evidence_ids": [...]}. Never propose anything else; the
+  backend rejects unknown actions. Proposing never executes: a human approves.
 - facts: [{statement, evidence_ids}] restating observed values. EVERY fact must
   list at least one evidence id; facts without evidence are invalid.
 - Every tool result carries its evidence_id. Cite those ids (ev-1, ev-2, ...),
@@ -363,6 +368,8 @@ def _simulated_plan(problem: str, service_name: str | None, already_ran: set[str
             ("get_service_details", {"name": service_name}),
             ("search_event_logs", {"keywords": service_name, "logs": ["System"], "hours": 24, "max_events": 10}),
         ]
+    if "demo worker" in lowered and "get_demo_worker_health" not in already_ran:
+        return [("get_demo_worker_health", {})]
     if any(keyword in lowered for keyword in NETWORK_KEYWORDS):
         plan = []
         if "get_network_adapters" not in already_ran:
@@ -431,6 +438,49 @@ async def _run_simulated(
     state.add_activity("done", "Simulated investigation complete", state.assessment.summary[:300])
 
 
+def maybe_create_proposal(state: InvestigationState, live_check: bool) -> None:
+    """Turn a validated model/technician proposal into an approval request."""
+    from ..actions import demo_worker as worker
+    from ..actions.approval import create_proposal
+    from ..actions.registry import ActionError, get_action
+
+    assessment = state.assessment
+    if assessment is None or assessment.proposed_action is None:
+        return
+    proposed = assessment.proposed_action
+    if any(p.status in ("PROPOSED", "AWAITING_APPROVAL", "APPROVED", "EXECUTING") for p in state.proposals):
+        state.add_activity("note", "Proposal already open", "Skipping duplicate proposal.")
+        return
+    try:
+        get_action(proposed.action_id)
+    except ActionError:
+        state.warnings.append(f"Ignored proposal for unknown action {proposed.action_id!r}.")
+        state.add_activity("note", "Proposal rejected", f"Unknown action {proposed.action_id!r}.")
+        return
+    if live_check and proposed.action_id == "recover_demo_worker":
+        try:
+            health = worker.read_health()
+        except Exception as exc:  # noqa: BLE001 - health read must not break the loop
+            health = {"status": "unknown", "detail": str(exc)}
+        if health.get("status") == "healthy":
+            state.add_activity(
+                "note", "Proposal dropped", "Demo worker is healthy; recovery is not applicable."
+            )
+            return
+    try:
+        create_proposal(
+            state,
+            proposed.action_id,
+            proposed.target,
+            {},
+            proposed.reason,
+            list(proposed.evidence_ids),
+        )
+    except ActionError as exc:
+        state.warnings.append(f"Proposal failed validation: {exc}")
+        state.add_activity("note", "Proposal rejected", str(exc))
+
+
 async def run_rounds(
     state: InvestigationState,
     settings: Settings,
@@ -443,6 +493,8 @@ async def run_rounds(
     provider, mode = select_provider(settings)
     if mode == "simulated":
         await _run_simulated(state, settings, use_fixtures, is_followup)
+        maybe_create_proposal(state, live_check=False)
         return
     assert isinstance(provider, MetaModelProvider)
     await _run_live(state, provider, settings, use_fixtures, max_new_calls)
+    maybe_create_proposal(state, live_check=True)

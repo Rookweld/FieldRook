@@ -2,6 +2,7 @@ import type {
   DiagnosticBundle,
   IncidentAssessment,
   InvestigationResponse,
+  InvestigationSummary,
   ServiceListResponse,
   StatusResponse,
   ToolInfo,
@@ -106,4 +107,70 @@ export function followUpInvestigation(
 
 export function listTools(): Promise<ToolInfo[]> {
   return request<ToolInfo[]>("/api/tools");
+}
+
+export function getInvestigation(id: string): Promise<InvestigationResponse> {
+  return request<InvestigationResponse>(
+    `/api/investigations/${encodeURIComponent(id)}`,
+  );
+}
+
+export function listInvestigations(limit = 50): Promise<InvestigationSummary[]> {
+  return request<InvestigationSummary[]>(`/api/investigations?limit=${limit}`);
+}
+
+export interface ProposeActionArgs {
+  investigationId: string;
+  actionId: string;
+  target: string;
+  reason: string;
+}
+
+export function proposeAction(args: ProposeActionArgs): Promise<InvestigationResponse> {
+  return request<InvestigationResponse>(
+    `/api/investigations/${encodeURIComponent(args.investigationId)}/proposals`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action_id: args.actionId,
+        target: args.target,
+        reason: args.reason,
+      }),
+    },
+  );
+}
+
+export interface ApproveResult {
+  proposal_id: string;
+  status: string;
+  approval_token: string;
+  expires_at: number;
+}
+
+export function approveProposal(proposalId: string): Promise<ApproveResult> {
+  return request<ApproveResult>(`/api/proposals/${encodeURIComponent(proposalId)}/approve`, {
+    method: "POST",
+  });
+}
+
+export function rejectProposal(proposalId: string): Promise<InvestigationResponse> {
+  return request<InvestigationResponse>(
+    `/api/proposals/${encodeURIComponent(proposalId)}/reject`,
+    { method: "POST" },
+  );
+}
+
+export function executeProposal(
+  proposalId: string,
+  approvalToken: string,
+): Promise<InvestigationResponse> {
+  return request<InvestigationResponse>(
+    `/api/proposals/${encodeURIComponent(proposalId)}/execute`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ approval_token: approvalToken, args: {} }),
+    },
+  );
 }

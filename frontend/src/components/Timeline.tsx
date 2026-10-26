@@ -6,6 +6,13 @@ const KIND_MARK: Record<ActivityRecord["kind"], string> = {
   tool_result: "\u2713",
   evidence: "\u25C6",
   note: "\u2139",
+  proposed: "\u2696",
+  approval_requested: "\u2696",
+  approved: "\u2714",
+  rejected: "\u2716",
+  executed: "\u25B6",
+  verification_started: "\u25CC",
+  verified: "\u25C9",
   done: "\u2714",
   error: "\u2716",
 };

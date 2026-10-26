@@ -7,7 +7,7 @@ from typing import Any
 
 from pydantic import ValidationError
 
-from ..schemas import AnalysisMode, AnalysisResult, DiagnosticBundle
+from ..schemas import AnalysisMode, AnalysisResult, DiagnosticBundle, ProposedAction
 
 
 class ModelAnalysisError(RuntimeError):
@@ -86,6 +86,23 @@ def validate_assessment_output(
         result.validation_warnings.append(
             f"{len(uncited)} fact(s) cite no evidence; treat them as unverified."
         )
+    proposed = data.get("proposed_action")
+    if proposed is not None:
+        try:
+            action = ProposedAction.model_validate(proposed)
+        except ValidationError:
+            result.validation_warnings.append(
+                "Dropped a malformed proposed_action; no correction was proposed."
+            )
+        else:
+            kept = [eid for eid in action.evidence_ids if eid in known_ids]
+            dropped_refs = [eid for eid in action.evidence_ids if eid not in known_ids]
+            if dropped_refs:
+                result.validation_warnings.append(
+                    f"Dropped {len(dropped_refs)} proposed-action evidence reference(s) not in the bundle."
+                )
+            action.evidence_ids = kept
+            result.proposed_action = action
     return result
 
 

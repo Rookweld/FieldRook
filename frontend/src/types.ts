@@ -79,6 +79,13 @@ export type ActivityKind =
   | "tool_result"
   | "evidence"
   | "note"
+  | "proposed"
+  | "approval_requested"
+  | "approved"
+  | "rejected"
+  | "executed"
+  | "verification_started"
+  | "verified"
   | "done"
   | "error";
 
@@ -90,6 +97,47 @@ export interface ActivityRecord {
   tool_name: string | null;
   duration_ms: number | null;
   evidence_ids: string[];
+}
+
+export type ProposalStatus =
+  | "PROPOSED"
+  | "AWAITING_APPROVAL"
+  | "REJECTED"
+  | "EXECUTING"
+  | "EXECUTED_UNVERIFIED"
+  | "VERIFIED_RESOLVED"
+  | "VERIFIED_UNRESOLVED"
+  | "EXECUTION_FAILED"
+  | "VERIFICATION_FAILED";
+
+export interface ActionProposal {
+  proposal_id: string;
+  action_id: string;
+  target: string;
+  args: Record<string, unknown>;
+  reason: string;
+  evidence_ids: string[];
+  status: ProposalStatus;
+  risk: string;
+  expected_result: string;
+  verification: string;
+  created_at: string;
+  decision: string | null;
+  decided_at: string | null;
+}
+
+export interface ActionExecution {
+  execution_id: string;
+  proposal_id: string;
+  action_id: string;
+  target: string;
+  started_at: string;
+  finished_at: string | null;
+  outcome: ProposalStatus;
+  before_state: Record<string, unknown>;
+  after_state: Record<string, unknown>;
+  verified: boolean;
+  error: string | null;
 }
 
 export interface InvestigationResponse {
@@ -106,6 +154,19 @@ export interface InvestigationResponse {
   assessment: AnalysisResult | null;
   warnings: string[];
   has_screenshot: boolean;
+  proposals: ActionProposal[];
+  executions: ActionExecution[];
+}
+
+export interface InvestigationSummary {
+  investigation_id: string;
+  problem: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
+  evidence_count: number;
+  proposal_count: number;
+  latest_outcome: string | null;
 }
 
 export interface ToolInfo {

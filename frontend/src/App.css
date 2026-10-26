@@ -95,6 +95,11 @@ body {
   color: var(--accent);
 }
 
+.badge-fail {
+  border-color: var(--red);
+  color: var(--red);
+}
+
 .tabs {
   display: flex;
   gap: 0.5rem;
@@ -243,6 +248,12 @@ body {
   cursor: default;
 }
 
+.button-ghost {
+  background: transparent;
+  color: var(--accent);
+  border: 1px solid var(--accent);
+}
+
 .link-button {
   background: none;
   border: none;
@@ -358,10 +369,20 @@ body {
 
 .tl-tool_result .tl-mark,
 .tl-evidence .tl-mark,
+.tl-approved .tl-mark,
+.tl-verified .tl-mark,
 .tl-done .tl-mark {
   color: var(--green);
 }
 
+.tl-proposed .tl-mark,
+.tl-approval_requested .tl-mark,
+.tl-executed .tl-mark,
+.tl-verification_started .tl-mark {
+  color: var(--accent);
+}
+
+.tl-rejected .tl-mark,
 .tl-error .tl-mark {
   color: var(--red);
 }
@@ -455,6 +476,95 @@ button.chip {
   margin: 0;
   max-height: 320px;
   overflow-y: auto;
+}
+
+.pre.small {
+  font-size: 0.72rem;
+  max-height: 220px;
+}
+
+.action-card {
+  background: var(--bg);
+  border: 1px solid var(--panel-edge);
+  border-radius: 4px;
+  padding: 0.7rem 0.9rem;
+  margin: 0.7rem 0;
+}
+
+.action-title {
+  margin: 0 !important;
+  font-size: 0.95rem !important;
+  color: var(--ink) !important;
+}
+
+.action-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.8rem;
+  margin: 0.5rem 0;
+}
+
+.action-grid p {
+  margin: 0.2rem 0 0.6rem;
+  font-size: 0.9rem;
+}
+
+@media (max-width: 700px) {
+  .action-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.before-after {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.8rem;
+}
+
+@media (max-width: 700px) {
+  .before-after {
+    grid-template-columns: 1fr;
+  }
+}
+
+.history-list {
+  list-style: none;
+  margin: 0.4rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.history-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  flex-wrap: wrap;
+  background: var(--bg);
+  border: 1px solid var(--panel-edge);
+  border-radius: 4px;
+  padding: 0.6rem 0.8rem;
+}
+
+.history-main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  flex: 1;
+  min-width: min(420px, 100%);
+}
+
+.history-title {
+  font-size: 0.95rem;
+  text-align: left;
+}
+
+.history-links {
+  display: flex;
+  gap: 0.8rem;
+  align-items: center;
 }
 
 details summary {

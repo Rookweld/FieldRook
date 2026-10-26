@@ -19,6 +19,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from ..config import Settings
 from ..diagnostics import fixtures as fx
+from ..diagnostics.errorcodes import ErrorCodeError, interpret
 from ..diagnostics.event_search import normalize_logs, search_events_live
 from ..diagnostics.service_allowlist import validate_service_name
 from ..diagnostics.windows_net import (
@@ -89,6 +90,10 @@ class ScheduledTasksArgs(StrictArgs):
     action_contains: str = Field(default="", max_length=64)
     include_microsoft: bool = False
     limit: int = Field(default=40, ge=1, le=100)
+
+
+class ErrorCodeArgs(StrictArgs):
+    value: str = Field(min_length=1, max_length=32)
 
 
 @dataclass
@@ -347,6 +352,47 @@ def _connections_fixture(args: BaseModel) -> ToolOutput:
     )
 
 
+def _demo_worker_health_live(args: BaseModel, timeout_s: float) -> ToolOutput:
+    from ..actions import demo_worker as worker
+
+    health = worker.read_health()
+    status = str(health.get("status", "unknown"))
+    return ToolOutput(
+        summary=f"Demo worker reports {status} (live).",
+        data=health,
+        source="live",
+    )
+
+
+def _demo_worker_health_fixture(args: BaseModel) -> ToolOutput:
+    health = fx.get_fixture_demo_worker()
+    return ToolOutput(
+        summary=f"Demo worker reports {health.get('status', 'unknown')} (fixture).",
+        data=health,
+        source="fixture",
+    )
+
+
+def _decode_error_code(args: BaseModel) -> tuple[dict, str]:
+    assert isinstance(args, ErrorCodeArgs)
+    try:
+        decoded = interpret(args.value)
+    except ErrorCodeError as exc:
+        raise ValueError(str(exc)) from exc
+    name = decoded.get("name") or "unrecognized"
+    return {k: v for k, v in decoded.items()}, f"Error code {decoded['hex']}: {name}."
+
+
+def _error_code_live(args: BaseModel, timeout_s: float) -> ToolOutput:
+    data, summary = _decode_error_code(args)
+    return ToolOutput(summary=summary, data=data, source="live")
+
+
+def _error_code_fixture(args: BaseModel) -> ToolOutput:
+    data, summary = _decode_error_code(args)
+    return ToolOutput(summary=summary, data=data, source="fixture")
+
+
 def _scheduled_tasks_live(args: BaseModel, timeout_s: float) -> ToolOutput:
     assert isinstance(args, ScheduledTasksArgs)
     tasks = get_scheduled_tasks_live(timeout_s)
@@ -457,6 +503,25 @@ REGISTRY: dict[str, ToolSpec] = {
             args_model=ConnectionsArgs,
             run_live=_connections_live,
             run_fixture=_connections_fixture,
+        ),
+        ToolSpec(
+            name="get_demo_worker_health",
+            description="Read the application-owned FieldRook demo worker health: status, "
+            "heartbeat freshness, and verified process state (read-only).",
+            category="demo_worker",
+            args_model=EmptyArgs,
+            run_live=_demo_worker_health_live,
+            run_fixture=_demo_worker_health_fixture,
+        ),
+        ToolSpec(
+            name="interpret_error_code",
+            description="Deterministically decode a Windows error code (decimal, hex, or "
+            "signed 32-bit) into hex, family, and symbolic name when known (read-only "
+            "computation). Never guesses unknown codes.",
+            category="error_code",
+            args_model=ErrorCodeArgs,
+            run_live=_error_code_live,
+            run_fixture=_error_code_fixture,
         ),
         ToolSpec(
             name="get_scheduled_tasks",
