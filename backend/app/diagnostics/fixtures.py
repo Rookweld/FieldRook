@@ -180,6 +180,99 @@ def get_fixture_connections() -> list[dict[str, Any]]:
     return [dict(connection) for connection in _FIXTURE_CONNECTIONS]
 
 
+_FIXTURE_TASKS: list[dict[str, Any]] = [
+    {
+        "task_name": "RookweldSync",
+        "task_path": "\\Rookweld\\",
+        "state": "Ready",
+        "author": "ROOKWELD",
+        "description": "Fixture: periodic ROOKWELD synchronization.",
+        "principal": {"user_id": "TestUser", "logon_type": "Interactive", "run_level": "Limited"},
+        "triggers": [
+            {
+                "type": "MSFT_TaskTimeTrigger",
+                "enabled": True,
+                "start_boundary": "2026-10-26T08:00:00",
+                "repetition_interval": "PT10M",
+            }
+        ],
+        "actions": [
+            {
+                "execute": "powershell.exe",
+                "arguments": "-NoProfile -File C:\\Rookweld\\sync.ps1 -Token abc123secret",
+                "working_directory": "C:\\Rookweld",
+            }
+        ],
+        "last_run_time": "2026-10-26T19:40:00",
+        "last_task_result": 0,
+        "last_run_succeeded": True,
+        "next_run_time": "2026-10-26T19:50:00",
+        "missed_runs": 0,
+    },
+    {
+        "task_name": "GoogleUpdateTaskMachineUA",
+        "task_path": "\\",
+        "state": "Ready",
+        "author": "Google",
+        "description": "Fixture: updater task.",
+        "principal": {"user_id": "SYSTEM", "logon_type": "Service", "run_level": "Highest"},
+        "triggers": [{"type": "MSFT_TaskDailyTrigger", "enabled": True, "start_boundary": "2026-10-26T09:00:00", "days_interval": 1}],
+        "actions": [
+            {
+                "execute": "C:\\Program Files\\Google\\Update\\GoogleUpdate.exe",
+                "arguments": "/ua /installsource scheduler",
+                "working_directory": "",
+            }
+        ],
+        "last_run_time": "2026-10-26T09:00:12",
+        "last_task_result": 0,
+        "last_run_succeeded": True,
+        "next_run_time": "2026-10-27T09:00:00",
+        "missed_runs": 0,
+    },
+    {
+        "task_name": "EdgeUpdateBackground",
+        "task_path": "\\Microsoft\\Edge\\",
+        "state": "Ready",
+        "author": "Microsoft",
+        "description": "Fixture: Microsoft-subtree task for exclusion tests.",
+        "principal": {"user_id": "SYSTEM", "logon_type": "Service", "run_level": "Highest"},
+        "triggers": [{"type": "MSFT_TaskLogonTrigger", "enabled": True}],
+        "actions": [{"execute": "C:\\Edge\\Updater.exe", "arguments": "/background", "working_directory": ""}],
+        "last_run_time": "2026-10-26T07:58:30",
+        "last_task_result": 0,
+        "last_run_succeeded": True,
+        "next_run_time": "",
+        "missed_runs": 0,
+    },
+    {
+        "task_name": "BackupDocs",
+        "task_path": "\\",
+        "state": "Disabled",
+        "author": "TestUser",
+        "description": "Fixture: disabled task with a failing last result.",
+        "principal": {"user_id": "TestUser", "logon_type": "Interactive", "run_level": "Limited"},
+        "triggers": [{"type": "MSFT_TaskDailyTrigger", "enabled": False, "start_boundary": "2026-10-26T02:00:00", "days_interval": 1}],
+        "actions": [{"execute": "C:\\Tools\\backup.exe", "arguments": "--full", "working_directory": ""}],
+        "last_run_time": "2026-10-25T02:00:05",
+        "last_task_result": 1,
+        "last_run_succeeded": False,
+        "next_run_time": "",
+        "missed_runs": 2,
+    },
+]
+
+# Fixture data models a machine whose interactive user is TestUser, so the
+# privacy sanitizer masks that name deterministically in fixture outputs.
+FIXTURE_USERNAME = "TestUser"
+
+
+def get_fixture_scheduled_tasks() -> list[dict[str, Any]]:
+    import copy
+
+    return copy.deepcopy(_FIXTURE_TASKS)
+
+
 def _fixture_event_pool() -> list[tuple[str, dict[str, object], str]]:
     pool: list[tuple[str, dict[str, object], str]] = [
         (log, dict(event), "") for log, event in _GENERIC_EVENTS
@@ -433,6 +526,8 @@ def _summarize_investigation_item(item: EvidenceItem) -> str:
         return f"DNS servers reported for {data.get('count', 0)} interfaces."
     if category == "connections":
         return f"{data.get('count', 0)} established connections sampled."
+    if category == "scheduled_tasks":
+        return f"{data.get('count', 0)} scheduled tasks matched (scanned {data.get('total_scanned', 0)})."
     return f"Collected {category} evidence."
 
 

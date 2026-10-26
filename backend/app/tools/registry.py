@@ -28,6 +28,11 @@ from ..diagnostics.windows_net import (
     get_ip_config_live,
     get_os_info_live,
 )
+from ..diagnostics.windows_tasks import (
+    apply_task_filters,
+    get_scheduled_tasks_live,
+    sanitize_task_record,
+)
 from ..diagnostics.windows_tools import (
     DiagnosticCommandError,
     get_service_status,
@@ -76,6 +81,14 @@ class IpConfigArgs(StrictArgs):
 
 class ConnectionsArgs(StrictArgs):
     limit: int = Field(default=25, ge=1, le=50)
+
+
+class ScheduledTasksArgs(StrictArgs):
+    folder: str = Field(default="\\", min_length=1, max_length=128)
+    name_contains: str = Field(default="", max_length=64)
+    action_contains: str = Field(default="", max_length=64)
+    include_microsoft: bool = False
+    limit: int = Field(default=40, ge=1, le=100)
 
 
 @dataclass
@@ -334,6 +347,45 @@ def _connections_fixture(args: BaseModel) -> ToolOutput:
     )
 
 
+def _scheduled_tasks_live(args: BaseModel, timeout_s: float) -> ToolOutput:
+    assert isinstance(args, ScheduledTasksArgs)
+    tasks = get_scheduled_tasks_live(timeout_s)
+    kept, total = apply_task_filters(
+        tasks,
+        args.folder,
+        args.name_contains,
+        args.include_microsoft,
+        args.limit,
+        args.action_contains,
+    )
+    return ToolOutput(
+        summary=f"Matched {len(kept)} of {total} scheduled tasks (live).",
+        data={"count": len(kept), "total_scanned": total, "tasks": kept},
+        source="live",
+    )
+
+
+def _scheduled_tasks_fixture(args: BaseModel) -> ToolOutput:
+    assert isinstance(args, ScheduledTasksArgs)
+    tasks = [
+        sanitize_task_record(task, fx.FIXTURE_USERNAME)
+        for task in fx.get_fixture_scheduled_tasks()
+    ]
+    kept, total = apply_task_filters(
+        tasks,
+        args.folder,
+        args.name_contains,
+        args.include_microsoft,
+        args.limit,
+        args.action_contains,
+    )
+    return ToolOutput(
+        summary=f"Matched {len(kept)} of {total} scheduled tasks (fixture).",
+        data={"count": len(kept), "total_scanned": total, "tasks": kept},
+        source="fixture",
+    )
+
+
 REGISTRY: dict[str, ToolSpec] = {
     spec.name: spec
     for spec in [
@@ -405,6 +457,18 @@ REGISTRY: dict[str, ToolSpec] = {
             args_model=ConnectionsArgs,
             run_live=_connections_live,
             run_fixture=_connections_fixture,
+        ),
+        ToolSpec(
+            name="get_scheduled_tasks",
+            description="List Windows Scheduled Tasks with triggers, actions, principals, "
+            "and last-run results (read-only). Filters: folder prefix, task-name "
+            "substring, action substring (executable/arguments, e.g. powershell.exe), "
+            "Microsoft-task exclusion. Arguments are truncated and secret-like "
+            "values redacted.",
+            category="scheduled_tasks",
+            args_model=ScheduledTasksArgs,
+            run_live=_scheduled_tasks_live,
+            run_fixture=_scheduled_tasks_fixture,
         ),
     ]
 }

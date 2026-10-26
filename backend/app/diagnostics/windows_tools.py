@@ -27,6 +27,8 @@ ALLOWLISTED_COMMANDS: tuple[str, ...] = (
     "Get-NetIPAddress",
     "Get-DnsClientServerAddress",
     "Get-NetTCPConnection Established",
+    "Get-ScheduledTask",
+    "Get-ScheduledTaskInfo",
 )
 
 SOURCE_LIST = "powershell:Get-Service"

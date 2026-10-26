@@ -42,8 +42,8 @@ def _run(name: str, args_dict: dict) -> tuple[ToolOutput, int]:
     return asyncio.run(execute_prepared(spec, args, _ctx()))
 
 
-def test_registry_has_eight_read_only_tools() -> None:
-    assert len(REGISTRY) == 8
+def test_registry_has_nine_read_only_tools() -> None:
+    assert len(REGISTRY) == 9
     for spec in REGISTRY.values():
         assert "(read-only" in spec.description
 
@@ -174,6 +174,133 @@ def test_execution_timeout_aborts_slow_tool() -> None:
     assert output.error is not None
     assert "timeout" in output.error.lower()
     assert duration_ms < 3000
+
+
+def test_scheduled_tasks_fixture_shape_and_redaction() -> None:
+    output, _ = _run("get_scheduled_tasks", {})
+    assert output.error is None
+    assert output.source == "fixture"
+    assert output.data["total_scanned"] == 4
+    assert output.data["count"] == 3
+    task = next(t for t in output.data["tasks"] if t["task_name"] == "RookweldSync")
+    assert task["actions"][0]["execute"] == "powershell.exe"
+    assert "[REDACTED]" in task["actions"][0]["arguments"]
+    assert "abc123secret" not in task["actions"][0]["arguments"]
+    assert task["principal"]["user_id"] == "<user>"
+    assert task["triggers"][0]["type"] == "MSFT_TaskTimeTrigger"
+    assert task["last_task_result"] == 0
+    assert task["last_run_succeeded"] is True
+
+
+def test_scheduled_tasks_filters() -> None:
+    all_tasks, _ = _run("get_scheduled_tasks", {"include_microsoft": True})
+    assert all_tasks.data["count"] == 4
+    named, _ = _run("get_scheduled_tasks", {"name_contains": "rookweld"})
+    assert named.data["count"] == 1
+    folder, _ = _run("get_scheduled_tasks", {"folder": "\\Rookweld\\"})
+    assert folder.data["count"] == 1
+    limited, _ = _run("get_scheduled_tasks", {"include_microsoft": True, "limit": 2})
+    assert limited.data["count"] == 2
+    assert limited.data["total_scanned"] == 4
+
+
+def test_scheduled_tasks_action_filter() -> None:
+    output, _ = _run("get_scheduled_tasks", {"action_contains": "powershell"})
+    assert output.error is None
+    assert output.data["count"] == 1
+    assert output.data["tasks"][0]["task_name"] == "RookweldSync"
+
+
+def test_scheduled_tasks_invalid_folder_is_error_output() -> None:
+    output, _ = _run("get_scheduled_tasks", {"folder": "C:\\evil"})
+    assert output.error is not None
+
+
+def test_task_text_sanitization() -> None:
+    from app.diagnostics.windows_tasks import sanitize_task_text, truncate_arguments
+
+    assert sanitize_task_text("run --token abc123 --x 1", None) == "run token=[REDACTED] --x 1"
+    assert sanitize_task_text("password=hunter2", None) == "password=[REDACTED]"
+    assert (
+        sanitize_task_text("C:\\Users\\Alice\\run.ps1", "alice")
+        == "C:\\Users\\<user>\\run.ps1"
+    )
+    assert sanitize_task_text("nothing sensitive", "alice") == "nothing sensitive"
+    long_args = truncate_arguments("x" * 400)
+    assert long_args.endswith("…[truncated]")
+    assert truncate_arguments("short") == "short"
+
+
+def test_cim_action_trigger_principal_parsing() -> None:
+    from app.diagnostics.windows_tasks import (
+        _ps_datetime,
+        _summarize_action,
+        _summarize_principal,
+        _summarize_trigger,
+        _task_state_name,
+    )
+
+    action = _summarize_action(
+        {
+            "CimInstanceProperties": [
+                {"Name": "Execute", "Value": "powershell.exe"},
+                {"Name": "Arguments", "Value": "-File job.ps1"},
+                {"Name": "WorkingDirectory", "Value": "-WindowStyle Hidden"},
+            ]
+        },
+        None,
+    )
+    assert action["execute"] == "powershell.exe"
+    assert action["arguments"] == "-File job.ps1"
+    assert action["working_directory"] == "-WindowStyle Hidden"
+
+    trigger = _summarize_trigger(
+        {
+            "CimSystemProperties": {"ClassName": "MSFT_TaskTimeTrigger"},
+            "CimInstanceProperties": [
+                {"Name": "Enabled", "Value": True},
+                {"Name": "StartBoundary", "Value": "2026-10-26T08:00:00"},
+                {
+                    "Name": "Repetition",
+                    "Value": {"CimInstanceProperties": [{"Name": "Interval", "Value": "PT5M"}]},
+                },
+            ],
+        }
+    )
+    assert trigger["type"] == "MSFT_TaskTimeTrigger"
+    assert trigger["enabled"] is True
+    assert trigger["repetition_interval"] == "PT5M"
+
+    principal = _summarize_principal(
+        {
+            "CimInstanceProperties": [
+                {"Name": "UserId", "Value": "Alice"},
+                {"Name": "LogonType", "Value": 3},
+                {"Name": "RunLevel", "Value": 0},
+            ]
+        },
+        "alice",
+    )
+    assert principal["user_id"] == "<user>"
+    assert principal["logon_type"] == "Interactive (3)"
+    assert principal["run_level"] == "Limited (0)"
+
+    projected = _summarize_trigger(
+        {
+            "Type": "MSFT_TaskTimeTrigger",
+            "Enabled": True,
+            "StartBoundary": "2026-10-26T08:00:00",
+            "RepetitionInterval": "00:05:00",
+        }
+    )
+    assert projected["type"] == "MSFT_TaskTimeTrigger"
+    assert projected["repetition_interval"] == "00:05:00"
+
+    assert _task_state_name(3) == "Ready"
+    assert _task_state_name(1) == "Disabled"
+    assert _task_state_name("Ready") == "Ready"
+    assert _ps_datetime("/Date(0)/") == "1970-01-01T00:00:00Z"
+    assert _ps_datetime("2026-10-26T08:00:00") == "2026-10-26T08:00:00"
 
 
 def test_result_truncation_marks_oversize_data() -> None:

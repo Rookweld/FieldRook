@@ -13,8 +13,8 @@ as **OBSERVED** (measured), **INFERRED** (AI hypothesis), or **UNVERIFIED**
 ## Layout
 
 - `backend/` — Python + FastAPI: strict read-only tool registry (services,
-  event logs, OS, network), Meta tool-calling loop, session investigations,
-  screenshot intake, pytest suite.
+  event logs, OS, network, scheduled tasks), Meta tool-calling loop, session
+  investigations, screenshot intake, pytest suite.
 - `frontend/` — React + TypeScript + Vite: problem workstation (intake,
   activity timeline, evidence cards, assessment, follow-ups) plus the original
   Milestone 001 service lookup tab.
@@ -79,8 +79,9 @@ cd C:\dev\FieldRook\backend
 
 ## Safety
 
-Strictly read-only: services, event logs (System/Application), OS info, and
-network state are only ever read through predefined, schema-validated tools
+Strictly read-only: services, event logs (System/Application), OS info,
+network state, and scheduled task definitions are only ever read through
+predefined, schema-validated tools
 (bounded budget: 8 initial + 4 per follow-up tool calls, 12 total; per-tool
 timeouts; truncated results). The model can never
 send executable commands. No service control, network resets, registry edits,

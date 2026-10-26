@@ -174,8 +174,18 @@ def test_tools_endpoint_lists_registry() -> None:
     response = client.get("/api/tools")
     assert response.status_code == 200
     names = {tool["name"] for tool in response.json()}
-    assert len(names) == 8
-    assert {"get_dns_config", "search_event_logs"} <= names
+    assert len(names) == 9
+    assert {"get_dns_config", "search_event_logs", "get_scheduled_tasks"} <= names
+
+
+def test_powershell_popup_problem_uses_task_tool() -> None:
+    body = client.post(
+        "/api/investigations",
+        data={"problem": "Random PowerShell windows flash on the desktop every few minutes."},
+    ).json()
+    tools_used = {record["tool_name"] for record in body["activity"] if record["tool_name"]}
+    assert "get_scheduled_tasks" in tools_used
+    assert body["assessment"]["mode"] == "simulated"
 
 
 def test_multi_step_activity_is_ordered() -> None:

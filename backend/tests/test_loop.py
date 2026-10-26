@@ -111,3 +111,60 @@ def test_unknown_tool_rejected_without_execution() -> None:
     kinds = [record.kind for record in state.activity]
     assert "error" in kinds
     assert state.assessment is not None
+
+
+def _assessment_json(evidence_ids: list[str]) -> str:
+    return json.dumps(
+        {
+            "summary": "Test summary.",
+            "facts": [{"statement": "OS info collected.", "evidence_ids": evidence_ids}],
+            "causes": [],
+            "uncertainties": [],
+            "missing_evidence": [],
+            "next_actions": [],
+            "explanation": "Test explanation.",
+        }
+    )
+
+
+def test_citation_repair_round_demands_evidence_refs() -> None:
+    provider = _ScriptedProvider(
+        [
+            {
+                "role": "assistant",
+                "content": "",
+                "tool_calls": [
+                    {"id": "c1", "type": "function", "function": {"name": "get_os_info", "arguments": "{}"}},
+                ],
+            },
+            {"role": "assistant", "content": _assessment_json([]), "tool_calls": []},
+            {"role": "assistant", "content": _assessment_json(["ev-1"]), "tool_calls": []},
+        ]
+    )
+    state = _state()
+    asyncio.run(_run_live(state, provider, _settings(), True, max_new_calls=4))  # type: ignore[arg-type]
+    assert provider.turns == 3
+    assert state.assessment is not None
+    assert state.assessment.facts[0].evidence_ids == ["ev-1"]
+    titles = [record.title for record in state.activity]
+    assert "Requesting evidence citations" in titles
+
+
+def test_tool_messages_carry_evidence_ids() -> None:
+    provider = _ScriptedProvider(
+        [
+            {
+                "role": "assistant",
+                "content": "",
+                "tool_calls": [
+                    {"id": "c1", "type": "function", "function": {"name": "get_os_info", "arguments": "{}"}},
+                ],
+            },
+            {"role": "assistant", "content": _assessment_json(["ev-1"]), "tool_calls": []},
+        ]
+    )
+    state = _state()
+    asyncio.run(_run_live(state, provider, _settings(), True, max_new_calls=4))  # type: ignore[arg-type]
+    tool_messages = [m for m in state.messages if m.get("role") == "tool"]
+    assert len(tool_messages) == 1
+    assert json.loads(tool_messages[0]["content"])["evidence_id"] == "ev-1"
