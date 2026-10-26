@@ -49,6 +49,28 @@ _EVENTS_SCRIPT = (
 MAX_EVENT_MESSAGE_CHARS = 500
 MAX_MATCHED_EVENTS = 25
 
+# Windows PowerShell serializes ServiceControllerStatus as its numeric value.
+_SERVICE_STATUS_NAMES = {
+    1: "Stopped",
+    2: "StartPending",
+    3: "StopPending",
+    4: "Running",
+    5: "ContinuePending",
+    6: "PausePending",
+    7: "Paused",
+}
+
+
+def _status_name(value: object) -> str:
+    if isinstance(value, bool):
+        return str(value)
+    if isinstance(value, int) and value in _SERVICE_STATUS_NAMES:
+        return _SERVICE_STATUS_NAMES[value]
+    text = str(value or "").strip()
+    if text.isdigit() and int(text) in _SERVICE_STATUS_NAMES:
+        return _SERVICE_STATUS_NAMES[int(text)]
+    return text or "Unknown"
+
 
 class DiagnosticCommandError(RuntimeError):
     def __init__(self, message: str, source: str) -> None:
@@ -106,7 +128,7 @@ def list_services(timeout_s: float) -> list[dict]:
             {
                 "name": str(entry.get("Name", "")),
                 "display_name": str(entry.get("DisplayName", "")),
-                "status": str(entry.get("Status", "")),
+                "status": _status_name(entry.get("Status", "")),
             }
         )
     return [service for service in services if service["name"]]
@@ -122,7 +144,7 @@ def get_service_status(name: str, timeout_s: float) -> dict:
     return {
         "name": str(entry.get("Name", name)),
         "display_name": str(entry.get("DisplayName", "")),
-        "status": str(entry.get("Status", "")),
+        "status": _status_name(entry.get("Status", "")),
         "service_type": str(entry.get("ServiceType", "")),
     }
 
