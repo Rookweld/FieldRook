@@ -125,3 +125,23 @@ installations, or privilege escalation exist. Screenshots are validated
 the Meta API only with that consent, and are never stored by FieldRook.
 Approval tokens are stored as hashes only; the database and demo state live in
 gitignored local paths (`backend/data/`, `demo_worker/state/`).
+
+## Local-only security notice
+
+FieldRook binds to localhost (`127.0.0.1:8000` backend, `localhost:5173` UI)
+and rejects cross-origin browser mutations. Do not expose either service to a
+network, do not run the corrective-action endpoints on shared infrastructure,
+and never commit a real `.env` containing `MODEL_API_KEY`.
+## Known limitations
+
+- One corrective action only (`recover_demo_worker` on the application-owned
+  demo worker); the registry is intentionally minimal.
+- No per-user authentication; localhost binding is the access boundary.
+- No browser end-to-end suite yet (API-level coverage plus manual UI checks).
+- Large investigation histories can approach the 60s model timeout.
+- Model output is advisory: verification outcomes are computed by backend
+  diagnostics and can never be overridden by the model.
+## License
+
+Copyright 2026 ROOKWELD (Pontus Lindh). Licensed under the Apache License,
+Version 2.0 -- see [LICENSE](LICENSE) for the full text.

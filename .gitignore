@@ -13,3 +13,11 @@ demo_worker/state/
 .coverage
 vite.config.ts.timestamp-*
 *.tsbuildinfo
+
+# Local runtime artifacts (release hardening).
+*.db
+*.db-journal
+*.sqlite*
+*.log
+*.token
+demo_token.txt
