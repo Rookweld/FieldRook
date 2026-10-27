@@ -27,7 +27,7 @@ timestamps preserved; history has not been rewritten):
 | `cc9907d` | 2026-10-27 | fix(ci): declare frontend pnpm workspace |
 | `cf6f3d4` | 2026-10-27 | fix(ci): declare pnpm frontend workspace |
 | `459583c` | 2026-10-27 | docs(fieldrook): showcase real workstation screenshots |
-| *(pending)* | 2026-10-27 | feat(fieldrook): milestone 005 proof of value |
+| `b9fd710` | 2026-10-27 | feat(fieldrook): milestone 005 proof of value |
 
 Milestone 001 (first diagnosis slice), Milestone 002 (natural-language
 intake, screenshot understanding, tool-calling investigations, follow-ups),
@@ -39,7 +39,7 @@ reproducible demo scenarios, Playwright e2e, demo ops scripts, CI, demo
 package), and Milestone 005 (split approve/execute UX with expiry recovery,
 16-case diagnostic gauntlet with live-model evals, phantom safe-guidance,
 static recorded jury demo) were all designed and implemented during the
-event. Replace `*(pending)*` with the real M005 commit hash after landing.
+event.
 
 ## Meta Muse Spark integration
 
