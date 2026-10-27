@@ -667,8 +667,9 @@ REGISTRY: dict[str, ToolSpec] = {
         ),
         ToolSpec(
             name="interpret_error_code",
-            description="Deterministically decode a Windows error code (decimal, hex, or "
-            "signed 32-bit) into hex, family, and symbolic name when known (read-only "
+            description="Deterministically decode a Windows error code (decimal, hex "
+            "with or without a 0x prefix as spelled in event logs, or signed "
+            "32-bit) into hex, family, and symbolic name when known (read-only "
             "computation). Never guesses unknown codes.",
             category="error_code",
             args_model=ErrorCodeArgs,

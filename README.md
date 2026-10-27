@@ -66,6 +66,19 @@ Evidence-driven AI troubleshooting assistant for IT technicians. A ROOKWELD
 project built for the Meta Global AI Developer Hackathon 2026 (Indie Developer
 track, "Build for Your World").
 
+**Milestone 011 — The Real-World Technician Pilot:** FieldRook proved
+itself on genuine Windows data. Nine live-model operations on Fury
+(applications, services, DNS, scheduled tasks, ambiguous symptoms, a
+follow-up, a repeat, and a demo-worker recovery) all ran fixture-free
+with zero bad citations in 11–42s; the pilot found and fixed four
+real defects (bare-hex error codes rejected, evidence warnings buried
+in JSON, doubled timeline durations, stale footer) and verified each
+fix against live data. New operator docs (`docs/FIRST_RUN.md`,
+`docs/ACCEPTANCE.md`, `docs/pilot/M011_PILOT.md`) leave the product
+ready for human acceptance testing. Quality gate: backend 252 passed,
+gauntlet 47/47 (37 fixture/tool + 10 capped live `muse-spark-1.3`),
+Playwright 17/17.
+
 **Milestone 010 — The Reality Check:** no new features — a full product
 audit turned into fixes. Ten reproducible findings (see
 `docs/audit/M010_AUDIT.md`) all resolved: bare "task" questions now route

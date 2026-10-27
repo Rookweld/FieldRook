@@ -43,8 +43,16 @@ def _to_unsigned32(value: int | str) -> int:
             raise ErrorCodeError("Empty error-code value.")
         try:
             number = int(text, 0)
-        except ValueError as exc:
-            raise ErrorCodeError(f"Could not parse {value!r} as a number.") from exc
+        except ValueError:
+            # M011: Windows logs spell HRESULTs as bare hex ("80073d02").
+            # Base-0 already accepted decimal/0x/0o/0b, so a failed parse
+            # that is all hex digits has exactly one numeric reading left.
+            try:
+                number = int(text, 16)
+            except ValueError as exc:
+                raise ErrorCodeError(
+                    f"Could not parse {value!r} as decimal or hex."
+                ) from exc
     else:
         raise ErrorCodeError(f"Unsupported error-code type {type(value).__name__}.")
     if number < -(2**31) or number > 0xFFFFFFFF:

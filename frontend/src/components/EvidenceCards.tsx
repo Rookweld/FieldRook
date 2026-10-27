@@ -23,6 +23,14 @@ const CATEGORY_LABELS: Record<string, string> = {
   screenshot: "Screenshot",
 };
 
+// M011: tool warnings (truncation, fixture fallback) live in data.warnings;
+// they are material to trust, so the card surfaces them above the JSON.
+function dataWarnings(item: EvidenceItem): string[] {
+  const w: unknown = item.data["warnings"];
+  if (!Array.isArray(w)) return [];
+  return w.filter((x): x is string => typeof x === "string");
+}
+
 function previewText(item: EvidenceItem): string {
   const pretty = JSON.stringify(item.data, null, 2);
   if (pretty.length <= PREVIEW_CHARS) return pretty;
@@ -123,6 +131,11 @@ export function EvidenceCards({
                     </button>
                   )}
                 </div>
+                {dataWarnings(item).map((w, i) => (
+                  <p key={i} className="warn ev-warning">
+                    {w}
+                  </p>
+                ))}
                 {item.error ? (
                   <p className="item-error">Collection error: {item.error}</p>
                 ) : superseded.has(item.id) ? (

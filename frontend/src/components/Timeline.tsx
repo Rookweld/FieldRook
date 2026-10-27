@@ -80,9 +80,12 @@ function RecordItem({ record }: { record: ActivityRecord }) {
       <div className="tl-body">
         <div className="tl-title">
           <span className="tl-seq">#{record.seq}</span> {record.title}
-          {record.duration_ms !== null && record.duration_ms !== undefined && (
-            <span className="muted"> ({record.duration_ms}ms)</span>
-          )}
+          {record.duration_ms !== null &&
+            record.duration_ms !== undefined &&
+            // M011: several producers already end the title with "Nms".
+            !record.title.includes(`${record.duration_ms}ms`) && (
+              <span className="muted"> ({record.duration_ms}ms)</span>
+            )}
         </div>
         {record.detail && <p className="tl-detail">{record.detail}</p>}
         {record.evidence_ids.length > 0 && (

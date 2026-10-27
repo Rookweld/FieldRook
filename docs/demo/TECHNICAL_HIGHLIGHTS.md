@@ -82,3 +82,16 @@ technician-attested cause counts as confirmed. Rechecks re-run stored
 criteria on demand and report CONFIRMED, REGRESSION, or INCONCLUSIVE —
 nothing monitors in the background, and the library never leaves localhost
 except as a short technician-initiated hypothesis prompt.
+
+## 9. Pilot-hardened honesty (M011)
+
+The technician pilot ran the product against genuine Windows data and
+fixed what broke: bare-hex error codes as Windows spells them
+(`80073d02`, no `0x`) now decode instead of failing; truncation and
+fixture-fallback warnings render on the evidence card instead of hiding
+in the JSON; timeline durations render once. The ambiguous-symptom
+trial is the honest-uncertainty story told with real data: six live
+tool calls, two truncated readings, and a low-confidence "undetermined"
+whose missing-evidence list names the truncation as the blocker. Live
+latency measured 11–42s per investigation with zero bad citations
+(see `docs/pilot/M011_PILOT.md`).

@@ -1,5 +1,23 @@
 # FieldRook Diagnostic Gauntlet — Evaluation Report
 
+## M011 update (2026-10-27) — read this first
+
+M011 added no gauntlet cases (a live-validation milestone), so the
+suite stays at **47 cases**. The pilot's backend fix (bare-hex error
+codes) is covered by the pytest
+`test_bare_hex_spelling_decodes_like_prefixed`, which pins both the new
+acceptance (`80073d02` → `0x80073D02`) and the unchanged rejections
+(`bogus`, out-of-range, empty). The live pilot itself — nine
+fixture-free `muse-spark-1.3` operations on real Windows data — is
+reported separately in `docs/pilot/M011_PILOT.md`, which keeps genuine
+Windows findings apart from gauntlet scores.
+
+**Measured M011 results: 47/47 evaluated cases passed (37 fixture/tool +
+10 live-model).** Raw JSON:
+`backend/eval/results/20261027T125857Z.json` (gitignored; re-run with
+`python -m eval.run [--live]` from `backend/`). Exit code was 0 this
+round; the M010 exit-flicker did not reproduce.
+
 ## M010 update (2026-10-27) — read this first
 
 M010 added no gauntlet cases (a polish milestone, not a feature

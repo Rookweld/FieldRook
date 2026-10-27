@@ -80,7 +80,7 @@ export function App() {
         )}
       </main>
       <footer className="footer">
-        <span>FieldRook Milestone 009 · Diagnose. Verify. Resolve.</span>
+        <span>FieldRook Milestone 011 · Diagnose. Verify. Resolve.</span>
       </footer>
     </div>
   );

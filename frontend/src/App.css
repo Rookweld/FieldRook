@@ -184,6 +184,10 @@ body {
   font-size: 0.86rem;
 }
 
+.ev-warning {
+  margin: 0.4rem 0 0;
+}
+
 .controls {
   display: flex;
   gap: 1rem;

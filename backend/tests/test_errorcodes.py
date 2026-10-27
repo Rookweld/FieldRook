@@ -25,6 +25,19 @@ def test_hex_string_and_negative_forms() -> None:
     assert interpret(5)["name"] == "ERROR_ACCESS_DENIED"
 
 
+def test_bare_hex_spelling_decodes_like_prefixed() -> None:
+    # M011: live pilot — the model passed "80073d02" exactly as Windows
+    # logs spell it; the tool advertised hex but rejected it.
+    pilot = interpret("80073d02")
+    assert pilot["hex"] == "0x80073D02"
+    assert pilot["family"] == "hresult"
+    assert pilot["win32_code"] == 0x3D02
+    assert pilot["name"] is None  # outside the curated table: not guessed
+    assert interpret("c0000005")["hex"] == interpret("0xC0000005")["hex"]
+    # All-digit input still reads decimal first (no reinterpretation).
+    assert interpret("80070005")["unsigned"] == 80070005
+
+
 def test_unknown_codes_not_guessed() -> None:
     decoded = interpret(999999)
     assert decoded["name"] is None

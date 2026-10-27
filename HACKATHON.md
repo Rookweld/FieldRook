@@ -29,6 +29,7 @@ timestamps preserved; history has not been rewritten):
 | `459583c` | 2026-10-27 | docs(fieldrook): showcase real workstation screenshots |
 | `b9fd710` | 2026-10-27 | feat(fieldrook): milestone 005 proof of value |
 | `814c03b` | 2026-10-27 | feat(fieldrook): milestone 006 the field technician |
+| `d29b41a` | 2026-10-27 | feat(fieldrook): milestone 010 reality check |
 
 Milestone 001 (first diagnosis slice), Milestone 002 (natural-language
 intake, screenshot understanding, tool-calling investigations, follow-ups),
@@ -55,7 +56,9 @@ Milestone 010 (full product audit with ten fixed findings, five measured
 field trials, plan-aware header and clickable stage stepper,
 historical-evidence collapsing, plan timeline rounds, badge tooltips,
 debounced search, visible keyboard focus, before/after screenshots,
-47-case gauntlet re-measured) were all
+47-case gauntlet re-measured), and Milestone 011 (live technician
+pilot on genuine Windows data, four pilot defects fixed, first-run
+guide and acceptance checklist, 47-case gauntlet re-measured) were all
 designed and implemented during the event.
 
 ## Meta Muse Spark integration
