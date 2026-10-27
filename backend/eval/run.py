@@ -539,7 +539,14 @@ def main() -> int:
     parser.add_argument("--results-dir", default=str(Path(__file__).resolve().parent / "results"))
     args = parser.parse_args()
 
-    live_key = os.environ.get("MODEL_API_KEY") or load_settings().model_api_key
+    # Default gauntlet runs are guaranteed offline even if root .env has a key.
+    if not args.live:
+        os.environ["FIELDROOK_OFFLINE"] = "1"
+    settings = load_settings()
+    if args.live and settings.offline_mode:
+        print("Cannot run --live: FIELDROOK_OFFLINE is enabled.")
+        return 2
+    live_key = os.environ.get("MODEL_API_KEY") or settings.model_api_key
     if args.live and not live_key:
         print("LIVE mode requested but no MODEL_API_KEY resolves (env or .env). Aborting.")
         return 2

@@ -38,6 +38,7 @@ export default defineConfig({
       reuseExistingServer: false,
       env: {
         MODEL_API_KEY: "",
+        FIELDROOK_OFFLINE: "1",
         FIELDROOK_FIXTURES: "always",
         FIELDROOK_FIXTURE_WORKER: "failing",
         FIELDROOK_DB_PATH: path.join(resultsDir, "e2e.db"),

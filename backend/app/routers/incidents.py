@@ -43,8 +43,9 @@ async def analyze_incident(request: AnalyzeRequest) -> IncidentAssessment:
     warnings: list[str] = []
     provider, mode = select_provider(settings)
     if mode == "simulated":
+        reason = "FIELDROOK_OFFLINE is enabled" if settings.offline_mode else "MODEL_API_KEY is not set"
         warnings.append(
-            "MODEL_API_KEY is not set: returning clearly labeled simulated analysis "
+            f"{reason}: returning clearly labeled simulated analysis "
             "(no live Meta API call was made)."
         )
     try:

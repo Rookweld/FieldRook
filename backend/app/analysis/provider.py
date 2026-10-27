@@ -27,6 +27,8 @@ class MetaModelProvider:
     ) -> dict[str, Any]:
         """One chat turn, optionally with tool definitions. Returns the assistant message."""
         settings = self._settings
+        if settings.offline_mode:
+            raise ModelAnalysisError("FIELDROOK_OFFLINE is enabled; live model calls are forbidden.")
         if not settings.model_api_key:
             raise ModelAnalysisError("MODEL_API_KEY is not set.")
         url = settings.model_base_url.rstrip("/") + "/chat/completions"
@@ -88,6 +90,6 @@ class SimulatedProvider:
 
 
 def select_provider(settings: Settings) -> tuple[MetaModelProvider | SimulatedProvider, AnalysisMode]:
-    if settings.model_api_key:
+    if settings.model_api_key and not settings.offline_mode:
         return MetaModelProvider(settings), "live"
     return SimulatedProvider(settings), "simulated"

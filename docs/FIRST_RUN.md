@@ -14,6 +14,13 @@ you explicitly approve the one demo action.
   it, FieldRook uses clearly labeled deterministic simulated analysis —
   everything still works.
 
+**Safe offline testing:** In the PowerShell window that starts your backend,
+run `$env:FIELDROOK_OFFLINE='1'` first. This explicitly forbids all Meta
+model calls even if the repository's `.env` contains a live API key.
+Remove that environment variable in your operator session when you
+intentionally want live Muse Spark analysis. This only gates model calls;
+Windows diagnostic source selection is controlled separately.
+
 ## 2. Start the backend
 
 ```powershell

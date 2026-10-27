@@ -32,6 +32,12 @@ def _load_dotenv_file(path: Path) -> None:
             os.environ[key] = value
 
 
+def offline_requested() -> bool:
+    """Fail closed for explicit offline/test mode, regardless of .env credentials."""
+    value = os.environ.get("FIELDROOK_OFFLINE", "").strip().lower()
+    return value not in ("", "0", "false", "no", "off")
+
+
 def _as_float(name: str, default: float) -> float:
     try:
         return float(os.environ.get(name, default))
@@ -48,15 +54,19 @@ class Settings:
     command_timeout_s: float
     model_timeout_s: float
     evidence_ttl_s: float = 900.0
+    offline_mode: bool = False
 
 
 def load_settings() -> Settings:
-    project_root = Path(__file__).resolve().parents[2]
-    _load_dotenv_file(project_root / ".env")
+    offline_mode = offline_requested()
+    # In offline mode never even consult the operator's root .env.
+    if not offline_mode:
+        project_root = Path(__file__).resolve().parents[2]
+        _load_dotenv_file(project_root / ".env")
     fixtures_mode = os.environ.get("FIELDROOK_FIXTURES", "auto").strip().lower()
     if fixtures_mode not in ("auto", "always", "never"):
         fixtures_mode = "auto"
-    raw_key = os.environ.get("MODEL_API_KEY", "").strip()
+    raw_key = "" if offline_mode else os.environ.get("MODEL_API_KEY", "").strip()
     return Settings(
         model_api_key=raw_key or None,
         model_base_url=os.environ.get("MODEL_BASE_URL", DEFAULT_MODEL_BASE_URL).strip()
@@ -66,4 +76,5 @@ def load_settings() -> Settings:
         command_timeout_s=_as_float("FIELDROOK_CMD_TIMEOUT_S", 30.0),
         model_timeout_s=_as_float("FIELDROOK_MODEL_TIMEOUT_S", 60.0),
         evidence_ttl_s=_as_float("FIELDROOK_EVIDENCE_TTL_S", 900.0),
+        offline_mode=offline_mode,
     )

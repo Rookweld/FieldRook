@@ -645,8 +645,12 @@ async def _run_simulated(
     state.mode = "simulated"
     state.model = SIMULATED_MODEL_NAME
     state.status = "complete"
-    if not any("MODEL_API_KEY" in warning for warning in state.warnings):
-        state.warnings.append("MODEL_API_KEY is not set: simulated analysis over fixture evidence (no live Meta API call was made).")
+    if settings.offline_mode:
+        warning = "FIELDROOK_OFFLINE is enabled: simulated analysis over fixture evidence (no live Meta API call was made)."
+    else:
+        warning = "MODEL_API_KEY is not set: simulated analysis over fixture evidence (no live Meta API call was made)."
+    if not any("MODEL_API_KEY" in w or "FIELDROOK_OFFLINE" in w for w in state.warnings):
+        state.warnings.append(warning)
     state.add_activity("done", "Simulated investigation complete", state.assessment.summary[:300])
 
 
