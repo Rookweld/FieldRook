@@ -7,7 +7,13 @@ from typing import Any
 
 from pydantic import ValidationError
 
-from ..schemas import AnalysisMode, AnalysisResult, DiagnosticBundle, ProposedAction
+from ..schemas import (
+    AnalysisMode,
+    AnalysisResult,
+    DiagnosticBundle,
+    ProposedAction,
+    RunbookStep,
+)
 
 
 class ModelAnalysisError(RuntimeError):
@@ -20,9 +26,10 @@ REQUIRED_KEYS = (
     "causes",
     "uncertainties",
     "missing_evidence",
-    "next_actions",
     "explanation",
 )
+
+MAX_RUNBOOK_STEPS = 8
 
 
 def _extract_json(raw: str) -> dict[str, Any]:
@@ -43,6 +50,33 @@ def _extract_json(raw: str) -> dict[str, Any]:
     return data
 
 
+def _parse_runbook_steps(raw: Any) -> tuple[list[RunbookStep], list[str]]:
+    """Parse optional structured next steps leniently.
+
+    Guidance must never sink an assessment: malformed entries are dropped
+    with a warning instead of failing validation.
+    """
+    if raw is None:
+        return [], []
+    if not isinstance(raw, list):
+        return [], ["Dropped malformed next_steps (not a list); kept next_actions text."]
+    steps: list[RunbookStep] = []
+    dropped = 0
+    for entry in raw[:MAX_RUNBOOK_STEPS]:
+        if isinstance(entry, str):
+            entry = {"step": entry}
+        try:
+            steps.append(RunbookStep.model_validate(entry))
+        except ValidationError:
+            dropped += 1
+    warnings: list[str] = []
+    if isinstance(raw, list) and len(raw) > MAX_RUNBOOK_STEPS:
+        warnings.append(f"Kept the first {MAX_RUNBOOK_STEPS} runbook steps; dropped the rest.")
+    if dropped:
+        warnings.append(f"Dropped {dropped} malformed runbook step(s).")
+    return steps, warnings
+
+
 def validate_assessment_output(
     raw: str, known_ids: set[str], model: str, mode: AnalysisMode
 ) -> AnalysisResult:
@@ -51,6 +85,12 @@ def validate_assessment_output(
     missing = [key for key in REQUIRED_KEYS if key not in data]
     if missing:
         raise ModelAnalysisError(f"Model output is missing keys: {', '.join(missing)}.")
+    if "next_actions" not in data and "next_steps" not in data:
+        raise ModelAnalysisError("Model output needs next_actions or next_steps guidance.")
+    steps, step_warnings = _parse_runbook_steps(data.get("next_steps"))
+    actions = data.get("next_actions")
+    if actions is None:
+        actions = [step.step for step in steps]
     try:
         result = AnalysisResult(
             summary=data["summary"],
@@ -58,13 +98,15 @@ def validate_assessment_output(
             causes=data["causes"],
             uncertainties=data["uncertainties"],
             missing_evidence=data["missing_evidence"],
-            next_actions=data["next_actions"],
+            next_actions=actions,
+            next_steps=steps,
             explanation=data["explanation"],
             mode=mode,
             model=model,
         )
     except ValidationError as exc:
         raise ModelAnalysisError(f"Model output failed schema validation: {exc}") from exc
+    result.validation_warnings.extend(step_warnings)
 
     dropped: list[str] = []
     for fact in result.facts:
@@ -75,6 +117,10 @@ def validate_assessment_output(
         kept = [eid for eid in cause.evidence_ids if eid in known_ids]
         dropped.extend(eid for eid in cause.evidence_ids if eid not in known_ids)
         cause.evidence_ids = kept
+    for step in result.next_steps:
+        kept = [eid for eid in step.evidence_ids if eid in known_ids]
+        dropped.extend(eid for eid in step.evidence_ids if eid not in known_ids)
+        step.evidence_ids = kept
     if dropped:
         unique = ", ".join(sorted(set(dropped)))
         result.validation_warnings.append(

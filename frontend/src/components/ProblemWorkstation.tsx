@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ApiError,
+  addInvestigationNote,
   followUpInvestigation,
   listServices,
   startInvestigation,
@@ -10,9 +11,31 @@ import { ActionCenter } from "./ActionCenter";
 import { DiagnosisPanel } from "./DiagnosisPanel";
 import { StageStepper, resolutionOf, stageOf } from "./WorkflowStage";
 import { EvidenceCards } from "./EvidenceCards";
+import { OverviewPanel } from "./OverviewPanel";
 import { Timeline } from "./Timeline";
 
 const MAX_FILE_BYTES = 5 * 1024 * 1024;
+
+const PRESETS: { id: string; label: string; template: string }[] = [
+  {
+    id: "app",
+    label: "Application problem",
+    template:
+      "The application <name> <crashes on launch / freezes / shows an error>.\nWhat happens: \nWhen it started: \nExact error text or code: ",
+  },
+  {
+    id: "network",
+    label: "Network problem",
+    template:
+      "Network problem: <no connectivity / VPN drops / DNS fails>.\nWhat happens: \nWired or Wi-Fi: \nAffected sites or hosts: ",
+  },
+  {
+    id: "windows",
+    label: "Windows / background process",
+    template:
+      "Windows background problem: <recurring window / service issue / scheduled task>.\nWhat happens: \nHow often: \nWhen it started: ",
+  },
+];
 
 export function ProblemWorkstation({
   initial,
@@ -26,7 +49,8 @@ export function ProblemWorkstation({
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [consent, setConsent] = useState<boolean>(false);
   const [useFixtures, setUseFixtures] = useState<boolean>(false);
-  const [busy, setBusy] = useState<null | "investigating" | "followup">(null);
+  const [busy, setBusy] = useState<null | "investigating" | "followup" | "note">(null);
+  const [noteText, setNoteText] = useState<string>("");
   const [investigation, setInvestigation] = useState<InvestigationResponse | null>(
     initial ?? null,
   );
@@ -144,6 +168,28 @@ export function ProblemWorkstation({
     }
   }, [investigation, followup, busy]);
 
+  const saveNote = useCallback(async (): Promise<void> => {
+    if (!investigation || !noteText.trim() || busy) return;
+    setError(null);
+    setBusy("note");
+    try {
+      const result = await addInvestigationNote(
+        investigation.investigation_id,
+        noteText.trim(),
+      );
+      setInvestigation(result);
+      setNoteText("");
+    } catch (e) {
+      if (e instanceof ApiError) {
+        setError(`Saving note failed (HTTP ${e.status}): ${e.message}`);
+      } else {
+        setError(e instanceof Error ? e.message : String(e));
+      }
+    } finally {
+      setBusy(null);
+    }
+  }, [investigation, noteText, busy]);
+
   return (
     <>
       {error && (
@@ -162,6 +208,20 @@ export function ProblemWorkstation({
             <span className="eyebrow">Stage 1 — Investigate</span>New investigation
           </h2>
           <span className="muted">describe the problem — service optional</span>
+        </div>
+        <div className="preset-row" role="group" aria-label="Investigation templates">
+          {PRESETS.map((preset) => (
+            <button
+              key={preset.id}
+              type="button"
+              className="preset-button"
+              onClick={() => setProblem(preset.template)}
+              disabled={busy !== null}
+            >
+              {preset.label}
+            </button>
+          ))}
+          <span className="muted">templates — or describe the problem free-form</span>
         </div>
         <label className="field">
           <span>Problem description</span>
@@ -287,6 +347,7 @@ export function ProblemWorkstation({
             ))}
           </section>
 
+          <OverviewPanel investigation={investigation} onEvidenceClick={setSelectedEvidence} />
           <Timeline activity={investigation.activity} />
           <EvidenceCards
             evidence={investigation.evidence}
@@ -327,6 +388,50 @@ export function ProblemWorkstation({
               Ticket-ready report: summary, timeline, evidence, proposals, approvals, execution
               records, and the verified outcome.
             </p>
+          </section>
+
+          <section className="card">
+            <div className="card-head">
+              <h2>Technician notes</h2>
+              <span className="muted">
+                {investigation.notes.length} saved &middot; included in exports
+              </span>
+            </div>
+            {investigation.notes.length === 0 && (
+              <p className="muted">
+                No notes yet. Record onsite observations, user statements, or comparisons
+                between investigation rounds.
+              </p>
+            )}
+            <ul className="notes">
+              {investigation.notes.map((note) => (
+                <li key={note.note_id}>
+                  <span className="muted">{new Date(note.created_at).toLocaleString()}</span>
+                  <p>{note.text}</p>
+                </li>
+              ))}
+            </ul>
+            <label className="field">
+              <span>Add a note</span>
+              <textarea
+                className="problem"
+                rows={2}
+                maxLength={2000}
+                placeholder="14:05 — user showed the error dialog; screenshot attached to the ticket."
+                value={noteText}
+                onChange={(e) => setNoteText(e.target.value)}
+                disabled={busy !== null}
+              />
+            </label>
+            <div className="controls">
+              <button
+                className="button"
+                onClick={() => void saveNote()}
+                disabled={busy !== null || !noteText.trim()}
+              >
+                {busy === "note" ? "Saving…" : "Save note"}
+              </button>
+            </div>
           </section>
 
           <section className="card">

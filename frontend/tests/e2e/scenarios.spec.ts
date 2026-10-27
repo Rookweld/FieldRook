@@ -10,9 +10,17 @@ test("scenario A: phantom task finding stays suspicious-but-unverified", async (
   await page.getByText("Force fixture data").click();
   await page.getByRole("button", { name: "Investigate", exact: true }).click();
 
-  await expect(page.getByText(/matches the reported cadence/)).toBeVisible({
+  const diagnosis = page.locator("section", {
+    has: page.getByRole("heading", { name: "Diagnosis", exact: true }),
+  });
+  await expect(diagnosis.getByText(/matches the reported cadence/)).toBeVisible({
     timeout: 30000,
   });
+  // The incident overview surfaces the same leading hypothesis.
+  const overview = page.locator("section", {
+    has: page.getByRole("heading", { name: "Incident overview", exact: true }),
+  });
+  await expect(overview.getByText(/matches the reported cadence/)).toBeVisible();
   await expect(
     page.getByText(/FieldRookDemoPhantom.*has window-hiding text/),
   ).toBeVisible();

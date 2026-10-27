@@ -150,6 +150,58 @@ def test_citation_repair_round_demands_evidence_refs() -> None:
     assert "Requesting evidence citations" in titles
 
 
+def test_same_round_duplicate_call_answered_once() -> None:
+    provider = _ScriptedProvider(
+        [
+            {
+                "role": "assistant",
+                "content": "",
+                "tool_calls": [
+                    {"id": "c1", "type": "function", "function": {"name": "get_os_info", "arguments": "{}"}},
+                    {"id": "c2", "type": "function", "function": {"name": "get_os_info", "arguments": "{}"}},
+                    {"id": "c3", "type": "function", "function": {"name": "get_dns_config", "arguments": "{}"}},
+                ],
+            },
+            {"role": "assistant", "content": _assessment_json(["ev-1"]), "tool_calls": []},
+        ]
+    )
+    state = _state()
+    asyncio.run(_run_live(state, provider, _settings(), True, max_new_calls=4))  # type: ignore[arg-type]
+    assert state.tool_calls_made == 2
+    tool_messages = {m["tool_call_id"]: json.loads(m["content"]) for m in state.messages if m.get("role") == "tool"}
+    assert set(tool_messages) == {"c1", "c2", "c3"}
+    assert tool_messages["c2"]["duplicate_of"] == "ev-1"
+    titles = [record.title for record in state.activity]
+    assert "Duplicate get_os_info skipped" in titles
+
+
+def test_duplicate_scope_resets_each_round() -> None:
+    provider = _ScriptedProvider(
+        [
+            {
+                "role": "assistant",
+                "content": "",
+                "tool_calls": [
+                    {"id": "c1", "type": "function", "function": {"name": "get_os_info", "arguments": "{}"}},
+                ],
+            },
+            {
+                "role": "assistant",
+                "content": "",
+                "tool_calls": [
+                    {"id": "c2", "type": "function", "function": {"name": "get_os_info", "arguments": "{}"}},
+                ],
+            },
+            {"role": "assistant", "content": _assessment_json(["ev-2"]), "tool_calls": []},
+        ]
+    )
+    state = _state()
+    asyncio.run(_run_live(state, provider, _settings(), True, max_new_calls=4))  # type: ignore[arg-type]
+    assert state.tool_calls_made == 2
+    tool_messages = {m["tool_call_id"]: json.loads(m["content"]) for m in state.messages if m.get("role") == "tool"}
+    assert "duplicate_of" not in tool_messages["c2"]
+
+
 def test_tool_messages_carry_evidence_ids() -> None:
     provider = _ScriptedProvider(
         [

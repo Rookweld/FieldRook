@@ -16,7 +16,16 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-DB_VERSION = 1
+DB_VERSION = 2
+
+_SCHEMA_V2 = """
+CREATE TABLE IF NOT EXISTS notes (
+    note_id TEXT PRIMARY KEY,
+    inv_id TEXT NOT NULL,
+    text TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+"""
 
 _SCHEMA_V1 = """
 CREATE TABLE IF NOT EXISTS investigations (
@@ -121,6 +130,9 @@ def _migrate(conn: sqlite3.Connection) -> None:
     if version < 1:
         conn.executescript(_SCHEMA_V1)
         conn.execute("PRAGMA user_version = 1")
+    if version < 2:
+        conn.executescript(_SCHEMA_V2)
+        conn.execute("PRAGMA user_version = 2")
     conn.commit()
 
 
@@ -253,6 +265,12 @@ def save_state(state: Any) -> None:
                     proposal.approval_digest,
                 ),
             )
+        conn.execute("DELETE FROM notes WHERE inv_id = ?", (state.id,))
+        for note in getattr(state, "notes", []) or []:
+            conn.execute(
+                "INSERT INTO notes (note_id, inv_id, text, created_at) VALUES (?, ?, ?, ?)",
+                (note.note_id, state.id, note.text, _iso(note.created_at)),
+            )
         for execution in state.executions:
             conn.execute(
                 "INSERT INTO executions (execution_id, proposal_id, before_json, after_json, outcome,"
@@ -289,7 +307,14 @@ def _parse_dt(text: str | None) -> datetime:
 
 
 def load_state(investigation_id: str) -> Any | None:
-    from ..schemas import ActionExecution, ActionProposal, ActivityRecord, AnalysisResult, EvidenceItem
+    from ..schemas import (
+        ActionExecution,
+        ActionProposal,
+        ActivityRecord,
+        AnalysisResult,
+        EvidenceItem,
+        TechnicianNote,
+    )
     from .store import InvestigationState
 
     conn = _connect()
@@ -379,6 +404,16 @@ def load_state(investigation_id: str) -> Any | None:
                 (investigation_id,),
             ).fetchall()
         ]
+        notes = [
+            TechnicianNote(
+                note_id=n["note_id"],
+                text=n["text"] or "",
+                created_at=_parse_dt(n["created_at"]),
+            )
+            for n in conn.execute(
+                "SELECT * FROM notes WHERE inv_id = ? ORDER BY rowid", (investigation_id,)
+            ).fetchall()
+        ]
         return InvestigationState(
             id=row["id"],
             problem=row["problem"],
@@ -387,6 +422,7 @@ def load_state(investigation_id: str) -> Any | None:
             messages=messages,
             evidence=evidence,
             activity=activity,
+            notes=notes,
             assessment=AnalysisResult.model_validate_json(assessment_row["assessment_json"])
             if assessment_row
             else None,

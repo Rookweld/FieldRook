@@ -36,6 +36,9 @@ def test_json_export_is_structured() -> None:
     assert data["investigation_id"] == inv_id
     assert "evidence" in data and "activity" in data
     assert "proposals" in data and "executions" in data
+    assert "notes" in data
+    assert "next_steps" in data["assessment"]
+    assert data["assessment"]["next_steps"]
     assert "exported_at" in data
 
 

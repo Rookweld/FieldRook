@@ -41,6 +41,24 @@ export interface RootCause {
   evidence_ids: string[];
 }
 
+export type StepImpact = "read-only" | "changes-system" | "unknown";
+
+export interface RunbookStep {
+  step: string;
+  why: string;
+  evidence_ids: string[];
+  inspect: string;
+  confirms: string;
+  impact: StepImpact;
+  admin_maybe: boolean;
+}
+
+export interface TechnicianNote {
+  note_id: string;
+  text: string;
+  created_at: string;
+}
+
 export interface AnalysisResult {
   summary: string;
   facts: ObservedFact[];
@@ -48,6 +66,7 @@ export interface AnalysisResult {
   uncertainties: string[];
   missing_evidence: string[];
   next_actions: string[];
+  next_steps: RunbookStep[];
   explanation: string;
   mode: "live" | "simulated";
   model: string;
@@ -159,6 +178,7 @@ export interface InvestigationResponse {
   has_screenshot: boolean;
   proposals: ActionProposal[];
   executions: ActionExecution[];
+  notes: TechnicianNote[];
 }
 
 export interface InvestigationSummary {

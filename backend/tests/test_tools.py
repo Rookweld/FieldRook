@@ -42,10 +42,14 @@ def _run(name: str, args_dict: dict) -> tuple[ToolOutput, int]:
     return asyncio.run(execute_prepared(spec, args, _ctx()))
 
 
-def test_registry_has_eleven_read_only_tools() -> None:
-    assert len(REGISTRY) == 11
+def test_registry_has_fourteen_labeled_tools() -> None:
+    assert len(REGISTRY) == 14
     for spec in REGISTRY.values():
-        assert "(read-only" in spec.description
+        read_only = "(read-only" in spec.description
+        active = "ACTIVE TEST" in spec.description
+        assert read_only != active, f"{spec.name}: exactly one of read-only/ACTIVE TEST"
+        if active:
+            assert "Changes nothing" in spec.description
 
 
 def test_tool_schemas_are_openai_shaped() -> None:
@@ -325,3 +329,150 @@ def test_result_truncation_marks_oversize_data() -> None:
     assert was_truncated is True
     assert big["_truncated"] is True
     assert len(big["preview"]) == MAX_RESULT_CHARS
+
+
+def test_crash_search_fixture_shapes() -> None:
+    output, _ = _run("search_application_crashes", {})
+    assert output.error is None
+    assert output.data["scanned"] == 5
+    assert output.data["matched"] == 5
+    first = output.data["crashes"][0]
+    assert first["id"] == 1000
+    assert first["app_name"] == "EXCEL.EXE"
+    assert first["faulting_module"] == "KERNELBASE.dll"
+    assert first["exception_code"] == "0xc0000005"
+
+
+def test_crash_search_filters_by_app() -> None:
+    output, _ = _run("search_application_crashes", {"app_name": "excel"})
+    assert output.error is None
+    assert output.data["matched"] == 1
+    assert output.data["crashes"][0]["app_name"] == "EXCEL.EXE"
+    empty, _ = _run("search_application_crashes", {"app_name": "no-such-app"})
+    assert empty.error is None
+    assert empty.data["matched"] == 0
+    assert empty.data["scanned"] == 5
+
+
+def test_crash_search_rejects_bad_app_name() -> None:
+    output, _ = _run("search_application_crashes", {"app_name": "a;rm"})
+    assert output.error is not None
+    assert "Invalid application name" in output.error
+
+
+def test_crash_search_bounded() -> None:
+    output, _ = _run("search_application_crashes", {"max_events": 5})
+    assert output.error is None
+    assert len(output.data["crashes"]) <= 5
+    with pytest.raises(ToolCallError):
+        prepare_call("search_application_crashes", {"hours": 500})
+
+
+def test_process_lookup_by_name_and_pid() -> None:
+    by_name, _ = _run("get_process_info", {"name": "EXCEL.EXE"})
+    assert by_name.error is None
+    assert by_name.data["found"] is True
+    assert by_name.data["processes"][0]["pid"] == 1234
+    assert "CommandLine" not in str(by_name.data)
+    assert "command_line" not in str(by_name.data).lower()
+    by_pid, _ = _run("get_process_info", {"pid": 5678})
+    assert by_pid.error is None
+    assert by_pid.data["processes"][0]["name"] == "svchost.exe"
+    assert by_pid.data["services"][0]["name"] == "wuauserv"
+
+
+def test_process_lookup_requires_exactly_one_selector() -> None:
+    neither, _ = _run("get_process_info", {})
+    assert neither.error is not None
+    both, _ = _run("get_process_info", {"name": "EXCEL.EXE", "pid": 1234})
+    assert both.error is not None
+    mixed, _ = _run("get_process_info", {"pid": 1234, "service_name": "wuauserv"})
+    assert mixed.error is not None
+    assert "exactly one" in mixed.error
+    missing, _ = _run("get_process_info", {"name": "no-such-proc"})
+    assert missing.error is None
+    assert missing.data["found"] is False
+
+
+def test_process_lookup_by_service_name() -> None:
+    hosted, _ = _run("get_process_info", {"service_name": "wuauserv"})
+    assert hosted.error is None
+    assert hosted.data["found"] is True
+    assert hosted.data["processes"][0]["name"] == "svchost.exe"
+    assert hosted.data["service"]["name"] == "wuauserv"
+    assert hosted.data["service"]["pid"] == 5678
+    stopped, _ = _run("get_process_info", {"service_name": "XblGameSave"})
+    assert stopped.error is None
+    assert stopped.data["found"] is False
+    assert stopped.data["service"]["pid"] is None
+    assert "XblGameSave" in stopped.summary
+
+
+def test_process_lookup_rejects_bad_service_name() -> None:
+    output, _ = _run("get_process_info", {"service_name": "bad;name"})
+    assert output.error is not None
+
+
+def test_uptime_parses_powershell_json_dates() -> None:
+    from app.diagnostics.windows_proc import _uptime_seconds
+
+    # ConvertTo-Json shape seen on live Windows (field finding, M006).
+    live = _uptime_seconds("/Date(1792040144216)/")
+    assert live is not None and live > 0
+    cim = _uptime_seconds("20261026081500.000000+060")
+    assert cim is not None and cim > 0
+    assert _uptime_seconds("") is None
+    assert _uptime_seconds("not a date") is None
+    assert _uptime_seconds("/Date(99999999999999)/") is None  # far future
+
+
+def test_summarize_process_keeps_raw_started_without_command_line() -> None:
+    from app.diagnostics.windows_proc import _summarize_process
+
+    summary = _summarize_process(
+        {
+            "ProcessId": 2892,
+            "Name": "svchost.exe",
+            "ExecutablePath": None,
+            "CreationDate": "/Date(1792040144216)/",
+            "WorkingSetSize": 11639194,
+        }
+    )
+    assert summary["pid"] == 2892
+    assert summary["uptime_s"] is not None and summary["uptime_s"] > 0
+    assert summary["executable_path"] == ""
+    assert summary["memory_mb"] == round(11639194 / (1024 * 1024), 1)
+
+
+def test_process_lookup_rejects_bad_name() -> None:
+    output, _ = _run("get_process_info", {"name": "x|y"})
+    assert output.error is not None
+
+
+def test_dns_resolution_fixture_shapes() -> None:
+    output, _ = _run("test_dns_resolution", {"hostname": "example.com"})
+    assert output.error is None
+    assert output.data["succeeded"] is True
+    assert output.data["addresses"] == ["93.184.216.34"]
+    assert "active" in output.summary
+    missing, _ = _run("test_dns_resolution", {"hostname": "unknown.invalid"})
+    assert missing.error is None
+    assert missing.data["succeeded"] is False
+    assert missing.data["error"] is not None
+
+
+def test_dns_resolution_rejects_bad_hostname() -> None:
+    for bad in ("has space.com", "semi;colon", "-leading.com"):
+        output, _ = _run("test_dns_resolution", {"hostname": bad})
+        assert output.error is not None, bad
+    for bad in ("", "toolong" * 40 + ".com"):
+        with pytest.raises(ToolCallError):
+            prepare_call("test_dns_resolution", {"hostname": bad})
+
+
+def test_service_details_include_dependencies() -> None:
+    output, _ = _run("get_service_details", {"name": "wuauserv"})
+    assert output.error is None
+    deps = output.data["dependencies"]
+    assert deps["required_services"] == ["rpcss"]
+    assert deps["dependent_services"] == ["BITS"]

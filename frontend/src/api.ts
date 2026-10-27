@@ -105,6 +105,20 @@ export function followUpInvestigation(
   );
 }
 
+export function addInvestigationNote(
+  id: string,
+  text: string,
+): Promise<InvestigationResponse> {
+  return request<InvestigationResponse>(
+    `/api/investigations/${encodeURIComponent(id)}/notes`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text }),
+    },
+  );
+}
+
 export function listTools(): Promise<ToolInfo[]> {
   return request<ToolInfo[]>("/api/tools");
 }

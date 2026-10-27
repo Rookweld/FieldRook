@@ -128,4 +128,44 @@ def test_migration_initializes_fresh_db(monkeypatch, tmp_path) -> None:  # type:
     finally:
         conn.close()
     assert version == persistence.DB_VERSION
-    assert {"investigations", "evidence", "proposals", "executions"} <= tables
+    assert {"investigations", "evidence", "proposals", "executions", "notes"} <= tables
+
+
+def test_notes_survive_reload() -> None:
+    state = store.create(problem="Notes probe.", service_name=None, has_image=False)
+    first = state.add_note("Checked Task Scheduler; nothing suspicious.")
+    second = state.add_note("User will send the exact error text.")
+    store.save(state)
+    reloaded = store.get(state.id)
+    assert reloaded is not None
+    assert [note.note_id for note in reloaded.notes] == [first.note_id, second.note_id]
+    assert reloaded.notes[1].text == "User will send the exact error text."
+    response = reloaded.to_response(uses_fixtures=True)
+    assert [note.text for note in response.notes] == [note.text for note in reloaded.notes]
+
+
+def test_v1_database_migrates_to_v2(monkeypatch, tmp_path) -> None:  # type: ignore[no-untyped-def]
+    legacy = tmp_path / "legacy.db"
+    monkeypatch.setenv("FIELDROOK_DB_PATH", str(legacy))
+    conn = sqlite3.connect(str(legacy))
+    try:
+        conn.executescript(persistence._SCHEMA_V1)
+        conn.execute(
+            "INSERT INTO investigations (id, problem, service_name, has_image, status, mode, model,"
+            " tool_calls_made, ev_counter, seq_counter, created_at, updated_at)"
+            " VALUES ('inv-legacy', 'Legacy probe.', NULL, 0, 'complete', 'simulated', 'm', 0, 0, 0,"
+            " '2026-10-27T00:00:00+00:00', '2026-10-27T00:00:00+00:00')"
+        )
+        conn.execute("PRAGMA user_version = 1")
+        conn.commit()
+    finally:
+        conn.close()
+    reloaded = store.get("inv-legacy")
+    assert reloaded is not None
+    assert reloaded.problem == "Legacy probe."
+    assert reloaded.notes == []
+    note = reloaded.add_note("First note after migration.")
+    store.save(reloaded)
+    again = store.get("inv-legacy")
+    assert again is not None
+    assert [n.note_id for n in again.notes] == [note.note_id]

@@ -122,11 +122,115 @@ def test_followup_continuity_reuses_evidence() -> None:
     assert body["assessment"] is not None
 
 
+def test_crash_problem_routes_to_crash_tools() -> None:
+    body = client.post(
+        "/api/investigations",
+        data={"problem": "Excel closes when I open a particular workbook."},
+    ).json()
+    tools_used = {record["tool_name"] for record in body["activity"] if record["tool_name"]}
+    assert "search_application_crashes" in tools_used
+    assert "get_connections" not in tools_used
+    assert "list_services" not in tools_used
+    assert body["assessment"]["mode"] == "simulated"
+
+
+def test_dns_problem_gets_config_plus_control_query() -> None:
+    body = client.post(
+        "/api/investigations",
+        data={"problem": "Websites fail with 'server not found' errors."},
+    ).json()
+    tools_used = {record["tool_name"] for record in body["activity"] if record["tool_name"]}
+    assert "get_dns_config" in tools_used
+    assert "test_dns_resolution" in tools_used
+    assert "get_connections" not in tools_used
+    dns_items = [item for item in body["evidence"] if item["category"] == "dns_test"]
+    assert len(dns_items) == 1
+    assert dns_items[0]["data"]["hostname"] == "example.com"
+
+
+def test_service_investigation_links_process() -> None:
+    body = client.post(
+        "/api/investigations",
+        data={"problem": "Is the Windows Update service healthy?", "service_name": "wuauserv"},
+    ).json()
+    tools_used = {record["tool_name"] for record in body["activity"] if record["tool_name"]}
+    assert "get_service_details" in tools_used
+    assert "get_process_info" in tools_used
+    proc_items = [item for item in body["evidence"] if item["category"] == "process_info"]
+    assert proc_items
+    assert proc_items[0]["data"]["service"]["name"] == "wuauserv"
+
+
+def test_followup_answered_from_existing_evidence_makes_no_calls() -> None:
+    started = client.post(
+        "/api/investigations", data={"problem": "DNS does not resolve anything."}
+    ).json()
+    before = sum(1 for record in started["activity"] if record["kind"] == "tool_request")
+    assert before == 2
+    body = client.post(
+        f"/api/investigations/{started['investigation_id']}/followup",
+        json={"message": "What did the DNS check show?"},
+    ).json()
+    after = sum(1 for record in body["activity"] if record["kind"] == "tool_request")
+    assert after == before
+    assert any(
+        record["kind"] == "note" and "Reused existing evidence" in record["title"]
+        for record in body["activity"]
+    )
+
+
 def test_followup_unknown_id_404() -> None:
     response = client.post(
         "/api/investigations/inv-doesnotexist/followup", json={"message": "hello"}
     )
     assert response.status_code == 404
+
+
+def test_add_note_persists_and_exports() -> None:
+    started = client.post(
+        "/api/investigations", data={"problem": "Noted probe problem."}
+    ).json()
+    investigation_id = started["investigation_id"]
+    assert started["notes"] == []
+    response = client.post(
+        f"/api/investigations/{investigation_id}/notes",
+        json={"text": "Onsite visit: user showed the error dialog at 14:05."},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert len(body["notes"]) == 1
+    assert body["notes"][0]["note_id"].startswith("note-")
+    assert "14:05" in body["notes"][0]["text"]
+    assert any(
+        record["kind"] == "note" and "Technician note added" in record["title"]
+        for record in body["activity"]
+    )
+    fetched = client.get(f"/api/investigations/{investigation_id}").json()
+    assert len(fetched["notes"]) == 1
+    report = client.get(f"/api/investigations/{investigation_id}/export?format=markdown")
+    assert report.status_code == 200
+    assert "## 13. Technician notes" in report.text
+    assert "14:05" in report.text
+    assert "## 12. Technician next steps" in report.text
+
+
+def test_add_note_validates_and_404s() -> None:
+    assert (
+        client.post("/api/investigations/inv-doesnotexist/notes", json={"text": "x"}).status_code
+        == 404
+    )
+    started = client.post("/api/investigations", data={"problem": "Note validation probe."}).json()
+    investigation_id = started["investigation_id"]
+    assert (
+        client.post(f"/api/investigations/{investigation_id}/notes", json={"text": ""}).status_code
+        == 422
+    )
+    assert (
+        client.post(
+            f"/api/investigations/{investigation_id}/notes", json={"text": "x" * 2001}
+        ).status_code
+        == 422
+    )
 
 
 def test_followup_empty_message_rejected() -> None:
@@ -174,7 +278,7 @@ def test_tools_endpoint_lists_registry() -> None:
     response = client.get("/api/tools")
     assert response.status_code == 200
     names = {tool["name"] for tool in response.json()}
-    assert len(names) == 11
+    assert len(names) == 14
     assert {"get_dns_config", "search_event_logs", "get_scheduled_tasks"} <= names
 
 

@@ -312,6 +312,201 @@ _FIXTURE_DEMO_WORKER: dict[str, Any] = {
 }
 
 
+_FIXTURE_CRASHES: list[dict[str, Any]] = [
+    {
+        "time_created": "2026-10-26T14:32:11",
+        "id": 1000,
+        "kind": "application_error",
+        "level": "Error",
+        "provider": "Application Error",
+        "app_name": "EXCEL.EXE",
+        "faulting_module": "KERNELBASE.dll",
+        "exception_code": "0xc0000005",
+        "fault_offset": "0x0000000000034f69",
+        "fault_pid": "0x2a41",
+        "message": "Faulting application name: EXCEL.EXE, version: 16.0.0.1. Faulting module name: KERNELBASE.dll. Exception code: 0xc0000005.",
+    },
+    {
+        "time_created": "2026-10-26T11:05:44",
+        "id": 1000,
+        "kind": "application_error",
+        "level": "Error",
+        "provider": "Application Error",
+        "app_name": "ContosoApp.exe",
+        "faulting_module": "ContosoApp.exe",
+        "exception_code": "0xe0434352",
+        "fault_offset": "0x0000000000000000",
+        "fault_pid": "0x1b22",
+        "message": "Faulting application name: ContosoApp.exe. Faulting module name: ContosoApp.exe. Exception code: 0xe0434352 (.NET runtime).",
+    },
+    {
+        "time_created": "2026-10-25T16:12:09",
+        "id": 1002,
+        "kind": "application_hang",
+        "level": "Error",
+        "provider": "Application Hang",
+        "app_name": "mscopilot_proxy.exe",
+        "faulting_module": "",
+        "exception_code": "",
+        "fault_offset": "",
+        "fault_pid": "",
+        "message": "The program mscopilot_proxy.exe stopped interacting with Windows and was closed.",
+    },
+    {
+        "time_created": "2026-10-25T09:41:52",
+        "id": 1026,
+        "kind": "runtime_fault",
+        "level": "Error",
+        "provider": ".NET Runtime",
+        "app_name": "ContosoApp.exe",
+        "faulting_module": "",
+        "exception_code": "0xe0434352",
+        "fault_offset": "",
+        "fault_pid": "",
+        "message": "Application: ContosoApp.exe. Framework Version: v4.0. Unhandled exception, process terminated.",
+    },
+    {
+        "time_created": "2026-10-26T15:00:00",
+        "id": 1001,
+        "kind": "error_report",
+        "level": "Information",
+        "provider": "Windows Error Reporting",
+        "app_name": "",
+        "faulting_module": "",
+        "exception_code": "",
+        "fault_offset": "",
+        "fault_pid": "",
+        "message": "Fault bucket 1234567890, type 5. Event Name: APPCRASH. (No faulting application parsed.)",
+    },
+]
+
+
+def search_fixture_crashes(app_name: str, hours: int, max_events: int) -> dict[str, Any]:
+    """Deterministic mirror of the live crash search over fixture data."""
+    needle = (app_name or "").strip().lower()
+    pool = [dict(item) for item in _FIXTURE_CRASHES]
+    matched = [item for item in pool if not needle or needle in item["app_name"].lower()]
+    bounded = matched[:max_events]
+    return {
+        "log": "Application",
+        "event_ids": [1000, 1001, 1002, 1026],
+        "hours": hours,
+        "completed": True,
+        "scanned": len(pool),
+        "matched": len(bounded),
+        "truncated_matches": len(matched) > len(bounded),
+        "crashes": bounded,
+    }
+
+
+_FIXTURE_PROCESSES: list[dict[str, Any]] = [
+    {
+        "pid": 1234,
+        "name": "EXCEL.EXE",
+        "executable_path": "C:\\Program Files\\Contoso\\EXCEL.EXE",
+        "started": "20261026113000.000000+060",
+        "uptime_s": 7200,
+        "memory_mb": 412.5,
+        "services": [],
+    },
+    {
+        "pid": 5678,
+        "name": "svchost.exe",
+        "executable_path": "C:\\Windows\\System32\\svchost.exe",
+        "started": "20261026081500.000000+060",
+        "uptime_s": 86400,
+        "memory_mb": 96.0,
+        "services": [
+            {"name": "wuauserv", "display_name": "Windows Update", "state": "Running"},
+        ],
+    },
+]
+
+
+def get_fixture_process(name: str, pid: int, service_name: str = "") -> dict[str, Any]:
+    """Deterministic process lookup. Exactly one of name/pid/service selects."""
+    clean_name = (name or "").strip().lower()
+    clean_service = (service_name or "").strip().lower()
+    selectors = bool(clean_name) + bool(pid) + bool(clean_service)
+    if selectors != 1:
+        raise ValueError("Provide exactly one of process name, pid, or service name.")
+    service_ctx: dict[str, Any] | None = None
+    if clean_service:
+        states = {s["name"].strip().lower(): s["status"] for s in FIXTURE_SERVICES}
+        matches = [
+            dict(p)
+            for p in _FIXTURE_PROCESSES
+            if any(s.get("name", "").lower() == clean_service for s in p["services"])
+        ]
+        service_ctx = {
+            "name": (service_name or "").strip(),
+            "state": states.get(clean_service, "Unknown"),
+            "pid": matches[0]["pid"] if matches else None,
+        }
+        if not matches:
+            return {"found": False, "processes": [], "services": [], "service": service_ctx}
+    elif pid:
+        matches = [dict(p) for p in _FIXTURE_PROCESSES if p["pid"] == pid]
+    else:
+        matches = [dict(p) for p in _FIXTURE_PROCESSES if p["name"].lower() == clean_name]
+    if not matches:
+        return {"found": False, "processes": [], "services": []}
+    services: list[dict[str, Any]] = []
+    for match in matches[:8]:
+        services.extend(match.pop("services"))
+    result: dict[str, Any] = {
+        "found": True,
+        "match_count": len(matches),
+        "truncated_matches": len(matches) > 8,
+        "processes": matches[:8],
+        "services": services,
+    }
+    if service_ctx:
+        result["service"] = service_ctx
+    return result
+
+
+_FIXTURE_DEPENDENCIES: dict[str, dict[str, list[str]]] = {
+    "wuauserv": {
+        "required_services": ["rpcss"],
+        "dependent_services": ["BITS"],
+    },
+    "bits": {
+        "required_services": ["rpcss", "EventSystem"],
+        "dependent_services": [],
+    },
+}
+
+
+def get_fixture_dependencies(name: str) -> dict[str, Any]:
+    key = (name or "").strip().lower()
+    entry = _FIXTURE_DEPENDENCIES.get(key, {"required_services": [], "dependent_services": []})
+    return {
+        "name": (name or "").strip(),
+        "required_services": list(entry["required_services"]),
+        "dependent_services": list(entry["dependent_services"]),
+    }
+
+
+_FIXTURE_RESOLUTIONS: dict[str, list[str]] = {
+    "example.com": ["93.184.216.34"],
+    "localhost": ["127.0.0.1"],
+}
+
+
+def resolve_fixture_hostname(hostname: str) -> dict[str, Any]:
+    """Deterministic mirror of the single-query DNS test."""
+    clean = (hostname or "").strip().rstrip(".")
+    addresses = _FIXTURE_RESOLUTIONS.get(clean.lower(), [])
+    return {
+        "hostname": clean,
+        "succeeded": bool(addresses),
+        "query_ms": 1,
+        "addresses": list(addresses),
+        "error": None if addresses else f"No fixture records for {clean!r}.",
+    }
+
+
 def get_fixture_demo_worker() -> dict[str, Any]:
     """Fixture worker health; FIELDROOK_FIXTURE_WORKER=failing simulates a fault."""
     import os
@@ -611,6 +806,37 @@ def _summarize_investigation_item(item: EvidenceItem) -> str:
         )
     if category == "error_code":
         return f"Error code {data.get('hex', '?')}: {data.get('name') or 'unrecognized'}."
+    if category == "app_crashes":
+        crashes = data.get("crashes", [])
+        if not crashes:
+            return f"Crash search over {data.get('hours', '?')}h: examined {data.get('scanned', 0)} entries, no matching crashes."
+        first = crashes[0]
+        extra = f" (+{len(crashes) - 1} more)" if len(crashes) > 1 else ""
+        return (
+            f"Crash search: {data.get('matched', 0)} match(es); latest is "
+            f"{first.get('app_name', '?')} ({first.get('kind', '?')} id {first.get('id', '?')}"
+            f"{', module ' + first['faulting_module'] if first.get('faulting_module') else ''}"
+            f"{', ' + first['exception_code'] if first.get('exception_code') else ''}){extra}."
+        )
+    if category == "process_info":
+        service = data.get("service") or {}
+        via = f" for service '{service['name']}'" if service else ""
+        if not data.get("found"):
+            state = f" (service state {service['state']})" if service else ""
+            return f"Process lookup{via}: no matching process is running{state}."
+        first = data["processes"][0]
+        services = data.get("services", [])
+        hosts = f", hosting {len(services)} service(s)" if services else ""
+        return (
+            f"Process {first.get('name', '?')} pid {first.get('pid', '?')} is running{via} "
+            f"({first.get('executable_path', '?')}"
+            f"{', uptime ' + str(first['uptime_s']) + 's' if first.get('uptime_s') is not None else ''}"
+            f"{', ' + str(first['memory_mb']) + ' MB' if first.get('memory_mb') is not None else ''}){hosts}."
+        )
+    if category == "dns_test":
+        if data.get("succeeded"):
+            return f"DNS test: {data.get('hostname', '?')} resolves to {', '.join(data.get('addresses', []))} ({data.get('query_ms', '?')}ms)."
+        return f"DNS test: {data.get('hostname', '?')} did not resolve ({data.get('error', 'unknown error')})."
     return f"Collected {category} evidence."
 
 
@@ -657,8 +883,41 @@ def build_simulated_investigation_analysis(
         ),
     ]
     task_items = [item for item in usable if item.category == "scheduled_tasks"]
+    crash_items = [item for item in usable if item.category == "app_crashes"]
     lowered_problem = problem.lower()
     popup_like = any(word in lowered_problem for word in ("popup", "pop-up", "pop up", "window", "flash", "powershell", "console", "minutes", "periodically"))
+    correlated: list[tuple[str, str, str]] = []
+    for item in crash_items:
+        crashes = item.data.get("crashes", [])
+        if not isinstance(crashes, list):
+            continue
+        for crash in crashes:
+            if not isinstance(crash, dict):
+                continue
+            app = str(crash.get("app_name", "") or "")
+            base = app.lower().removesuffix(".exe")
+            if len(base) >= 3 and base in lowered_problem:
+                detail = str(crash.get("exception_code", "") or crash.get("kind", "") or "")
+                correlated.append((item.id, app, detail))
+    if correlated:
+        evidence_id, app, detail = correlated[0]
+        extra = f" (+{len(correlated) - 1} more)" if len(correlated) > 1 else ""
+        causes.insert(
+            0,
+            RootCause(
+                title=f"Crash evidence names {app}",
+                description=(
+                    f"The crash search recorded {app} failing"
+                    f"{' (' + detail + ')' if detail else ''}, which matches the "
+                    "reported symptom by application name. This is correlation, not "
+                    "proof of the trigger: timestamps and user actions still need "
+                    "checking before concluding this record explains the report."
+                    f"{extra}."
+                ),
+                likelihood="medium",
+                evidence_ids=[evidence_id],
+            ),
+        )
     if popup_like and task_items:
         periodic_ids = [item.id for item in task_items if _periodic_powershell_tasks(item.data.get("tasks", []))]
         if periodic_ids:
@@ -706,11 +965,37 @@ def build_simulated_investigation_analysis(
                     "instead of guessing."
                 )
     uncertainties.extend(f"Evidence {item.id} ({item.category}) failed to collect: {item.error}" for item in failed[:3])
-    next_actions = [
-        "Re-run with live diagnostics on the affected host.",
-        "Widen the event search to the Application log and a longer window.",
-        "Collect the exact error text or code from the reporter.",
-        "Compare against a known-good host or a prior working state.",
+    from ..schemas import RunbookStep
+
+    next_steps = [
+        RunbookStep(
+            step="Re-run with live diagnostics on the affected host.",
+            why="Fixture readings stand in for the real host; only live collection can confirm host state.",
+            inspect="Run the same investigation on the affected machine with fixtures off.",
+            confirms="Live readings match the fixture pattern, or diverge and redirect the diagnosis.",
+            impact="read-only",
+        ),
+        RunbookStep(
+            step="Widen the event search to the Application log and a longer window.",
+            why="The bounded sample may have missed the failure record or the relevant log.",
+            inspect="Application and System logs around the reported failure time.",
+            confirms="A matching error near the symptom time strengthens the cause; absence keeps it unverified.",
+            impact="read-only",
+        ),
+        RunbookStep(
+            step="Collect the exact error text or code from the reporter.",
+            why="Exact messages decode deterministically; paraphrases do not.",
+            inspect="Dialog text, event IDs, and numeric codes from the symptom report.",
+            confirms="A decoded code corroborates one hypothesis over the others.",
+            impact="read-only",
+        ),
+        RunbookStep(
+            step="Compare against a known-good host or a prior working state.",
+            why="A baseline separates broken configuration from normal-for-this-host readings.",
+            inspect="Same service settings, task definitions, and adapter state on a working host.",
+            confirms="Differences isolate the suspect; identical readings weaken the hypothesis.",
+            impact="read-only",
+        ),
     ]
     suspect_tasks = sorted({
         task.get("task_name", "?")
@@ -725,14 +1010,24 @@ def build_simulated_investigation_analysis(
     })
     if suspect_tasks:
         names = ", ".join(f"'{name}'" for name in suspect_tasks[:3])
-        next_actions.insert(
+        suspect_ids = [item.id for item in task_items if _periodic_powershell_tasks(item.data.get("tasks", []))]
+        next_steps.insert(
             0,
-            f"Have a technician review scheduled task {names}: window-hiding text "
-            "sits in WorkingDirectory instead of Arguments, so the console window "
-            "may show and the directory is invalid. Move the flag into Arguments, "
-            "set a real working directory, and re-check read-only (FieldRook "
-            "cannot modify tasks).",
+            RunbookStep(
+                step=(
+                    f"Have a technician review scheduled task {names}: move the "
+                    "window-hiding flag into Arguments, set a real working directory, "
+                    "and re-check read-only (FieldRook cannot modify tasks)."
+                ),
+                why="Window-hiding text sits in WorkingDirectory instead of Arguments, so the console may show and the directory is invalid.",
+                evidence_ids=suspect_ids or [item.id for item in task_items[:1]],
+                inspect="Task Scheduler action Arguments versus Working Directory for the named task.",
+                confirms="A corrected definition with no visible window on next run supports the misconfiguration cause.",
+                impact="changes-system",
+                admin_maybe=True,
+            ),
         )
+    next_actions = [step.step for step in next_steps]
     proposed_action = None
     failed_workers = [
         item for item in usable
@@ -761,6 +1056,7 @@ def build_simulated_investigation_analysis(
             "User-reported symptom details: when it started, exact messages, reproducibility.",
         ],
         next_actions=next_actions,
+        next_steps=next_steps,
         explanation=(
             f"FieldRook ran a bounded read-only investigation and kept {len(usable)} usable "
             "evidence items. OBSERVED facts restate those readings. INFERRED causes are "

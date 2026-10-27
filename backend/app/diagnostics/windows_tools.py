@@ -29,6 +29,11 @@ ALLOWLISTED_COMMANDS: tuple[str, ...] = (
     "Get-NetTCPConnection Established",
     "Get-ScheduledTask",
     "Get-ScheduledTaskInfo",
+    "Get-WinEvent -LogName Application/Crashes",
+    "Get-CimInstance Win32_Process",
+    "Get-CimInstance Win32_Service/ProcessId",
+    "Get-Service/Dependencies",
+    "Resolve-DnsName",
 )
 
 SOURCE_LIST = "powershell:Get-Service"

@@ -22,12 +22,21 @@ from ..diagnostics import fixtures as fx
 from ..diagnostics.errorcodes import ErrorCodeError, interpret
 from ..diagnostics.event_search import normalize_logs, search_events_live
 from ..diagnostics.service_allowlist import validate_service_name
+from ..diagnostics.windows_apps import search_crashes_live, validate_app_name
 from ..diagnostics.windows_net import (
     get_adapters_live,
     get_connections_live,
     get_dns_config_live,
     get_ip_config_live,
     get_os_info_live,
+    resolve_hostname_live,
+    validate_hostname,
+)
+from ..diagnostics.windows_proc import (
+    get_process_live,
+    get_service_dependencies_live,
+    validate_pid,
+    validate_process_name,
 )
 from ..diagnostics.windows_tasks import (
     apply_task_filters,
@@ -94,6 +103,22 @@ class ScheduledTasksArgs(StrictArgs):
 
 class ErrorCodeArgs(StrictArgs):
     value: str = Field(min_length=1, max_length=32)
+
+
+class CrashSearchArgs(StrictArgs):
+    app_name: str = Field(default="", max_length=64)
+    hours: int = Field(default=24, ge=1, le=72)
+    max_events: int = Field(default=15, ge=5, le=25)
+
+
+class ProcessArgs(StrictArgs):
+    name: str = Field(default="", max_length=64)
+    pid: int = Field(default=0, ge=0, le=2_147_483_647)
+    service_name: str = Field(default="", max_length=64)
+
+
+class DnsResolveArgs(StrictArgs):
+    hostname: str = Field(min_length=1, max_length=253)
 
 
 @dataclass
@@ -195,6 +220,10 @@ def _service_details_live(args: BaseModel, timeout_s: float) -> ToolOutput:
         parts["events"] = search_events_live([name], ["System"], 24, 10, timeout_s)
     except (DiagnosticCommandError, ValueError) as exc:
         errors.append(f"events: {exc}")
+    try:
+        parts["dependencies"] = get_service_dependencies_live(name, timeout_s)
+    except (DiagnosticCommandError, ValueError) as exc:
+        errors.append(f"dependencies: {exc}")
     if not parts:
         return ToolOutput(
             summary=f"No details available for '{name}'.",
@@ -221,9 +250,16 @@ def _service_details_fixture(args: BaseModel) -> ToolOutput:
     status = {**raw_status, "service_type": "(fixture)", "service_type_value": None}
     startup = fx.get_fixture_startup(name) or {}
     events = fx.search_fixture_events([name], ["System"], 24, 10)
+    dependencies = fx.get_fixture_dependencies(name)
     return ToolOutput(
         summary=f"Details for '{status['name']}' (fixture): status {status['status']}.",
-        data={"name": status["name"], "status": status, "startup": startup, "events": events},
+        data={
+            "name": status["name"],
+            "status": status,
+            "startup": startup,
+            "events": events,
+            "dependencies": dependencies,
+        },
         source="fixture",
     )
 
@@ -350,6 +386,122 @@ def _connections_fixture(args: BaseModel) -> ToolOutput:
         data={"count": len(connections), "connections": connections},
         source="fixture",
     )
+
+
+def _crash_search_live(args: BaseModel, timeout_s: float) -> ToolOutput:
+    assert isinstance(args, CrashSearchArgs)
+    app_name = validate_app_name(args.app_name)
+    result = search_crashes_live(app_name, args.hours, args.max_events, timeout_s)
+    if result.get("error") and not result.get("completed"):
+        return ToolOutput(
+            summary="Application crash search did not complete.",
+            error=str(result["error"]),
+            source="live",
+        )
+    scope = f" for '{app_name}'" if app_name else ""
+    return ToolOutput(
+        summary=(
+            f"Crash search{scope} (live): examined {result['scanned']} entries, "
+            f"{result['matched']} matches."
+        ),
+        data=result,
+        source="live",
+    )
+
+
+def _crash_search_fixture(args: BaseModel) -> ToolOutput:
+    assert isinstance(args, CrashSearchArgs)
+    app_name = validate_app_name(args.app_name)
+    result = fx.search_fixture_crashes(app_name, args.hours, args.max_events)
+    scope = f" for '{app_name}'" if app_name else ""
+    return ToolOutput(
+        summary=(
+            f"Crash search{scope} (fixture): examined {result['scanned']} entries, "
+            f"{result['matched']} matches."
+        ),
+        data=result,
+        source="fixture",
+    )
+
+
+def _process_live(args: BaseModel, timeout_s: float) -> ToolOutput:
+    assert isinstance(args, ProcessArgs)
+    validate_process_name(args.name)
+    validate_pid(args.pid)
+    if (args.service_name or "").strip():
+        validate_service_name(args.service_name)
+    result = get_process_live(args.name, args.pid, timeout_s, args.service_name)
+    service = result.get("service") or {}
+    via = f" for service '{service['name']}'" if service else ""
+    if not result.get("found"):
+        return ToolOutput(
+            summary=f"Process lookup{via} (live): no matching process is running.",
+            data=result,
+            source="live",
+        )
+    first = result["processes"][0]
+    return ToolOutput(
+        summary=(
+            f"Process {first.get('name', '?')} pid {first.get('pid', '?')} is running "
+            f"(live{via}), hosting {len(result.get('services', []))} service(s)."
+        ),
+        data=result,
+        source="live",
+    )
+
+
+def _process_fixture(args: BaseModel) -> ToolOutput:
+    assert isinstance(args, ProcessArgs)
+    validate_process_name(args.name)
+    validate_pid(args.pid)
+    if (args.service_name or "").strip():
+        validate_service_name(args.service_name)
+    result = fx.get_fixture_process(args.name, args.pid, args.service_name)
+    service = result.get("service") or {}
+    via = f" for service '{service['name']}'" if service else ""
+    if not result.get("found"):
+        return ToolOutput(
+            summary=f"Process lookup{via} (fixture): no matching process is running.",
+            data=result,
+            source="fixture",
+        )
+    first = result["processes"][0]
+    return ToolOutput(
+        summary=(
+            f"Process {first.get('name', '?')} pid {first.get('pid', '?')} is running "
+            f"(fixture{via}), hosting {len(result.get('services', []))} service(s)."
+        ),
+        data=result,
+        source="fixture",
+    )
+
+
+def _dns_resolve_live(args: BaseModel, timeout_s: float) -> ToolOutput:
+    assert isinstance(args, DnsResolveArgs)
+    hostname = validate_hostname(args.hostname)
+    result = resolve_hostname_live(hostname, timeout_s)
+    if result.get("succeeded"):
+        summary = (
+            f"DNS test (live, active): {hostname} resolves to "
+            f"{', '.join(result['addresses'])}."
+        )
+    else:
+        summary = f"DNS test (live, active): {hostname} did not resolve."
+    return ToolOutput(summary=summary, data=result, source="live")
+
+
+def _dns_resolve_fixture(args: BaseModel) -> ToolOutput:
+    assert isinstance(args, DnsResolveArgs)
+    hostname = validate_hostname(args.hostname)
+    result = fx.resolve_fixture_hostname(hostname)
+    if result.get("succeeded"):
+        summary = (
+            f"DNS test (fixture, active): {hostname} resolves to "
+            f"{', '.join(result['addresses'])}."
+        )
+    else:
+        summary = f"DNS test (fixture, active): {hostname} did not resolve."
+    return ToolOutput(summary=summary, data=result, source="fixture")
 
 
 def _demo_worker_health_live(args: BaseModel, timeout_s: float) -> ToolOutput:
@@ -522,6 +674,38 @@ REGISTRY: dict[str, ToolSpec] = {
             args_model=ErrorCodeArgs,
             run_live=_error_code_live,
             run_fixture=_error_code_fixture,
+        ),
+        ToolSpec(
+            name="search_application_crashes",
+            description="Search the Application log for crash/hang evidence: Application "
+            "Error (1000), Error Reporting (1001), Application Hang (1002), .NET "
+            "Runtime (1026), with faulting app/module, exception codes, and "
+            "timestamps (read-only, bounded). Never reads dumps or user files.",
+            category="app_crashes",
+            args_model=CrashSearchArgs,
+            run_live=_crash_search_live,
+            run_fixture=_crash_search_fixture,
+        ),
+        ToolSpec(
+            name="get_process_info",
+            description="Read one process by name, pid, or hosting service name "
+            "(exactly one selector): executable path, start time, uptime, memory, "
+            "and services hosted in it (read-only). Full command lines are never "
+            "collected.",
+            category="process_info",
+            args_model=ProcessArgs,
+            run_live=_process_live,
+            run_fixture=_process_fixture,
+        ),
+        ToolSpec(
+            name="test_dns_resolution",
+            description="ACTIVE TEST: send one A/AAAA DNS query for a validated "
+            "hostname and report addresses and query time. Changes nothing; "
+            "labeled as an active test in provenance.",
+            category="dns_test",
+            args_model=DnsResolveArgs,
+            run_live=_dns_resolve_live,
+            run_fixture=_dns_resolve_fixture,
         ),
         ToolSpec(
             name="get_scheduled_tasks",

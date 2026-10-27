@@ -66,6 +66,20 @@ Evidence-driven AI troubleshooting assistant for IT technicians. A ROOKWELD
 project built for the Meta Global AI Developer Hackathon 2026 (Indie Developer
 track, "Build for Your World").
 
+**Milestone 006 — The Field Technician:** FieldRook is now a usable
+troubleshooting workstation. New read-only diagnostics cover application
+crashes (Event IDs 1000/1001/1002/1026 with faulting module and exception
+codes), process↔service relationships (including a service-name selector),
+and DNS with one bounded active control query. A symptom triage planner
+routes crash/DNS/VPN/task problems to the smallest relevant tool set, the
+workspace shows an incident overview with a leading hypothesis and evidence
+coverage, next steps render as evidence-linked runbook cards (why, what to
+inspect, what confirms it, read-only vs changes-system, admin hint), and
+technicians can record persistent notes. The gauntlet grew to 34 cases and
+measures 34/34 (28 fixture/tool + 6 capped live `muse-spark-1.3`
+evaluations); field testing on Windows fixed a real uptime-parsing bug (see
+`backend/eval/REPORT.md`).
+
 **Milestone 005 — Proof of Value:** approval and execution are now distinct
 deliberate steps (approve authorizes, a separate execute runs, expiry returns
 the proposal for re-approval), the result panel shows
@@ -90,15 +104,19 @@ Markdown/JSON, and every conclusion stays traceable to evidence framed as
 
 ## Layout
 
-- `backend/` — Python + FastAPI: strict read-only tool registry (services,
-  event logs, OS, network, scheduled tasks, demo-worker health, error codes),
-  Meta tool-calling loop, corrective-action subsystem (`app/actions/`:
-  registry, policies, approval, executor, verification, audit), SQLite
-  persistence, incident export, pytest suite.
+- `backend/` — Python + FastAPI: strict tool registry (services, event logs,
+  application crashes, processes, OS, network, scheduled tasks, demo-worker
+  health, error codes — all read-only except one bounded active DNS test),
+  Meta tool-calling loop with symptom triage, corrective-action subsystem
+  (`app/actions/`: registry, policies, approval, executor, verification,
+  audit), SQLite persistence, incident export, pytest suite.
+- `backend/eval/` — the diagnostic gauntlet: 34 reproducible cases plus the
+  evaluation report (`REPORT.md`).
 - `demo_worker/` — application-owned background process with a heartbeat health
   check plus a failure simulator for the controlled-fix demonstration.
-- `frontend/` — React + TypeScript + Vite: problem workstation (intake,
-  activity timeline, evidence cards, assessment, follow-ups), Action Center
+- `frontend/` — React + TypeScript + Vite: problem workstation (preset
+  templates, intake, incident overview, activity timeline, grouped evidence
+  cards, runbook assessment, technician notes, follow-ups), Action Center
   (approve/reject, before/after, executions), incident history with export,
   plus the original Milestone 001 service lookup tab. Playwright e2e suite
   under `frontend/tests/e2e/`.
@@ -106,6 +124,7 @@ Markdown/JSON, and every conclusion stays traceable to evidence framed as
   injection, health checks, and reset (no admin rights needed).
 - `docs/demo/` — three-minute demo script, demo-day checklist, technical
   highlights, and judging notes.
+- `docs/TOOLS.md` — diagnostic tool reference (14 tools, schemas, bounds).
 
 ## Prerequisites
 
@@ -181,6 +200,7 @@ pnpm run test:e2e   # Playwright: real backend (fixtures, no key) + real UI
 | GET | `/api/investigations` | Incident history (persisted, `?limit=`) |
 | GET | `/api/investigations/{id}` | Current investigation state |
 | POST | `/api/investigations/{id}/followup` | Continue: `{"message": "..."}` |
+| POST | `/api/investigations/{id}/notes` | Technician note: `{"text": "..."}` (max 2000 chars, persisted, exported) |
 | GET | `/api/investigations/{id}/export?format=markdown\|json` | Ticket-ready incident report |
 | POST | `/api/investigations/{id}/proposals` | Propose a registered action (never executes) |
 | POST | `/api/proposals/{id}/approve` | Human approval → single-use token (5 min TTL) |
@@ -189,11 +209,15 @@ pnpm run test:e2e   # Playwright: real backend (fixtures, no key) + real UI
 
 ## Safety
 
-Diagnostics are strictly read-only: services, event logs (System/Application),
-OS info, network state, scheduled task definitions, demo-worker health, and
-error codes are only ever read through predefined, schema-validated tools
+Diagnostics are strictly read-only with one labeled exception: services,
+event logs (System/Application), application crashes, processes, OS info,
+network state, scheduled task definitions, demo-worker health, and error
+codes are only ever read through predefined, schema-validated tools
 (bounded budget: 8 initial + 4 per follow-up tool calls, 12 total; per-tool
-timeouts; truncated results). The model can never send executable commands.
+timeouts; truncated results). `test_dns_resolution` is an explicitly labeled ACTIVE
+TEST (one A/AAAA query, changes nothing). The model can never send
+executable commands, and full process command lines are never collected
+(executable path only).
 
 The one corrective capability — `recover_demo_worker` on the
 application-owned `demo-worker` — is fenced by: registry-only actions, target
@@ -226,6 +250,11 @@ and never commit a real `.env` containing `MODEL_API_KEY`.
 - No per-user authentication; localhost binding is the access boundary.
 - Browser end-to-end tests cover key flows via Playwright; live model calls remain separate smoke tests.
 - Large investigation histories can approach the 60s model timeout.
+- Process `ExecutablePath` reads return empty without elevation (graceful
+  degradation, not an error); name-based lookups over many matches
+  (e.g. `svchost.exe`) can take ~15s.
+- Fixture mirrors are per-tool snapshots, not one consistent machine state;
+  live readings are authoritative.
 - Model output is advisory: verification outcomes are computed by backend
   diagnostics and can never be overridden by the model.
 ## License

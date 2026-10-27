@@ -18,6 +18,7 @@ from ..schemas import (
     EvidenceItem,
     InvestigationResponse,
     InvestigationSummary,
+    TechnicianNote,
 )
 
 
@@ -46,6 +47,7 @@ class InvestigationState:
     updated_at: datetime = field(default_factory=_now)
     proposals: list[ActionProposal] = field(default_factory=list)
     executions: list[ActionExecution] = field(default_factory=list)
+    notes: list[TechnicianNote] = field(default_factory=list)
 
     def add_activity(
         self,
@@ -93,6 +95,18 @@ class InvestigationState:
     def known_evidence_ids(self) -> set[str]:
         return {item.id for item in self.evidence}
 
+    def add_note(self, text: str) -> TechnicianNote:
+        from uuid import uuid4
+
+        note = TechnicianNote(
+            note_id=f"note-{uuid4().hex[:8]}",
+            text=text.strip(),
+            created_at=_now(),
+        )
+        self.notes.append(note)
+        self.updated_at = _now()
+        return note
+
     def to_response(self, uses_fixtures: bool) -> InvestigationResponse:
         return InvestigationResponse(
             investigation_id=self.id,
@@ -110,6 +124,7 @@ class InvestigationState:
             has_screenshot=self.has_image,
             proposals=list(self.proposals),
             executions=list(self.executions),
+            notes=list(self.notes),
         )
 
 

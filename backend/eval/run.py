@@ -14,6 +14,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import sys
 import tempfile
 import time
@@ -54,6 +55,20 @@ def _assessment_text(assessment: dict) -> str:
     return " ".join(parts).lower()
 
 
+def _banned_claim(text: str, banned: str) -> bool:
+    """Substring check with one refinement: bare 'proven' is overconfident,
+    but hedged forms ('not proven', 'unproven', ...) are honest calibration
+    and must not trip the check."""
+    if banned != "proven":
+        return banned in text
+    cleaned = re.sub(
+        r"unproven|not proven|n't proven|never proven|nothing proven|no \w+ proven",
+        " ",
+        text,
+    )
+    return re.search(r"\bproven\b", cleaned) is not None
+
+
 def _check_citations(body: dict) -> list[str]:
     known = {item["id"] for item in body.get("evidence", [])}
     problems = []
@@ -67,6 +82,26 @@ def _check_citations(body: dict) -> list[str]:
         if unknown:
             problems.append(f"cause {cause.get('title', '?')[:40]!r} cites unknown ids {sorted(unknown)}")
     return problems
+
+
+def _check_followup_reuse(case: Case, body: dict) -> list[str]:
+    """A follow-up answered by existing evidence must not re-collect it."""
+    before = sum(1 for r in body.get("activity", []) if r.get("kind") == "tool_request")
+    try:
+        response = client.post(
+            f"/api/investigations/{body['investigation_id']}/followup",
+            json={"message": case.followup},
+        )
+    except Exception as exc:  # noqa: BLE001 - eval must report, not crash
+        return [f"followup request failed: {exc}"]
+    if response.status_code != 200:
+        return [f"followup HTTP {response.status_code}"]
+    after_body = response.json()
+    after = sum(1 for r in after_body.get("activity", []) if r.get("kind") == "tool_request")
+    new_calls = after - before
+    if new_calls > case.followup_max_new_calls:
+        return [f"followup made {new_calls} new tool calls (max {case.followup_max_new_calls})"]
+    return []
 
 
 def run_case(case: Case) -> dict:
@@ -107,6 +142,11 @@ def run_case(case: Case) -> dict:
         failures.append(f"missing tools {sorted(set(case.must_use_all) - tools_used)}")
     if case.must_use_any and not (set(case.must_use_any) & tools_used):
         failures.append(f"none of {sorted(case.must_use_any)} used (used {sorted(tools_used)})")
+    swept = set(case.forbid_tools) & tools_used
+    if swept:
+        failures.append(f"unrelated sweep tools used {sorted(swept)} (used {sorted(tools_used)})")
+    if case.followup:
+        failures.extend(_check_followup_reuse(case, body))
     proposals = body.get("proposals", [])
     if case.expect_proposal and not proposals:
         failures.append("expected a proposal, got none")
@@ -125,11 +165,11 @@ def run_case(case: Case) -> dict:
         if case.must_mention_any and not any(s in text for s in case.must_mention_any):
             failures.append(f"mentions none of {list(case.must_mention_any)}")
         for banned in case.forbid_mention:
-            if banned in text:
+            if _banned_claim(text, banned):
                 failures.append(f"forbidden claim language {banned!r}")
     failures.extend(_check_citations(body))
     tool_requests = sum(1 for r in body.get("activity", []) if r.get("kind") == "tool_request")
-    return {
+    result = {
         "id": case.id,
         "category": case.category,
         "passed": not failures,
@@ -139,6 +179,11 @@ def run_case(case: Case) -> dict:
         "failures": failures,
         "reference": case.reference,
     }
+    if failures:
+        # Compact failure context so live-model verdicts can be audited
+        # honestly (substring checks cannot show their own evidence).
+        result["context"] = text[:1200]
+    return result
 
 
 def run_tool_case(case: ToolCase) -> dict:

@@ -91,6 +91,21 @@ class ProposedAction(BaseModel):
     evidence_ids: list[str] = Field(default_factory=list)
 
 
+StepImpact = Literal["read-only", "changes-system", "unknown"]
+
+
+class RunbookStep(BaseModel):
+    """One evidence-linked manual next step (INFERRED guidance, not fact)."""
+
+    step: str
+    why: str = ""
+    evidence_ids: list[str] = Field(default_factory=list)
+    inspect: str = ""
+    confirms: str = ""
+    impact: StepImpact = "unknown"
+    admin_maybe: bool = False
+
+
 class AnalysisResult(BaseModel):
     summary: str
     facts: list[ObservedFact] = Field(default_factory=list)
@@ -98,6 +113,7 @@ class AnalysisResult(BaseModel):
     uncertainties: list[str] = Field(default_factory=list)
     missing_evidence: list[str] = Field(default_factory=list)
     next_actions: list[str] = Field(default_factory=list)
+    next_steps: list[RunbookStep] = Field(default_factory=list)
     explanation: str
     mode: AnalysisMode
     model: str
@@ -155,10 +171,21 @@ class InvestigationResponse(BaseModel):
     has_screenshot: bool = False
     proposals: list[ActionProposal] = Field(default_factory=list)
     executions: list[ActionExecution] = Field(default_factory=list)
+    notes: list[TechnicianNote] = Field(default_factory=list)
+
+
+class TechnicianNote(BaseModel):
+    note_id: str
+    text: str
+    created_at: datetime
 
 
 class FollowupRequest(BaseModel):
     message: str = Field(min_length=1, max_length=2000)
+
+
+class NoteRequest(BaseModel):
+    text: str = Field(min_length=1, max_length=2000)
 
 
 class ActionProposal(BaseModel):

@@ -109,6 +109,32 @@ def build_markdown(state: Any) -> str:
     if not assessment.get("uncertainties") and not assessment.get("missing_evidence"):
         add("(none recorded)")
     add("")
+    add("## 12. Technician next steps (INFERRED guidance — manual, verify first)")
+    steps = assessment.get("next_steps", []) or [
+        {"step": text} for text in assessment.get("next_actions", [])
+    ]
+    for index, entry in enumerate(steps, 1):
+        add(f"### 12.{index} {entry.get('step', '')}")
+        if entry.get("why"):
+            add(f"Why: {entry['why']}")
+        if entry.get("evidence_ids"):
+            add(f"Evidence: {', '.join(entry['evidence_ids'])}")
+        if entry.get("inspect"):
+            add(f"Inspect: {entry['inspect']}")
+        if entry.get("confirms"):
+            add(f"Confirms/weaken: {entry['confirms']}")
+        impact = entry.get("impact", "unknown") or "unknown"
+        admin = " (may need admin)" if entry.get("admin_maybe") else ""
+        add(f"Impact: {impact}{admin}")
+    if not steps:
+        add("(none recorded)")
+    add("")
+    add("## 13. Technician notes")
+    for note in data.get("notes", []):
+        add(f"- [{note.get('created_at', '')}] {note.get('text', '')}")
+    if not data.get("notes"):
+        add("(none)")
+    add("")
     add("---")
     add(f"Exported {data['exported_at']} by FieldRook. OBSERVED facts are measured; INFERRED causes are hypotheses.")
     return "\n".join(lines) + "\n"

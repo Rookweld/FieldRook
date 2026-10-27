@@ -12,12 +12,14 @@ renders evidence chips that navigate to the underlying records.
 ## 2. Strict tool-calling loop on Muse Spark 1.3
 
 The model requests named tools with schema-validated arguments; the backend
-executes predefined read-only implementations (services, event logs, OS,
-network, scheduled tasks, demo-worker health, error codes). No arbitrary
-PowerShell exists anywhere in the path. Budgets (8 + 4 calls), per-tool
-timeouts, truncation, and malformed-call rejection are enforced server-side.
-Every tool call answers with a matching tool message (protocol-correct even
-on budget cutoff).
+executes predefined implementations (services, processes, event logs,
+application crashes, OS, network, scheduled tasks, demo-worker health,
+error codes — see `docs/TOOLS.md`). Everything is read-only except one
+explicitly labeled active DNS test. No arbitrary PowerShell exists anywhere
+in the path. Budgets (8 + 4 calls), per-tool timeouts, truncation,
+same-round duplicate suppression, and malformed-call rejection are enforced
+server-side. Every tool call answers with a matching tool message
+(protocol-correct even on budget cutoff).
 
 ## 3. Human-gated corrective actions
 

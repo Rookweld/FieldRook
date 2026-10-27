@@ -90,12 +90,48 @@ export function DiagnosisPanel({
         ))}
       </ul>
 
-      <h3>Recommended next diagnostic steps</h3>
-      <ol className="actions">
-        {a.next_actions.map((n, i) => (
-          <li key={i}>{n}</li>
-        ))}
-      </ol>
+      <h3>Technician next steps</h3>
+      <p className="muted">
+        <span className="tag tag-inf">INFERRED</span> Manual guidance — verify
+        before acting. FieldRook executes nothing on this list.
+      </p>
+      {(a.next_steps ?? []).length > 0 ? (
+        <ol className="runbook">
+          {(a.next_steps ?? []).map((s, i) => (
+            <li key={i} className="runbook-step">
+              <div className="cause-head">
+                <strong>{s.step}</strong>
+                <span className={`impact impact-${s.impact}`}>{s.impact}</span>
+                {s.admin_maybe && <span className="impact impact-admin">may need admin</span>}
+                {s.evidence_ids.map((eid) => (
+                  <EvidenceChip key={eid} id={eid} onSelect={onEvidenceClick} />
+                ))}
+              </div>
+              {s.why && (
+                <p>
+                  <span className="runbook-label">Why:</span> {s.why}
+                </p>
+              )}
+              {s.inspect && (
+                <p>
+                  <span className="runbook-label">Inspect:</span> {s.inspect}
+                </p>
+              )}
+              {s.confirms && (
+                <p>
+                  <span className="runbook-label">Confirms / weakens:</span> {s.confirms}
+                </p>
+              )}
+            </li>
+          ))}
+        </ol>
+      ) : (
+        <ol className="actions">
+          {a.next_actions.map((n, i) => (
+            <li key={i}>{n}</li>
+          ))}
+        </ol>
+      )}
 
       <h3>Explanation</h3>
       <p>{a.explanation}</p>

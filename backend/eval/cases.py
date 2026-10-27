@@ -23,11 +23,14 @@ class Case:
     env: dict[str, str] = field(default_factory=dict)
     must_use_any: frozenset[str] = frozenset()
     must_use_all: frozenset[str] = frozenset()
+    forbid_tools: frozenset[str] = frozenset()
     expect_proposal: bool = False
     forbid_proposal: bool = False
     require_uncertainty: bool = False
     must_mention_any: tuple[str, ...] = ()
     forbid_mention: tuple[str, ...] = ()
+    followup: str = ""
+    followup_max_new_calls: int = 0
     notes: str = ""
 
 
@@ -96,6 +99,80 @@ CASES: list[Case] = [
         must_use_any=frozenset({"get_dns_config"}),
         forbid_proposal=True,
         require_uncertainty=True,
+    ),
+    Case(
+        id="net-dns-nxdomain",
+        category="network",
+        problem="Websites fail with 'server not found' errors since this morning.",
+        reference="Passive DNS config plus exactly one bounded control query; "
+        "the control result is test evidence, not proof about the failing site.",
+        must_use_all=frozenset({"get_dns_config", "test_dns_resolution"}),
+        forbid_tools=frozenset({"get_connections", "list_services", "get_scheduled_tasks"}),
+        forbid_proposal=True,
+        require_uncertainty=True,
+        notes="M006: triage must not sweep unrelated tools for DNS symptoms.",
+    ),
+    Case(
+        id="app-crash-excel",
+        category="applications",
+        problem="Excel closes when I open a particular workbook.",
+        reference="Crash search finds a fixture Application Error for EXCEL.EXE "
+        "(0xc0000005); correlation is evidence-backed but the workbook trigger "
+        "stays unverified.",
+        must_use_all=frozenset({"search_application_crashes"}),
+        forbid_tools=frozenset({"get_connections", "list_services", "get_scheduled_tasks", "get_network_adapters"}),
+        forbid_proposal=True,
+        require_uncertainty=True,
+        must_mention_any=("excel",),
+        notes="M006: application-crash triage with app-name correlation.",
+    ),
+    Case(
+        id="app-launch-fail",
+        category="applications",
+        problem="My accounting app fails to launch after the update.",
+        reference="Launch failures route to the crash search first; no "
+        "network/service sweep for an app symptom.",
+        must_use_any=frozenset({"search_application_crashes"}),
+        forbid_tools=frozenset({"get_connections", "list_services", "get_network_adapters"}),
+        forbid_proposal=True,
+        require_uncertainty=True,
+    ),
+    Case(
+        id="task-periodic-ok",
+        category="scheduled-tasks",
+        problem="Is the RookweldSync scheduled task running correctly?",
+        reference="RookweldSync fixture is Ready and succeeding; the phantom-task "
+        "notes in uncertainties concern a different task, not RookweldSync.",
+        must_use_any=frozenset({"get_scheduled_tasks"}),
+        forbid_proposal=True,
+        require_uncertainty=True,
+        notes="M006: healthy-recurring-task negative case.",
+    ),
+    Case(
+        id="mislead-net-down",
+        category="misleading-symptoms",
+        problem="The network is down on this machine, I am sure the cable is unplugged.",
+        reference="Fixture adapters report Up, contradicting the report; the "
+        "simulated assessment hedges with uncertainty and adds no certainty "
+        "language of its own.",
+        must_use_any=frozenset({"get_network_adapters"}),
+        forbid_proposal=True,
+        require_uncertainty=True,
+        forbid_mention=("definitely", "certainly", "proven"),
+        notes="M006: measurement (adapters Up) contradicts the report.",
+    ),
+    Case(
+        id="followup-reuse-dns",
+        category="continuity",
+        problem="DNS does not resolve anything since this morning.",
+        reference="A follow-up answered by the already-collected DNS evidence "
+        "must reuse it with zero new tool calls.",
+        must_use_all=frozenset({"get_dns_config", "test_dns_resolution"}),
+        forbid_proposal=True,
+        require_uncertainty=True,
+        followup="What did the DNS check show?",
+        followup_max_new_calls=0,
+        notes="M006: evidence reuse; runner posts the follow-up.",
     ),
     Case(
         id="insuf-freeze",
@@ -187,6 +264,46 @@ CASES: list[Case] = [
         require_uncertainty=True,
         notes="Tool-selection quality probe.",
     ),
+    Case(
+        id="live-crash-fixtures",
+        category="live-model",
+        problem="Excel closes when I open a particular workbook. What does the evidence show?",
+        reference="Live Muse Spark over fixture diagnostics should search "
+        "crashes, cite the EXCEL.EXE record, and keep the workbook trigger "
+        "unverified.",
+        live_model=True,
+        must_use_any=frozenset({"search_application_crashes"}),
+        forbid_proposal=True,
+        require_uncertainty=True,
+        must_mention_any=("excel", "0xc0000005", "kernelbase", "1000"),
+        notes="M006: crash triage + citation probe.",
+    ),
+    Case(
+        id="live-dns-fixtures",
+        category="live-model",
+        problem="Websites fail with 'server not found' errors since this morning.",
+        reference="Live model should inspect DNS config and may run one "
+        "bounded control query; the failing site itself stays unverified.",
+        live_model=True,
+        must_use_any=frozenset({"get_dns_config", "test_dns_resolution"}),
+        forbid_proposal=True,
+        require_uncertainty=True,
+        notes="M006: passive-vs-active DNS probe.",
+    ),
+    Case(
+        id="live-service-failure-fixtures",
+        category="live-model",
+        problem="Is the Windows Update service healthy right now?",
+        reference="Live model should report the fixture 7023 termination "
+        "error with its message, not a generic healthy verdict.",
+        live_model=True,
+        service_name="wuauserv",
+        must_use_any=frozenset({"get_service_details", "search_event_logs"}),
+        forbid_proposal=True,
+        require_uncertainty=True,
+        must_mention_any=("7023", "terminated", "cannot find the path"),
+        notes="M006: service/event correlation probe.",
+    ),
 ]
 
 
@@ -196,7 +313,7 @@ class ToolCase:
     tool: str
     args: dict[str, str]
     expect_error: bool
-    expect_contains: dict[str, str | None]
+    expect_contains: dict[str, object]
 
 
 TOOL_CASES: list[ToolCase] = [
@@ -234,5 +351,47 @@ TOOL_CASES: list[ToolCase] = [
         args={"name": "bad;name"},
         expect_error=True,
         expect_contains={},
+    ),
+    ToolCase(
+        id="dns-invalid-hostname",
+        tool="test_dns_resolution",
+        args={"hostname": "bad;host"},
+        expect_error=True,
+        expect_contains={},
+    ),
+    ToolCase(
+        id="dns-unknown-host",
+        tool="test_dns_resolution",
+        args={"hostname": "no-such-host.invalid"},
+        expect_error=False,
+        expect_contains={"succeeded": False},
+    ),
+    ToolCase(
+        id="proc-service-link",
+        tool="get_process_info",
+        args={"service_name": "wuauserv"},
+        expect_error=False,
+        expect_contains={"found": True},
+    ),
+    ToolCase(
+        id="proc-bad-service",
+        tool="get_process_info",
+        args={"service_name": "bad;name"},
+        expect_error=True,
+        expect_contains={},
+    ),
+    ToolCase(
+        id="proc-no-match",
+        tool="get_process_info",
+        args={"name": "no-such-proc"},
+        expect_error=False,
+        expect_contains={"found": False},
+    ),
+    ToolCase(
+        id="crash-no-match",
+        tool="search_application_crashes",
+        args={"app_name": "no-such-app"},
+        expect_error=False,
+        expect_contains={"matched": 0},
     ),
 ]

@@ -18,7 +18,13 @@ from ..config import load_settings
 from ..diagnostics.service_allowlist import InvalidServiceNameError, validate_service_name
 from ..investigations import export as exporters
 from ..investigations.store import store
-from ..schemas import FollowupRequest, InvestigationResponse, InvestigationSummary, ToolInfo
+from ..schemas import (
+    FollowupRequest,
+    InvestigationResponse,
+    InvestigationSummary,
+    NoteRequest,
+    ToolInfo,
+)
 from ..tools.registry import REGISTRY
 
 router = APIRouter(tags=["investigations"])
@@ -151,6 +157,19 @@ async def followup_investigation(
     if grant <= 0:
         state.warnings.append("Tool budget exhausted; follow-up answered from existing evidence only.")
     await run_rounds(state, settings, None, max_new_calls=grant, is_followup=True)
+    uses_fixtures = settings.fixtures_mode == "always" or state.mode == "simulated"
+    store.save(state)
+    return state.to_response(uses_fixtures=uses_fixtures)
+
+
+@router.post("/api/investigations/{investigation_id}/notes", response_model=InvestigationResponse)
+async def add_investigation_note(investigation_id: str, request: NoteRequest) -> InvestigationResponse:
+    state = store.get(investigation_id)
+    if state is None:
+        raise HTTPException(status_code=404, detail=f"Unknown investigation {investigation_id!r}.")
+    settings = load_settings()
+    note = state.add_note(request.text)
+    state.add_activity("note", "Technician note added", note.text[:500])
     uses_fixtures = settings.fixtures_mode == "always" or state.mode == "simulated"
     store.save(state)
     return state.to_response(uses_fixtures=uses_fixtures)

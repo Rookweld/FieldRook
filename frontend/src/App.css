@@ -816,3 +816,145 @@ details summary {
     animation: none !important;
   }
 }
+
+/* M006 technician workspace additions. */
+
+.preset-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 0.75rem;
+}
+
+.preset-button {
+  background: transparent;
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  padding: 0.35rem 0.8rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.preset-button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.preset-button:not(:disabled):hover {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.overview-grid {
+  display: grid;
+  gap: 0.6rem;
+  margin: 0;
+}
+
+.overview-grid dt {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.overview-grid dd {
+  margin: 0.1rem 0 0;
+}
+
+.coverage {
+  display: inline-block;
+  border: 1px solid var(--panel-edge);
+  border-radius: 3px;
+  padding: 0.1rem 0.5rem;
+  margin: 0 0.35rem 0.25rem 0;
+  font-size: 0.85rem;
+}
+
+.coverage-failed {
+  color: var(--red);
+  border-color: var(--red);
+}
+
+.evidence-group + .evidence-group {
+  margin-top: 1rem;
+}
+
+.evidence-group-head {
+  margin: 0.5rem 0;
+  font-size: 1rem;
+}
+
+.runbook {
+  list-style: decimal;
+  margin: 0.5rem 0;
+  padding-left: 1.4rem;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.runbook-step {
+  border: 1px solid var(--panel-edge);
+  border-radius: 4px;
+  padding: 0.6rem 0.8rem;
+}
+
+.runbook-step p {
+  margin: 0.3rem 0 0;
+}
+
+.runbook-label {
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  color: var(--muted);
+  letter-spacing: 0.04em;
+}
+
+.impact {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  border-radius: 3px;
+  padding: 0.12rem 0.45rem;
+  border: 1px solid var(--panel-edge);
+  color: var(--muted);
+}
+
+.impact-read-only {
+  color: var(--green);
+  border-color: var(--green);
+}
+
+.impact-changes-system {
+  color: var(--red);
+  border-color: var(--red);
+}
+
+.impact-admin {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.notes {
+  list-style: none;
+  margin: 0.5rem 0;
+  padding: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.notes li {
+  border-left: 3px solid var(--accent);
+  background: var(--panel);
+  padding: 0.4rem 0.7rem;
+}
+
+.notes li p {
+  margin: 0.15rem 0 0;
+  white-space: pre-wrap;
+}
