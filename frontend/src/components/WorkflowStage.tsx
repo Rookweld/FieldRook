@@ -8,46 +8,6 @@ export function stageOf(inv: InvestigationResponse | null): WorkflowStage {
   return 2;
 }
 
-const STAGES: Array<{ n: WorkflowStage; name: string; hint: string }> = [
-  { n: 1, name: "Investigate", hint: "describe symptoms" },
-  { n: 2, name: "Understand", hint: "evidence + hypotheses" },
-  { n: 3, name: "Resolve", hint: "approve, verify, export" },
-];
-
-const STAGE_ANCHORS: Record<WorkflowStage, string> = {
-  1: "stage-investigate",
-  2: "stage-understand",
-  3: "stage-resolve",
-};
-
-export function StageStepper({ stage }: { stage: WorkflowStage }) {
-  const jump = (n: WorkflowStage) => {
-    document
-      .getElementById(STAGE_ANCHORS[n])
-      ?.scrollIntoView({ behavior: "smooth", block: "start" });
-  };
-  return (
-    <nav className="stages" aria-label="Workflow stage">
-      {STAGES.map((s) => (
-        <button
-          key={s.n}
-          type="button"
-          className={
-            s.n === stage ? "stage stage-active" : s.n < stage ? "stage stage-done" : "stage"
-          }
-          aria-current={s.n === stage ? "step" : undefined}
-          onClick={() => jump(s.n)}
-          title={`Jump to ${s.name}`}
-        >
-          <span className="stage-num">{s.n}</span>
-          <span className="stage-name">{s.name}</span>
-          <span className="stage-hint">{s.hint}</span>
-        </button>
-      ))}
-    </nav>
-  );
-}
-
 export interface Resolution {
   label: string;
   tone: "good" | "bad" | "warn" | "mute";

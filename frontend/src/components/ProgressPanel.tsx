@@ -12,17 +12,10 @@ export function ProgressPanel({
   onReverify?: (evidenceId: string) => void;
   busy: boolean;
 }) {
-  const usable = investigation.evidence.filter((e) => !e.error).length;
-  const failed = investigation.evidence.filter((e) => e.error).length;
   const budgetPct =
     investigation.tool_calls_max > 0
       ? Math.min(100, (investigation.tool_calls_used / investigation.tool_calls_max) * 100)
       : 0;
-  // Open questions are the missing-evidence needs (short, actionable). The
-  // longer uncertainty notes live in Diagnosis; repeating them here would
-  // duplicate the page, so they are counted with a pointer instead.
-  const needs = (investigation.assessment?.missing_evidence ?? []).slice(0, 6);
-  const uncertaintyCount = investigation.assessment?.uncertainties.length ?? 0;
   const budgetLeft = investigation.tool_calls_max - investigation.tool_calls_used;
 
   return (
@@ -30,7 +23,7 @@ export function ProgressPanel({
       <div className="card-head">
         <h2>Investigation progress</h2>
         <span className="muted">
-          {usable} usable &middot; {failed} failed &middot; {investigation.refreshes.length} re-check
+          {investigation.refreshes.length} re-check
           {investigation.refreshes.length === 1 ? "" : "s"}
         </span>
       </div>
@@ -57,24 +50,6 @@ export function ProgressPanel({
           ))}
         </div>
       )}
-
-      <h3>Unresolved questions</h3>
-      {needs.length === 0 && uncertaintyCount === 0 && (
-        <p className="muted">No open questions recorded.</p>
-      )}
-      {uncertaintyCount > 0 && (
-        <p className="muted">
-          {uncertaintyCount} open uncertaint{uncertaintyCount === 1 ? "y" : "ies"} — see
-          Diagnosis below.
-        </p>
-      )}
-      <ul className="unverified">
-        {needs.map((text, i) => (
-          <li key={i}>
-            <span className="tag tag-unv">MISSING</span> <span>{text}</span>
-          </li>
-        ))}
-      </ul>
 
       <h3>Suggested next checks</h3>
       {investigation.suggested_rechecks.length === 0 && (

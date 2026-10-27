@@ -23,13 +23,13 @@ const STATUS_CLASS: Record<PlanStatus, string> = {
   DRAFT: "badge",
   BASELINED: "badge badge-sim",
   INTERVENED: "badge badge-sim",
-  VERIFIED_RESOLVED: "badge badge-live",
+  VERIFIED_RESOLVED: "badge badge-verified",
   NOT_RESOLVED: "badge badge-fail",
   INCONCLUSIVE: "badge",
 };
 
 const RESULT_CLASS: Record<string, string> = {
-  pass: "verdict verdict-unchanged",
+  pass: "verdict verdict-pass",
   fail: "verdict verdict-unavailable",
   inconclusive: "verdict verdict-changed",
 };
@@ -695,9 +695,7 @@ export function ResolutionWorkspace({
   return (
     <section className="card">
       <div className="card-head">
-        <h2>
-          <span className="eyebrow">Stage 3 — Resolve</span>Resolution workspace
-        </h2>
+        <h2>Resolution workspace</h2>
         <span className="muted">
           {investigation.plans.length} plan{investigation.plans.length === 1 ? "" : "s"} · proof
           from measurement, not claims
@@ -728,7 +726,7 @@ export function ResolutionWorkspace({
         <div className="controls">
           <button
             type="button"
-            className="button"
+            className={investigation.plans.length === 0 ? "button" : "button button-ghost"}
             disabled={busy}
             onClick={() => setShowForm(true)}
           >

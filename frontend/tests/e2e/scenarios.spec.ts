@@ -7,6 +7,7 @@ test("scenario A: phantom task finding stays suspicious-but-unverified", async (
   await page
     .getByPlaceholder(/vpn disconnects/i)
     .fill("E2E probe: PowerShell windows keep flashing every five minutes.");
+  await page.getByText("Advanced: fixture mode").click();
   await page.getByText("Force fixture data").click();
   await page.getByRole("button", { name: "Investigate", exact: true }).click();
 
@@ -27,6 +28,7 @@ test("scenario A: phantom task finding stays suspicious-but-unverified", async (
   await expect(page.getByText(/Suspicious but unverified/)).toBeVisible();
   await expect(page.getByText(/UNRESOLVED — diagnosed/i)).toBeVisible();
   // Diagnosis only: no corrective action exists for scheduled tasks.
+  await page.getByRole("tab", { name: "Resolve" }).click();
   await expect(page.getByText("No corrective action proposed")).toBeVisible();
 });
 
@@ -37,12 +39,14 @@ test("scenario C: insufficient evidence reports UNRESOLVED honestly", async ({
   await page
     .getByPlaceholder(/vpn disconnects/i)
     .fill("E2E probe: my laptop freezes randomly every afternoon.");
+  await page.getByText("Advanced: fixture mode").click();
   await page.getByText("Force fixture data").click();
   await page.getByRole("button", { name: "Investigate", exact: true }).click();
 
   await expect(page.getByText(/UNRESOLVED — diagnosed/i)).toBeVisible({
     timeout: 30000,
   });
+  await page.getByRole("tab", { name: "Resolve" }).click();
   await expect(page.getByText("No corrective action proposed")).toBeVisible();
   await page.screenshot({ path: "test-results/shot-scenario-c.png" });
 });

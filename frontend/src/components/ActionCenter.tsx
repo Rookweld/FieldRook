@@ -21,7 +21,7 @@ const STATUS_CLASS: Record<ProposalStatus, string> = {
   REJECTED: "badge",
   EXECUTING: "badge badge-sim",
   EXECUTED_UNVERIFIED: "badge badge-sim",
-  VERIFIED_RESOLVED: "badge badge-live",
+  VERIFIED_RESOLVED: "badge badge-verified",
   VERIFIED_UNRESOLVED: "badge",
   EXECUTION_FAILED: "badge badge-fail",
   VERIFICATION_FAILED: "badge badge-fail",
@@ -76,19 +76,17 @@ function BeforeAfter({ execution }: { execution: ActionExecution }) {
   const after = execution.after_state["status"];
   return (
     <div className="before-after">
-      <div>
-        <span className="muted">BEFORE</span>
-        <pre className="pre small">{JSON.stringify(execution.before_state, null, 2)}</pre>
-      </div>
-      <div>
-        <span className="muted">AFTER</span>
-        <pre className="pre small">{JSON.stringify(execution.after_state, null, 2)}</pre>
-      </div>
-      <p className="muted">
-        {typeof before === "string" && typeof after === "string"
-          ? `${before} → ${after}`
-          : `outcome: ${execution.outcome}`}
+      <p>
+        <span className="muted">BEFORE</span>{" "}
+        {typeof before === "string" ? before : "?"} <span aria-hidden="true">→</span>{" "}
+        <span className="muted">AFTER</span> {typeof after === "string" ? after : "?"}{" "}
+        <span className="muted">· outcome: {execution.outcome}</span>
       </p>
+      <details className="ev-json">
+        <summary>Full before/after state</summary>
+        <pre className="pre small">{JSON.stringify(execution.before_state, null, 2)}</pre>
+        <pre className="pre small">{JSON.stringify(execution.after_state, null, 2)}</pre>
+      </details>
     </div>
   );
 }
@@ -174,11 +172,9 @@ export function ActionCenter({
       : null;
 
   return (
-    <section className="card" id="stage-resolve">
+    <section className="card">
       <div className="card-head">
-        <h2>
-          <span className="eyebrow">Stage 3 — Resolve</span>Action Center
-        </h2>
+        <h2>Action Center</h2>
         <span className="muted">approve first, execute separately — nothing runs automatically</span>
       </div>
       {error && (
@@ -286,7 +282,7 @@ export function ActionCenter({
                   {ticketLive && (
                     <button
                       type="button"
-                      className="button"
+                      className="button button-danger"
                       disabled={busy !== null}
                       onClick={() => void execute(proposal, ticket)}
                     >

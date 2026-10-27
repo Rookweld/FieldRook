@@ -8,7 +8,7 @@ import {
 import type { KnowledgeEntry } from "../types";
 
 const OUTCOME_CLASS: Record<string, string> = {
-  VERIFIED_RESOLVED: "badge badge-live",
+  VERIFIED_RESOLVED: "badge badge-verified",
   NOT_RESOLVED: "badge badge-fail",
   INCONCLUSIVE: "badge",
   UNRESOLVED: "badge",

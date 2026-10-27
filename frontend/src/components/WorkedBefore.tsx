@@ -10,7 +10,7 @@ import type { InvestigationResponse, KnowledgeMatch } from "../types";
 import { EvidenceChip } from "./EvidenceChip";
 
 const OUTCOME_CLASS: Record<string, string> = {
-  VERIFIED_RESOLVED: "badge badge-live",
+  VERIFIED_RESOLVED: "badge badge-verified",
   NOT_RESOLVED: "badge badge-fail",
   INCONCLUSIVE: "badge",
   UNRESOLVED: "badge",
@@ -211,7 +211,7 @@ export function WorkedBefore({
           No similar incidents remembered yet. Resolve this one and save it below.
         </p>
       )}
-      {matches?.map((match) => (
+      {matches?.slice(0, 1).map((match) => (
         <MatchCard
           key={match.entry.entry_id}
           investigation={investigation}
@@ -220,6 +220,23 @@ export function WorkedBefore({
           onUpdate={onUpdate}
         />
       ))}
+      {(matches?.length ?? 0) > 1 && (
+        <details className="ev-json">
+          <summary>
+            {(matches?.length ?? 0) - 1} further historical match
+            {(matches?.length ?? 0) - 1 === 1 ? "" : "es"}
+          </summary>
+          {matches?.slice(1).map((match) => (
+            <MatchCard
+              key={match.entry.entry_id}
+              investigation={investigation}
+              match={match}
+              busy={busy}
+              onUpdate={onUpdate}
+            />
+          ))}
+        </details>
+      )}
 
       {investigation.regression_checks.length > 0 && (
         <>

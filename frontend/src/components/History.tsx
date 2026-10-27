@@ -65,13 +65,26 @@ export function History({ onOpen }: { onOpen: (inv: InvestigationResponse) => vo
               >
                 {busy === item.investigation_id ? "Opening…" : item.problem}
               </button>
-              <span className="muted mono">
-                {item.investigation_id} · {new Date(item.created_at).toLocaleString()} ·{" "}
-                {item.status} · {item.evidence_count} evidence · {item.proposal_count} proposals
-                {item.latest_outcome && ` · ${item.latest_outcome}`}
+              <span className="history-meta">
+                {new Date(item.created_at).toLocaleString()} · {item.status} ·{" "}
+                {item.evidence_count} evidence · {item.proposal_count} proposals
               </span>
+              <span className="history-meta mono">{item.investigation_id}</span>
             </div>
             <div className="history-links">
+              {item.latest_outcome && (
+                <span
+                  className={
+                    item.latest_outcome === "VERIFIED_RESOLVED"
+                      ? "badge badge-verified"
+                      : item.latest_outcome === "NOT_RESOLVED"
+                        ? "badge badge-fail"
+                        : "badge"
+                  }
+                >
+                  {item.latest_outcome}
+                </span>
+              )}
               <a
                 className="link-button"
                 href={`/api/investigations/${encodeURIComponent(item.investigation_id)}/export?format=markdown`}

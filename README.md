@@ -13,7 +13,7 @@ Turn a reported symptom into an investigation with traceable evidence, technicia
 
 **[Quickstart](#quickstart) · [Demo walkthrough](docs/demo/DEMO_SCRIPT.md) · [How it works](#how-it-works) · [Safety](#safety)**
 
-![FieldRook technician workstation](docs/assets/fieldrook-m011-live-landing.png)
+![FieldRook technician workstation](docs/assets/fieldrook-m012-landing.png)
 
 </div>
 
@@ -61,14 +61,24 @@ Constrained execution -> fresh independent health check -> incident report
 
 ## What is available today?
 
-- **Investigate:** collect targeted read-only Windows diagnostics for applications, services, events, network, processes and scheduled tasks.
-- **Understand:** separate measured facts from hypotheses, inspect linked evidence, re-check readings and see unresolved contradictions.
+- **Investigate:** describe a symptom and collect targeted read-only Windows diagnostics for applications, services, events, network, processes and scheduled tasks.
+- **Findings:** read the result header — primary finding, honest status, one recommended next step — then the cited diagnosis, uncertainties, and historical matches.
+- **Evidence:** inspect readable per-category summaries with provenance and warnings; raw JSON stays one click away; re-check any reading without losing history.
 - **Resolve:** prepare measurable repair plans, require explicit technician approval for registered actions, then independently check the outcome. Only the application-owned demo worker has an implemented corrective action.
 - **Remember:** reopen investigations, add technician notes, and compare them with previously saved resolutions (no automatic reuse of old fixes).
 
-**Current stage:** M011 technician pilot. Nine genuine Windows/live-model operations were reported with valid evidence references; separate fixture-based evaluation remains documented in [the gauntlet report](backend/eval/REPORT.md). See the [pilot](docs/pilot/M011_PILOT.md), [first-run guide](docs/FIRST_RUN.md), [manual acceptance checklist](docs/ACCEPTANCE.md), and [full milestone log](HACKATHON.md).
+**Current stage:** M012 focused workstation. The investigation experience was rebuilt around Findings / Evidence / Resolve views with a three-second result header; see the [UX audit](docs/audit/M012_UX_AUDIT.md) for before/after. Backend behavior is unchanged since the M011 live pilot: nine genuine Windows/live-model operations with valid evidence references, plus the fixture-based [gauntlet report](backend/eval/REPORT.md). See the [first-run guide](docs/FIRST_RUN.md), [manual acceptance checklist](docs/ACCEPTANCE.md), and [full milestone log](HACKATHON.md).
 
-![Latest live FieldRook investigation](docs/assets/fieldrook-m011-live-investigation.png)
+![FieldRook findings view](docs/assets/fieldrook-m012-after-findings.png)
+
+<details>
+<summary>View Evidence and Resolve screenshots</summary>
+
+![FieldRook evidence view](docs/assets/fieldrook-m012-after-evidence.png)
+
+![FieldRook resolve view](docs/assets/fieldrook-m012-after-resolve.png)
+
+</details>
 
 > **Operator note:** when updating the source while a local backend is still running, restart the Python API server too. An older backend process may return an incompatible response to a newer frontend. The UI now surfaces this mismatch instead of crashing.
 
@@ -86,11 +96,11 @@ Constrained execution -> fresh independent health check -> incident report
 - `demo_worker/` — application-owned background process with a heartbeat health
   check plus a failure simulator for the controlled-fix demonstration.
 - `frontend/` — React + TypeScript + Vite: problem workstation (preset
-  templates, intake, incident overview, activity timeline, grouped evidence
-  cards, runbook assessment, technician notes, follow-ups), Action Center
-  (approve/reject, before/after, executions), incident history with export,
-  plus the original Milestone 001 service lookup tab. Playwright e2e suite
-  under `frontend/tests/e2e/`.
+  templates, intake, result header with one next action, Findings / Evidence
+  / Resolve views, evidence summaries with on-demand JSON, runbook assessment,
+  technician notes, follow-ups), Action Center (approve/reject, before/after,
+  executions), incident history with export, plus the original Milestone 001
+  service lookup tab. Playwright e2e suite under `frontend/tests/e2e/`.
 - `scripts/demo/` — demo operations: preflight, worker start, failure
   injection, health checks, and reset (no admin rights needed).
 - `docs/demo/` — three-minute demo script, demo-day checklist, technical

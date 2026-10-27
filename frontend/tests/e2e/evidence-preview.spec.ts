@@ -5,6 +5,7 @@ test("evidence links open a compact preview without jumping the page", async ({ 
   await page.getByPlaceholder(/vpn disconnects/i).fill(
     "E2E probe: my VPN disconnects every 10 minutes.",
   );
+  await page.getByText("Advanced: fixture mode").click();
   await page.getByText("Force fixture data").click();
   await page.getByRole("button", { name: "Investigate", exact: true }).click();
 

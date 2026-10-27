@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { getStatus } from "./api";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import { Header } from "./components/Header";
 import { History } from "./components/History";
 import { KnowledgeLibrary } from "./components/KnowledgeLibrary";
@@ -61,26 +62,34 @@ export function App() {
         </button>
       </nav>
       <main className="main">
-        {tab === "problem" ? (
-          <ProblemWorkstation
-            key={seeded?.investigation_id ?? "new"}
-            initial={seeded}
-          />
-        ) : tab === "service" ? (
-          <ServiceWorkstation />
-        ) : tab === "knowledge" ? (
-          <KnowledgeLibrary />
-        ) : (
-          <History
-            onOpen={(inv) => {
-              setSeeded(inv);
-              setTab("problem");
-            }}
-          />
-        )}
+        <ErrorBoundary
+          key={tab}
+          onReset={() => {
+            setSeeded(null);
+            setTab("problem");
+          }}
+        >
+          {tab === "problem" ? (
+            <ProblemWorkstation
+              key={seeded?.investigation_id ?? "new"}
+              initial={seeded}
+            />
+          ) : tab === "service" ? (
+            <ServiceWorkstation />
+          ) : tab === "knowledge" ? (
+            <KnowledgeLibrary />
+          ) : (
+            <History
+              onOpen={(inv) => {
+                setSeeded(inv);
+                setTab("problem");
+              }}
+            />
+          )}
+        </ErrorBoundary>
       </main>
       <footer className="footer">
-        <span>FieldRook Milestone 011 · Diagnose. Verify. Resolve.</span>
+        <span>FieldRook Milestone 012 · Diagnose. Verify. Resolve.</span>
       </footer>
     </div>
   );

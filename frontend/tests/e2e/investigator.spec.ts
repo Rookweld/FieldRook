@@ -5,6 +5,7 @@ test("evidence re-check shows unchanged verdict and history", async ({ page }) =
   await page.getByPlaceholder(/vpn disconnects/i).fill(
     "E2E probe: DNS does not resolve anything since this morning.",
   );
+  await page.getByText("Advanced: fixture mode").click();
   await page.getByText("Force fixture data").click();
   await page.getByRole("button", { name: "Investigate", exact: true }).click();
   await expect(page.getByText("FIXTURES", { exact: true })).toBeVisible({ timeout: 30000 });
@@ -15,6 +16,7 @@ test("evidence re-check shows unchanged verdict and history", async ({ page }) =
   await expect(page.getByText("Unresolved questions")).toBeVisible();
 
   // Re-check the DNS config card; fixtures return identical readings.
+  await page.getByRole("tab", { name: /Evidence/ }).click();
   const dnsCard = page.locator("article.evidence-item", { hasText: "dns_config" }).first();
   await expect(dnsCard).toBeVisible();
   await dnsCard.getByRole("button", { name: "Re-check" }).click();
@@ -34,6 +36,7 @@ test("network contradiction surfaces with a targeted re-check", async ({ page })
   await page.getByPlaceholder(/vpn disconnects/i).fill(
     "E2E probe: the network is down on this machine, I am sure the cable is unplugged.",
   );
+  await page.getByText("Advanced: fixture mode").click();
   await page.getByText("Force fixture data").click();
   await page.getByRole("button", { name: "Investigate", exact: true }).click();
   await expect(page.getByText("FIXTURES", { exact: true })).toBeVisible({ timeout: 30000 });
@@ -41,8 +44,10 @@ test("network contradiction surfaces with a targeted re-check", async ({ page })
   await expect(page.getByText("Contradictions (1)")).toBeVisible();
   await expect(page.getByText("Suggested next checks")).toBeVisible();
   await page.getByRole("button", { name: "Re-check now" }).click();
+  await page.getByRole("tab", { name: /Evidence/ }).click();
   await expect(page.getByText("UNCHANGED", { exact: true }).first()).toBeVisible({ timeout: 15000 });
   // The contradiction stands on two agreeing readings — reported honestly.
+  await page.getByRole("tab", { name: "Findings" }).click();
   await expect(page.getByText("Contradictions (1)")).toBeVisible();
   await page.screenshot({ path: "test-results/shot-contradiction.png", fullPage: true });
 });

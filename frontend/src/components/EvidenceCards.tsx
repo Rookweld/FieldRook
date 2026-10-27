@@ -1,6 +1,6 @@
+import { Fragment } from "react";
+import { summarizeEvidence } from "../evidenceSummary";
 import type { EvidenceItem, EvidenceRefresh } from "../types";
-
-const PREVIEW_CHARS = 500;
 
 const CATEGORY_LABELS: Record<string, string> = {
   service_status: "Services",
@@ -22,18 +22,10 @@ const CATEGORY_LABELS: Record<string, string> = {
   screenshot: "Screenshot",
 };
 
-// M011: tool warnings (truncation, fixture fallback) live in data.warnings;
-// they are material to trust, so the card surfaces them above the JSON.
 function dataWarnings(item: EvidenceItem): string[] {
   const w: unknown = item.data["warnings"];
   if (!Array.isArray(w)) return [];
   return w.filter((x): x is string => typeof x === "string");
-}
-
-function previewText(item: EvidenceItem): string {
-  const pretty = JSON.stringify(item.data, null, 2);
-  if (pretty.length <= PREVIEW_CHARS) return pretty;
-  return `${pretty.slice(0, PREVIEW_CHARS)}\n\u2026 (+${pretty.length - PREVIEW_CHARS} chars, see full JSON)`;
 }
 
 export function EvidenceCards({
@@ -53,7 +45,6 @@ export function EvidenceCards({
   reverifyingId?: string | null;
   reverifyDisabled?: boolean;
 }) {
-  if (evidence.length === 0) return null;
   const groups = new Map<string, EvidenceItem[]>();
   for (const item of evidence) {
     const label = CATEGORY_LABELS[item.category] ?? item.category;
@@ -91,7 +82,7 @@ export function EvidenceCards({
                     type="button"
                     className="chip chip-button"
                     onClick={() => onSelect(item.id)}
-                    title="Select this evidence"
+                    title="Show a quick preview of this evidence"
                   >
                     {item.id}
                   </button>
@@ -137,9 +128,16 @@ export function EvidenceCards({
                   </details>
                 ) : (
                   <>
-                    <pre className="pre">{previewText(item)}</pre>
-                    <details>
-                      <summary>Full JSON</summary>
+                    <dl className="ev-summary">
+                      {summarizeEvidence(item).map((row, i) => (
+                        <Fragment key={`${row.label}-${i}`}>
+                          <dt>{row.label}</dt>
+                          <dd>{row.value}</dd>
+                        </Fragment>
+                      ))}
+                    </dl>
+                    <details className="ev-json">
+                      <summary>Raw JSON</summary>
                       <pre className="pre">{JSON.stringify(item.data, null, 2)}</pre>
                     </details>
                   </>

@@ -58,7 +58,11 @@ historical-evidence collapsing, plan timeline rounds, badge tooltips,
 debounced search, visible keyboard focus, before/after screenshots,
 47-case gauntlet re-measured), and Milestone 011 (live technician
 pilot on genuine Windows data, four pilot defects fixed, first-run
-guide and acceptance checklist, 47-case gauntlet re-measured) were all
+guide and acceptance checklist, 47-case gauntlet re-measured), and Milestone 012 (focused-workstation
+UX overhaul: Findings / Evidence / Resolve views, three-second result
+header, readable evidence summaries, summary-first evidence preview,
+honest pending states, error boundary, token design system, 21-test
+Playwright suite) were all
 designed and implemented during the event.
 
 ## Meta Muse Spark integration

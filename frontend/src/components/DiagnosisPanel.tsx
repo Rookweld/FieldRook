@@ -3,8 +3,6 @@ import { EvidenceChip } from "./EvidenceChip";
 
 export function DiagnosisPanel({
   analysis,
-  incidentId,
-  createdAt,
   warnings,
   onEvidenceClick,
 }: {
@@ -23,9 +21,6 @@ export function DiagnosisPanel({
           {a.mode === "live" ? "LIVE MODEL" : "SIMULATED"} &middot; {a.model}
         </span>
       </div>
-      <p className="muted">
-        Incident {incidentId} &middot; {new Date(createdAt).toLocaleString()}
-      </p>
       {warnings.map((w, i) => (
         <p key={i} className="warn">
           {w}
@@ -76,7 +71,7 @@ export function DiagnosisPanel({
         ))}
       </ul>
 
-      <h3>Uncertainty and missing evidence</h3>
+      <h3>Unresolved questions</h3>
       <ul className="unverified">
         {a.uncertainties.map((u, i) => (
           <li key={`u${i}`}>
@@ -96,17 +91,17 @@ export function DiagnosisPanel({
         before acting. FieldRook executes nothing on this list.
       </p>
       {(a.next_steps ?? []).length > 0 ? (
-        <ol className="runbook">
+        <div className="runbook">
           {(a.next_steps ?? []).map((s, i) => (
-            <li key={i} className="runbook-step">
-              <div className="cause-head">
-                <strong>{s.step}</strong>
+            <details key={i} className="runbook-step">
+              <summary>
+                <strong>{s.step}</strong>{" "}
                 <span className={`impact impact-${s.impact}`}>{s.impact}</span>
-                {s.admin_maybe && <span className="impact impact-admin">may need admin</span>}
+                {s.admin_maybe && <span className="impact impact-admin">may need admin</span>}{" "}
                 {s.evidence_ids.map((eid) => (
                   <EvidenceChip key={eid} id={eid} onSelect={onEvidenceClick} />
                 ))}
-              </div>
+              </summary>
               {s.why && (
                 <p>
                   <span className="runbook-label">Why:</span> {s.why}
@@ -122,9 +117,9 @@ export function DiagnosisPanel({
                   <span className="runbook-label">Confirms / weakens:</span> {s.confirms}
                 </p>
               )}
-            </li>
+            </details>
           ))}
-        </ol>
+        </div>
       ) : (
         <ol className="actions">
           {a.next_actions.map((n, i) => (

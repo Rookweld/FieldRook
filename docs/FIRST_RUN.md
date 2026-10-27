@@ -59,11 +59,15 @@ fixtures.
    words, e.g. "Has Excel crashed on this machine in the last day?"
    Live investigations take roughly 15–45 seconds: the model calls
    tools, then writes an evidence-cited assessment.
-3. Read the result top to bottom: leading hypothesis, evidence coverage,
-   progress and open questions, activity timeline, evidence cards,
-   diagnosis. Green `OBSERVED` facts are measured; amber `INFERRED`
-   causes are hypotheses; red `UNVERIFIED` items are missing or unknown.
-   Every claim cites `ev-N` chips — click one to jump to its evidence.
+3. Read the **Findings** view first: the result header states the
+   primary finding, the honest status, and the single recommended next
+   step. Below it are the diagnosis, open questions, and any historical
+   matches. Cyan `OBSERVED` facts are measured; grey `INFERRED` causes
+   are hypotheses; amber `UNVERIFIED` items are missing or unknown.
+   Every claim cites `ev-N` chips — click one for a quick preview
+   (the page will not jump); choose "Go to full evidence" only when you
+   want the **Evidence** view. The **Resolve** view holds corrective
+   actions, resolution plans, verification, and report export.
 
 ## 6. What FieldRook will and will not do
 
