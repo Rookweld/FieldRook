@@ -1,5 +1,28 @@
 # FieldRook Diagnostic Gauntlet — Evaluation Report
 
+## M009 update (2026-10-27) — read this first
+
+The gauntlet grew from 43 to **47 cases**: 26 investigation + 11 tool cases
+in the deterministic fixture tier, and 10 capped live-model cases. New in M009:
+
+- **Memory probes**: three fixture cases record one investigation to the
+  knowledge library, open a second incident, and assert deterministic
+  behavior — `memory-similar-resolved` requires the recorded entry to match
+  with symptom + category signals and a `VERIFIED_RESOLVED` outcome;
+  `memory-different-cause` requires the Excel-vs-Outlook identity split to
+  appear in the differences; `memory-regression` requires a failing recheck
+  to flag `REGRESSION` while the historical outcome stays intact. Every
+  matched entry id is re-fetched (citation check), and each flow deletes its
+  entry afterwards so cases cannot pollute each other.
+- **Live memory flow**: `live-memory-flow` investigates with the live model,
+  remembers the incident, and matches a repeat — signals explained, entry
+  ids resolved.
+
+**Measured M009 results: 47/47 evaluated cases passed (37 fixture/tool + 10
+live-model).** Raw JSON: `backend/eval/results/20261027T101203Z.json`
+(gitignored; re-run with `python -m eval.run [--live]` from `backend/`).
+The live tier passed first try this round; no measurement changes needed.
+
 ## M008 update (2026-10-27) — read this first
 
 The gauntlet grew from 39 to **43 cases**: 23 investigation + 11 tool cases
@@ -201,7 +224,7 @@ measurement found a real routing gap.
 ## Limitations
 
 - Fixture tier scores the deterministic pipeline, not model quality.
-- Live tier is small (9 cases, spending-capped) and uses fixture
+- Live tier is small (10 cases, spending-capped) and uses fixture
   diagnostics; live-machine variance is covered by manual rehearsal instead.
 - Content signals are substring checks, not semantic grading — they catch
   regressions, not subtle reasoning errors (`proven` is now hedge-aware).

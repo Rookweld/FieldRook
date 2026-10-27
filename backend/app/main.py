@@ -6,7 +6,7 @@ from typing import AsyncIterator
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from .routers import actions, incidents, investigations, resolutions, services
+from .routers import actions, incidents, investigations, knowledge, resolutions, services
 from .security import LocalOriginMiddleware
 
 
@@ -40,6 +40,7 @@ app.include_router(incidents.router)
 app.include_router(investigations.router)
 app.include_router(actions.router)
 app.include_router(resolutions.router)
+app.include_router(knowledge.router)
 
 
 @app.get("/")

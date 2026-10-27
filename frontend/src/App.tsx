@@ -2,12 +2,13 @@ import { useEffect, useState } from "react";
 import { getStatus } from "./api";
 import { Header } from "./components/Header";
 import { History } from "./components/History";
+import { KnowledgeLibrary } from "./components/KnowledgeLibrary";
 import { ProblemWorkstation } from "./components/ProblemWorkstation";
 import { ServiceWorkstation } from "./components/ServiceWorkstation";
 import type { InvestigationResponse, StatusResponse } from "./types";
 
 export function App() {
-  const [tab, setTab] = useState<"problem" | "service" | "history">("problem");
+  const [tab, setTab] = useState<"problem" | "service" | "history" | "knowledge">("problem");
   const [status, setStatus] = useState<StatusResponse | null>(null);
   const [seeded, setSeeded] = useState<InvestigationResponse | null>(null);
 
@@ -51,6 +52,13 @@ export function App() {
         >
           History
         </button>
+        <button
+          type="button"
+          className={tab === "knowledge" ? "tab tab-active" : "tab"}
+          onClick={() => setTab("knowledge")}
+        >
+          Knowledge
+        </button>
       </nav>
       <main className="main">
         {tab === "problem" ? (
@@ -60,6 +68,8 @@ export function App() {
           />
         ) : tab === "service" ? (
           <ServiceWorkstation />
+        ) : tab === "knowledge" ? (
+          <KnowledgeLibrary />
         ) : (
           <History
             onOpen={(inv) => {
@@ -70,7 +80,7 @@ export function App() {
         )}
       </main>
       <footer className="footer">
-        <span>FieldRook Milestone 004 · Diagnose. Verify. Resolve.</span>
+        <span>FieldRook Milestone 009 · Diagnose. Verify. Resolve.</span>
       </footer>
     </div>
   );

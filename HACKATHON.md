@@ -48,7 +48,9 @@ investigation progress UI, four field scenarios, 39-case gauntlet), and
 Milestone 008 (resolution plans with measurable criteria, Confirm Fix
 baseline/verify workflow, VERIFIED_RESOLVED/NOT_RESOLVED/INCONCLUSIVE
 outcomes, resolution workspace, eight verification scenarios, 43-case
-gauntlet) were all
+gauntlet), and Milestone 009 (verified resolution library, deterministic
+similar-incident matching, Worked Before panel, on-demand regression
+rechecks, redacted local knowledge management, 47-case gauntlet) were all
 designed and implemented during the event.
 
 ## Meta Muse Spark integration

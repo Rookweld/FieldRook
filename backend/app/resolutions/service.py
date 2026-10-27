@@ -53,6 +53,9 @@ class PlanBudgetError(PlanError):
 
 _MISSING = object()
 
+#: Sentinel for "path absent"; shared with the knowledge rechecker.
+MISSING = _MISSING
+
 
 def _now() -> datetime:
     return datetime.now(timezone.utc)

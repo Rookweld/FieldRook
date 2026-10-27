@@ -66,6 +66,20 @@ Evidence-driven AI troubleshooting assistant for IT technicians. A ROOKWELD
 project built for the Meta Global AI Developer Hackathon 2026 (Indie Developer
 track, "Build for Your World").
 
+**Milestone 009 — The Technician's Memory:** FieldRook remembers. Resolved
+(and unresolved) incidents are saved to a local SQLite library with redacted
+symptom signatures, evidence fingerprints, measured criteria, and outcomes.
+New incidents match deterministically against history — every suggestion
+explains its signals (shared symptoms, identity, event codes, evidence
+values) and its differences, with no fictional confidence scores. The Worked
+Before panel offers one-click follow-up investigation of a historical
+hypothesis (read-only; never auto-executes), and on-demand rechecks flag
+regressions when fresh measurements contradict a verified fix. The gauntlet
+grew to 47 cases and measures 47/47 (37 fixture/tool + 10 capped live
+`muse-spark-1.3` evaluations); eight memory scenarios cover matching,
+different-cause flagging, failed-repair honesty, clustering, regression,
+migration, and redaction (see `backend/eval/REPORT.md`).
+
 **Milestone 008 — Guided Resolution:** findings become provable recovery.
 Technicians draft resolution plans from supporting evidence with explicit
 measurable criteria (tool + value path + comparison), capture a pre-fix
@@ -142,7 +156,7 @@ Markdown/JSON, and every conclusion stays traceable to evidence framed as
   Meta tool-calling loop with symptom triage, corrective-action subsystem
   (`app/actions/`: registry, policies, approval, executor, verification,
   audit), SQLite persistence, incident export, pytest suite.
-- `backend/eval/` — the diagnostic gauntlet: 43 reproducible cases plus the
+- `backend/eval/` — the diagnostic gauntlet: 47 reproducible cases plus the
   evaluation report (`REPORT.md`).
 - `demo_worker/` — application-owned background process with a heartbeat health
   check plus a failure simulator for the controlled-fix demonstration.
@@ -240,6 +254,12 @@ pnpm run test:e2e   # Playwright: real backend (fixtures, no key) + real UI
 | POST | `/api/plans/{id}/interventions/manual` | Record a manual fix (claim only, never proof) |
 | POST | `/api/plans/{id}/interventions/link-execution` | Link an authorized execution |
 | POST | `/api/plans/{id}/verify` | Confirm Fix: re-measure and grade `VERIFIED_RESOLVED` / `NOT_RESOLVED` / `INCONCLUSIVE` |
+| POST | `/api/investigations/{id}/knowledge` | Remember an incident (redacted snapshot; merges exact repeats) |
+| GET | `/api/knowledge?q=&category=&outcome=` | Search the local library |
+| GET/DELETE | `/api/knowledge/{entry}` | Inspect or delete one entry |
+| GET | `/api/knowledge/{entry}/export?format=` | Export a single entry (no leakage) |
+| GET | `/api/investigations/{id}/knowledge/matches` | Similar incidents with signals + differences |
+| POST | `/api/investigations/{id}/knowledge/{entry}/recheck` | Re-run verified criteria: `CONFIRMED` / `REGRESSION` / `INCONCLUSIVE` |
 | GET | `/api/investigations/{id}/export?format=markdown\|json` | Ticket-ready incident report |
 | POST | `/api/investigations/{id}/proposals` | Propose a registered action (never executes) |
 | POST | `/api/proposals/{id}/approve` | Human approval → single-use token (5 min TTL) |

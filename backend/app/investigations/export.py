@@ -181,6 +181,17 @@ def build_markdown(state: Any) -> str:
     if not data.get("plans"):
         add("(no resolution plans)")
     add("")
+    add("## 16. Knowledge regression checks")
+    for check in data.get("regression_checks", []):
+        add(f"### {check['check_id']} — {check['outcome']} at {check['checked_at']}")
+        add(f"Historical entry: {check['entry_id']} (original verified outcome preserved)")
+        for result in check.get("results", []):
+            add(f"- {result['criterion_id']}: {result['outcome'].upper()} — {result.get('detail', '')}")
+        for uncertainty in check.get("uncertainties", []):
+            add(f"- Uncertainty: {uncertainty}")
+    if not data.get("regression_checks"):
+        add("(no knowledge rechecks)")
+    add("")
     add("---")
     add(f"Exported {data['exported_at']} by FieldRook. OBSERVED facts are measured; INFERRED causes are hypotheses.")
     return "\n".join(lines) + "\n"

@@ -42,6 +42,16 @@ class Case:
     resolution_criteria: tuple = ()
     resolution_env_verify: dict = field(default_factory=dict)
     expect_resolution: str = ""
+    memory_second_problem: str = ""
+    memory_second_env: dict = field(default_factory=dict)
+    memory_resolve: bool = False
+    memory_verify_env: dict = field(default_factory=dict)
+    memory_expect_signals: tuple = ()
+    memory_expect_differences: tuple = ()
+    memory_expect_outcome: str = ""
+    memory_recheck: bool = False
+    memory_recheck_env: dict = field(default_factory=dict)
+    memory_expect_recheck: str = ""
     notes: str = ""
 
 
@@ -339,6 +349,54 @@ CASES: list[Case] = [
         expect_resolution="INCONCLUSIVE",
         notes="M008: missing measurements prevent verification.",
     ),
+    Case(
+        id="memory-similar-resolved",
+        category="memory",
+        problem="The FieldRook demo worker is down.",
+        reference="Verified worker fix is remembered; a repeat incident "
+        "matches it with inspectable signals and the VERIFIED outcome.",
+        env={"FIELDROOK_FIXTURE_WORKER": "failing"},
+        must_use_any=frozenset({"get_demo_worker_health"}),
+        require_uncertainty=True,
+        memory_second_problem="The FieldRook demo worker is down again.",
+        memory_resolve=True,
+        memory_verify_env={"FIELDROOK_FIXTURE_WORKER": "healthy"},
+        memory_expect_signals=("symptom", "category"),
+        memory_expect_outcome="VERIFIED_RESOLVED",
+        notes="M009: record -> match with explained signals.",
+    ),
+    Case(
+        id="memory-different-cause",
+        category="memory",
+        problem="Excel keeps crashing when I open large files.",
+        reference="Excel history vs an Outlook crash: matched on symptoms, "
+        "but the app-identity difference must be explicit.",
+        must_use_any=frozenset({"search_application_crashes"}),
+        require_uncertainty=True,
+        memory_second_problem="Outlook keeps crashing when I open large files.",
+        memory_second_env={"FIELDROOK_FIXTURE_CRASH_EXTRA": "OUTLOOK.EXE"},
+        memory_expect_signals=("category",),
+        memory_expect_differences=("excel", "outlook"),
+        notes="M009: similar symptoms, flagged identity split.",
+    ),
+    Case(
+        id="memory-regression",
+        category="memory",
+        problem="The FieldRook demo worker is down.",
+        reference="Verified entry rechecked against a fresh failure: "
+        "REGRESSION flagged, historical VERIFIED_RESOLVED preserved.",
+        env={"FIELDROOK_FIXTURE_WORKER": "failing"},
+        must_use_any=frozenset({"get_demo_worker_health"}),
+        require_uncertainty=True,
+        memory_second_problem="The FieldRook demo worker is down again.",
+        memory_second_env={"FIELDROOK_FIXTURE_WORKER": "failing"},
+        memory_resolve=True,
+        memory_verify_env={"FIELDROOK_FIXTURE_WORKER": "healthy"},
+        memory_recheck=True,
+        memory_recheck_env={"FIELDROOK_FIXTURE_WORKER": "failing"},
+        memory_expect_recheck="REGRESSION",
+        notes="M009: on-demand recheck contradicts history.",
+    ),
     # ---- live-model cases (capped; need MODEL_API_KEY) ----
     Case(
         id="live-phantom-fixtures",
@@ -461,6 +519,22 @@ CASES: list[Case] = [
         resolution_use_template="recover_demo_worker",
         expect_resolution="NOT_RESOLVED",
         notes="M008: resolution flow against live-mode state. No uncertainty required: an explicitly failed health read warrants a firm call.",
+    ),
+    Case(
+        id="live-memory-flow",
+        category="live-model",
+        problem="The FieldRook demo worker is down.",
+        reference="Live model investigates, the incident is remembered, and "
+        "a repeat incident matches it with cited signals; every matched "
+        "entry id must resolve.",
+        live_model=True,
+        env={"FIELDROOK_FIXTURE_WORKER": "failing"},
+        must_use_any=frozenset({"get_demo_worker_health"}),
+        forbid_mention=("definitely", "certainly", "proven"),
+        memory_second_problem="The FieldRook demo worker is down again.",
+        memory_second_env={"FIELDROOK_FIXTURE_WORKER": "failing"},
+        memory_expect_signals=("symptom", "category"),
+        notes="M009: memory flow against live-mode state.",
     ),
 ]
 

@@ -3,6 +3,8 @@ import type {
   IncidentAssessment,
   InvestigationResponse,
   InvestigationSummary,
+  KnowledgeEntry,
+  KnowledgeMatch,
   PlanTemplate,
   ServiceListResponse,
   StatusResponse,
@@ -217,6 +219,66 @@ export function verifyPlan(planId: string): Promise<InvestigationResponse> {
   return request<InvestigationResponse>(`/api/plans/${encodeURIComponent(planId)}/verify`, {
     method: "POST",
   });
+}
+
+export function recordKnowledge(
+  investigationId: string,
+  confirmedCause: string,
+): Promise<KnowledgeEntry> {
+  return request<KnowledgeEntry>(
+    `/api/investigations/${encodeURIComponent(investigationId)}/knowledge`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ confirmed_cause: confirmedCause }),
+    },
+  );
+}
+
+export function listKnowledge(params: {
+  q?: string;
+  category?: string;
+  outcome?: string;
+} = {}): Promise<KnowledgeEntry[]> {
+  const search = new URLSearchParams();
+  if (params.q) search.set("q", params.q);
+  if (params.category) search.set("category", params.category);
+  if (params.outcome) search.set("outcome", params.outcome);
+  const suffix = search.toString();
+  return request<KnowledgeEntry[]>(`/api/knowledge${suffix ? `?${suffix}` : ""}`);
+}
+
+export function getKnowledgeEntry(entryId: string): Promise<KnowledgeEntry> {
+  return request<KnowledgeEntry>(`/api/knowledge/${encodeURIComponent(entryId)}`);
+}
+
+export function deleteKnowledgeEntry(entryId: string): Promise<{ deleted: string }> {
+  return request<{ deleted: string }>(`/api/knowledge/${encodeURIComponent(entryId)}`, {
+    method: "DELETE",
+  });
+}
+
+export function knowledgeExportUrl(entryId: string, format: "markdown" | "json"): string {
+  return `/api/knowledge/${encodeURIComponent(entryId)}/export?format=${format}`;
+}
+
+export function fetchKnowledgeMatches(
+  investigationId: string,
+  limit = 5,
+): Promise<{ matches: KnowledgeMatch[] }> {
+  return request<{ matches: KnowledgeMatch[] }>(
+    `/api/investigations/${encodeURIComponent(investigationId)}/knowledge/matches?limit=${limit}`,
+  );
+}
+
+export function recheckKnowledgeEntry(
+  investigationId: string,
+  entryId: string,
+): Promise<InvestigationResponse> {
+  return request<InvestigationResponse>(
+    `/api/investigations/${encodeURIComponent(investigationId)}/knowledge/${encodeURIComponent(entryId)}/recheck`,
+    { method: "POST" },
+  );
 }
 
 export function listTools(): Promise<ToolInfo[]> {

@@ -10,6 +10,7 @@ import {
 import type { InvestigationResponse, ServiceSummary } from "../types";
 import { ActionCenter } from "./ActionCenter";
 import { ResolutionWorkspace } from "./ResolutionWorkspace";
+import { WorkedBefore } from "./WorkedBefore";
 import { DiagnosisPanel } from "./DiagnosisPanel";
 import { StageStepper, resolutionOf, stageOf } from "./WorkflowStage";
 import { EvidenceCards } from "./EvidenceCards";
@@ -404,6 +405,12 @@ export function ProblemWorkstation({
               onEvidenceClick={setSelectedEvidence}
             />
           )}
+
+          <WorkedBefore
+            investigation={investigation}
+            onUpdate={setInvestigation}
+            onEvidenceClick={setSelectedEvidence}
+          />
 
           <ActionCenter investigation={investigation} onUpdate={setInvestigation} />
 

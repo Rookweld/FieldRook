@@ -217,6 +217,7 @@ class InvestigationResponse(BaseModel):
     notes: list[TechnicianNote] = Field(default_factory=list)
     refreshes: list[EvidenceRefresh] = Field(default_factory=list)
     plans: list["ResolutionPlan"] = Field(default_factory=list)
+    regression_checks: list["RegressionCheck"] = Field(default_factory=list)
     contradictions: list[Contradiction] = Field(default_factory=list)
     suggested_rechecks: list[RecheckSuggestion] = Field(default_factory=list)
     tool_calls_used: int = 0
@@ -312,6 +313,71 @@ class ResolutionPlan(BaseModel):
     verifications: list[PlanVerification] = Field(default_factory=list)
     status: PlanStatus = "DRAFT"
     created_at: datetime
+
+
+KnowledgeOutcome = Literal["VERIFIED_RESOLVED", "NOT_RESOLVED", "INCONCLUSIVE", "UNRESOLVED"]
+RecheckOutcome = Literal["CONFIRMED", "REGRESSION", "INCONCLUSIVE"]
+
+
+class KnowledgeLink(BaseModel):
+    investigation_id: str
+    plan_id: str | None = None
+    outcome: KnowledgeOutcome
+    recorded_at: datetime
+
+
+class KnowledgeEntry(BaseModel):
+    """One remembered incident. Verified outcomes cite measured criteria;
+    inferred causes stay labeled as hypotheses, never facts."""
+
+    entry_id: str
+    cluster_key: str
+    source_investigation_id: str
+    source_plan_id: str | None = None
+    problem: str
+    category: str
+    symptoms: list[str] = Field(default_factory=list)
+    identity: str | None = None
+    event_codes: list[str] = Field(default_factory=list)
+    evidence_signature: dict[str, Any] = Field(default_factory=dict)
+    root_cause: str | None = None
+    root_cause_verified: bool = False
+    intervention: str = ""
+    intervention_kind: str = "none"
+    criteria: list["ResolutionCriterion"] = Field(default_factory=list)
+    baseline_values: dict[str, Any] = Field(default_factory=dict)
+    verified_values: dict[str, Any] = Field(default_factory=dict)
+    outcome: KnowledgeOutcome = "UNRESOLVED"
+    verified_at: datetime | None = None
+    created_at: datetime
+    source_evidence_ids: list[str] = Field(default_factory=list)
+    occurrence_count: int = 1
+    investigations: list[KnowledgeLink] = Field(default_factory=list)
+
+
+class MatchSignal(BaseModel):
+    signal: str
+    detail: str
+    weight: int
+
+
+class KnowledgeMatch(BaseModel):
+    entry: KnowledgeEntry
+    strength: int
+    signals: list[MatchSignal] = Field(default_factory=list)
+    differences: list[str] = Field(default_factory=list)
+    missing_evidence: list[str] = Field(default_factory=list)
+
+
+class RegressionCheck(BaseModel):
+    check_id: str
+    entry_id: str
+    investigation_id: str
+    checked_at: datetime
+    outcome: RecheckOutcome
+    results: list[CriterionResult] = Field(default_factory=list)
+    uncertainties: list[str] = Field(default_factory=list)
+    evidence_ids: list[str] = Field(default_factory=list)
 
 
 # (Forward references resolved at the end of this module.)

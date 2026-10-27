@@ -16,7 +16,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-DB_VERSION = 4
+DB_VERSION = 5
 
 _SCHEMA_V2 = """
 CREATE TABLE IF NOT EXISTS notes (
@@ -135,6 +135,19 @@ CREATE TABLE IF NOT EXISTS plans (
 """
 
 
+_SCHEMA_V5 = """
+CREATE TABLE IF NOT EXISTS knowledge (
+    entry_id TEXT PRIMARY KEY,
+    entry_json TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS regression_checks (
+    check_id TEXT PRIMARY KEY,
+    inv_id TEXT NOT NULL,
+    check_json TEXT NOT NULL
+);
+"""
+
+
 def db_path() -> Path:
     override = os.environ.get("FIELDROOK_DB_PATH")
     if override:
@@ -172,6 +185,9 @@ def _migrate(conn: sqlite3.Connection) -> None:
     if version < 4:
         conn.executescript(_SCHEMA_V4)
         conn.execute("PRAGMA user_version = 4")
+    if version < 5:
+        conn.executescript(_SCHEMA_V5)
+        conn.execute("PRAGMA user_version = 5")
     conn.commit()
 
 
@@ -334,6 +350,12 @@ def save_state(state: Any) -> None:
                 "INSERT INTO plans (plan_id, inv_id, plan_json) VALUES (?, ?, ?)",
                 (plan.plan_id, state.id, plan.model_dump_json()),
             )
+        conn.execute("DELETE FROM regression_checks WHERE inv_id = ?", (state.id,))
+        for check in getattr(state, "regression_checks", []) or []:
+            conn.execute(
+                "INSERT INTO regression_checks (check_id, inv_id, check_json) VALUES (?, ?, ?)",
+                (check.check_id, state.id, check.model_dump_json()),
+            )
         conn.execute("DELETE FROM notes WHERE inv_id = ?", (state.id,))
         for note in getattr(state, "notes", []) or []:
             conn.execute(
@@ -383,6 +405,7 @@ def load_state(investigation_id: str) -> Any | None:
         AnalysisResult,
         EvidenceItem,
         EvidenceRefresh,
+        RegressionCheck,
         ResolutionPlan,
         TechnicianNote,
     )
@@ -504,6 +527,13 @@ def load_state(investigation_id: str) -> Any | None:
                 (investigation_id,),
             ).fetchall()
         ]
+        regression_checks = [
+            RegressionCheck.model_validate_json(row["check_json"])
+            for row in conn.execute(
+                "SELECT check_json FROM regression_checks WHERE inv_id = ? ORDER BY rowid",
+                (investigation_id,),
+            ).fetchall()
+        ]
         notes = [
             TechnicianNote(
                 note_id=n["note_id"],
@@ -539,6 +569,7 @@ def load_state(investigation_id: str) -> Any | None:
             executions=executions,
             refreshes=refreshes,
             plans=plans,
+            regression_checks=regression_checks,
         )
     finally:
         conn.close()
@@ -591,6 +622,53 @@ def find_plan(plan_id: str) -> str | None:
             "SELECT inv_id FROM plans WHERE plan_id = ?", (plan_id,)
         ).fetchone()
         return row["inv_id"] if row else None
+    finally:
+        conn.close()
+
+
+def save_knowledge_entry(entry_json: str, entry_id: str) -> None:
+    conn = _connect()
+    try:
+        conn.execute(
+            "INSERT INTO knowledge (entry_id, entry_json) VALUES (?, ?)"
+            " ON CONFLICT(entry_id) DO UPDATE SET entry_json = excluded.entry_json",
+            (entry_id, entry_json),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def load_knowledge_entry(entry_id: str) -> str | None:
+    conn = _connect()
+    try:
+        row = conn.execute(
+            "SELECT entry_json FROM knowledge WHERE entry_id = ?", (entry_id,)
+        ).fetchone()
+        return row["entry_json"] if row else None
+    finally:
+        conn.close()
+
+
+def list_knowledge_entries() -> list[str]:
+    conn = _connect()
+    try:
+        return [
+            row["entry_json"]
+            for row in conn.execute(
+                "SELECT entry_json FROM knowledge ORDER BY rowid"
+            ).fetchall()
+        ]
+    finally:
+        conn.close()
+
+
+def delete_knowledge_entry(entry_id: str) -> bool:
+    conn = _connect()
+    try:
+        cursor = conn.execute("DELETE FROM knowledge WHERE entry_id = ?", (entry_id,))
+        conn.commit()
+        return cursor.rowcount > 0
     finally:
         conn.close()
 

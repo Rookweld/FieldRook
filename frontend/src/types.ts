@@ -43,6 +43,67 @@ export interface Contradiction {
   description: string;
 }
 
+export type KnowledgeOutcome = "VERIFIED_RESOLVED" | "NOT_RESOLVED" | "INCONCLUSIVE" | "UNRESOLVED";
+export type RecheckOutcome = "CONFIRMED" | "REGRESSION" | "INCONCLUSIVE";
+
+export interface KnowledgeLink {
+  investigation_id: string;
+  plan_id: string | null;
+  outcome: KnowledgeOutcome;
+  recorded_at: string;
+}
+
+export interface KnowledgeEntry {
+  entry_id: string;
+  cluster_key: string;
+  source_investigation_id: string;
+  source_plan_id: string | null;
+  problem: string;
+  category: string;
+  symptoms: string[];
+  identity: string | null;
+  event_codes: string[];
+  evidence_signature: Record<string, string>;
+  root_cause: string | null;
+  root_cause_verified: boolean;
+  intervention: string;
+  intervention_kind: string;
+  criteria: ResolutionCriterion[];
+  baseline_values: Record<string, unknown>;
+  verified_values: Record<string, unknown>;
+  outcome: KnowledgeOutcome;
+  verified_at: string | null;
+  created_at: string;
+  source_evidence_ids: string[];
+  occurrence_count: number;
+  investigations: KnowledgeLink[];
+}
+
+export interface MatchSignal {
+  signal: string;
+  detail: string;
+  weight: number;
+}
+
+export interface KnowledgeMatch {
+  entry: KnowledgeEntry;
+  strength: number;
+  signals: MatchSignal[];
+  differences: string[];
+  missing_evidence: string[];
+}
+
+export interface RegressionCheck {
+  check_id: string;
+  entry_id: string;
+  investigation_id: string;
+  checked_at: string;
+  outcome: RecheckOutcome;
+  results: CriterionResult[];
+  uncertainties: string[];
+  evidence_ids: string[];
+}
+
 export type CriterionOp = "eq" | "ne" | "contains" | "gt" | "gte" | "lt" | "lte" | "exists";
 
 export interface ResolutionCriterion {
@@ -300,6 +361,7 @@ export interface InvestigationResponse {
   contradictions: Contradiction[];
   suggested_rechecks: RecheckSuggestion[];
   plans: ResolutionPlan[];
+  regression_checks: RegressionCheck[];
   tool_calls_used: number;
   tool_calls_max: number;
 }

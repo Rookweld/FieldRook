@@ -264,6 +264,144 @@ def _check_resolution(case: Case, body: dict) -> list[str]:
     return problems
 
 
+def _check_memory_flow(case: Case, body: dict) -> list[str]:
+    """Record inv1 to memory, then match/recheck from a second incident."""
+    problems: list[str] = []
+    entry_id: str | None = None
+    saved_env = {key: os.environ.get(key) for key in case.env}
+    os.environ.update(case.env)
+    try:
+        inv1 = body["investigation_id"]
+        if case.memory_resolve:
+            usable = [i for i in body.get("evidence", []) if i.get("tool_name")]
+            if not usable:
+                return ["no tool-backed evidence to resolve"]
+            template = client.get("/api/plans/template?action_id=recover_demo_worker")
+            if template.status_code != 200:
+                return ["memory setup: no template"]
+            tpl = template.json()
+            created = client.post(
+                f"/api/investigations/{inv1}/plans",
+                json={
+                    "evidence_ids": [usable[0]["id"]],
+                    "intended_state": tpl["intended_state"],
+                    "criteria": tpl["criteria"],
+                    "guidance": "Gauntlet.", "risks": "None.",
+                    "remediation_kind": "manual",
+                },
+            )
+            if created.status_code != 200:
+                return [f"memory setup plan HTTP {created.status_code}"]
+            plan_id = created.json()["plans"][-1]["plan_id"]
+            if client.post(f"/api/plans/{plan_id}/baseline").status_code != 200:
+                return ["memory setup baseline failed"]
+            client.post(
+                f"/api/plans/{plan_id}/interventions/manual",
+                json={"description": "Gauntlet fix."},
+            )
+            verify_saved = {k: os.environ.get(k) for k in case.memory_verify_env}
+            os.environ.update(case.memory_verify_env)
+            try:
+                verified = client.post(f"/api/plans/{plan_id}/verify")
+            finally:
+                for key, value in verify_saved.items():
+                    os.environ.pop(key, None) if value is None else os.environ.update({key: value})
+            if verified.status_code != 200:
+                return ["memory setup verify failed"]
+        recorded = client.post(f"/api/investigations/{inv1}/knowledge", json={})
+        if recorded.status_code not in (200, 201):
+            return [f"record HTTP {recorded.status_code}: {recorded.text[:200]}"]
+        entry_id = recorded.json()["entry_id"]
+    except Exception as exc:  # noqa: BLE001 - eval must report, not crash
+        return [f"memory setup failed: {exc}"]
+    finally:
+        for key, value in saved_env.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
+    try:
+        second_saved = {k: os.environ.get(k) for k in case.memory_second_env}
+        os.environ.update(case.memory_second_env)
+        try:
+            second = client.post(
+                "/api/investigations",
+                data={
+                    "problem": case.memory_second_problem or case.problem,
+                    "force_fixtures": "true",
+                },
+            )
+        finally:
+            for key, value in second_saved.items():
+                if value is None:
+                    os.environ.pop(key, None)
+                else:
+                    os.environ[key] = value
+        if second.status_code != 200:
+            return [f"memory second investigation HTTP {second.status_code}"]
+        inv2 = second.json()["investigation_id"]
+        matches = client.get(
+            f"/api/investigations/{inv2}/knowledge/matches"
+        ).json()["matches"]
+        for match in matches:
+            if client.get(f"/api/knowledge/{match['entry']['entry_id']}").status_code != 200:
+                problems.append("matched entry id does not resolve")
+        if not case.memory_recheck:
+            mine = [m for m in matches if m["entry"]["entry_id"] == entry_id]
+            if not mine:
+                return ["recorded entry did not match the repeat incident"]
+            match = mine[0]
+            signals = {s["signal"] for s in match["signals"]}
+            for want in case.memory_expect_signals:
+                if want not in signals:
+                    problems.append(f"missing match signal {want!r} (have {sorted(signals)})")
+            if not match["signals"]:
+                problems.append("match has no explanatory signals")
+            blob = " ".join(match["differences"]).lower()
+            for want in case.memory_expect_differences:
+                if want.lower() not in blob:
+                    problems.append(f"differences omit {want!r}")
+            if case.memory_expect_outcome and match["entry"]["outcome"] != case.memory_expect_outcome:
+                problems.append(
+                    f"matched outcome {match['entry']['outcome']!r}, "
+                    f"want {case.memory_expect_outcome!r}"
+                )
+        if case.memory_recheck:
+            recheck_saved = {k: os.environ.get(k) for k in case.memory_recheck_env}
+            os.environ.update(case.memory_recheck_env)
+            try:
+                rechecked = client.post(
+                    f"/api/investigations/{inv2}/knowledge/{entry_id}/recheck"
+                )
+            finally:
+                for key, value in recheck_saved.items():
+                    if value is None:
+                        os.environ.pop(key, None)
+                    else:
+                        os.environ[key] = value
+            if rechecked.status_code != 200:
+                return [f"recheck HTTP {rechecked.status_code}: {rechecked.text[:200]}"]
+            checks = rechecked.json().get("regression_checks", [])
+            if not checks:
+                problems.append("recheck produced no regression check")
+            elif case.memory_expect_recheck and checks[-1]["outcome"] != case.memory_expect_recheck:
+                problems.append(
+                    f"recheck {checks[-1]['outcome']!r}, want {case.memory_expect_recheck!r}"
+                )
+            kept = client.get(f"/api/knowledge/{entry_id}").json()
+            if kept["outcome"] == "REGRESSION":
+                problems.append("recheck overwrote the historical outcome")
+            problems.extend(
+                f"after recheck: {p}" for p in _check_citations(rechecked.json())
+            )
+    except Exception as exc:  # noqa: BLE001 - eval must report, not crash
+        problems.append(f"memory flow failed: {exc}")
+    finally:
+        if entry_id:
+            client.delete(f"/api/knowledge/{entry_id}")
+    return problems
+
+
 def run_case(case: Case) -> dict:
     saved_env = {key: os.environ.get(key) for key in case.env}
     os.environ.update(case.env)
@@ -313,6 +451,8 @@ def run_case(case: Case) -> dict:
         failures.extend(_check_reverify(case, body))
     if case.resolution_kind:
         failures.extend(_check_resolution(case, body))
+    if case.memory_second_problem:
+        failures.extend(_check_memory_flow(case, body))
     if case.max_tool_calls:
         # The runner's own reverify post costs one call; budget it too.
         total = body.get("tool_calls_used", 0) + (1 if case.reverify_category else 0)
@@ -350,6 +490,8 @@ def run_case(case: Case) -> dict:
         detail += f" reverify={case.expect_verdict or '?'}"
     if case.resolution_kind:
         detail += f" resolution={case.expect_resolution or '?'}"
+    if case.memory_second_problem:
+        detail += " memory=flow"
     result = {
         "id": case.id,
         "category": case.category,

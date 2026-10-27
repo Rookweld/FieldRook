@@ -69,3 +69,16 @@ criterion diagnostics, and grades fresh readings into VERIFIED_RESOLVED,
 NOT_RESOLVED, or INCONCLUSIVE. Verification is read-only and budget-bound;
 it cannot authorize or execute anything, and a manual "done" is stored as a
 claim, never as proof.
+
+## 8. Memory without mysticism (M009)
+
+Resolved incidents persist as redacted fingerprints — symptom tokens, a
+keyword category, service/app identity, event codes, and salient evidence
+values. Matching is arithmetic over inspectable signals (identity +4, shared
+event code +3, evidence value +3, category +2, symptom +1): every suggestion
+shows why it matched and where the evidence differs, and a bare category
+overlap never surfaces. Inferred causes stay labeled as hypotheses; only a
+technician-attested cause counts as confirmed. Rechecks re-run stored
+criteria on demand and report CONFIRMED, REGRESSION, or INCONCLUSIVE —
+nothing monitors in the background, and the library never leaves localhost
+except as a short technician-initiated hypothesis prompt.
