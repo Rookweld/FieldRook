@@ -1,3 +1,65 @@
+<div align="center">
+
+# 🐦‍⬛ FieldRook
+### Diagnose. Verify. Resolve.
+
+**Evidence-driven AI troubleshooting for Windows technicians.**
+
+Turn a reported symptom into an investigation with traceable evidence, technician-controlled recovery, and independently verified outcomes.
+
+[![CI](https://github.com/Rookweld/FieldRook/actions/workflows/validate.yml/badge.svg)](https://github.com/Rookweld/FieldRook/actions/workflows/validate.yml)
+[![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](LICENSE)
+![Meta AI Hackathon 2026](https://img.shields.io/badge/Meta_AI_Hackathon-2026-orange)
+
+**[Quickstart](#quickstart) · [Demo walkthrough](docs/demo/DEMO_SCRIPT.md) · [How it works](#how-it-works) · [Safety](#safety)**
+
+![FieldRook technician workstation](docs/assets/fieldrook-workstation.png)
+
+</div>
+
+## Why FieldRook?
+
+IT diagnosis often means switching between service managers, Windows event logs, scheduled tasks, network tools, and documentation. FieldRook brings the investigation into one local-first workstation. **Meta Muse Spark chooses from bounded diagnostic tools; FieldRook collects evidence and enforces the safety boundary.** The model does not get unrestricted shell access or final authority over whether a fix worked.
+
+| Investigate | Understand | Resolve |
+| :-- | :-- | :-- |
+| Describe symptoms, optionally provide a screenshot. | Inspect real tool activity, evidence IDs, and clearly labeled uncertainty. | Review a proposed action, approve explicitly, and compare independent before/after checks. |
+
+### A real investigation, not a mockup
+
+The example below uses a **clearly labeled synthetic fixture** based on a real class of recurring PowerShell-window issues. It is not a claim that the same issue is currently active.
+
+![FieldRook investigation timeline](docs/assets/fieldrook-investigation.png)
+
+<details>
+<summary>View evidence-backed diagnosis screenshot</summary>
+
+![FieldRook evidence-backed assessment](docs/assets/fieldrook-evidence.png)
+
+</details>
+
+## How it works
+
+```text
+Technician reports symptoms
+          |
+          v
+Meta Muse Spark plans and requests approved diagnostic tools
+          |
+          v
+Read-only Windows collectors -> timestamped evidence -> cited hypotheses
+          |
+          v
+Optional registered corrective action -> explicit technician approval
+          |
+          v
+Constrained execution -> fresh independent health check -> incident report
+```
+
+**Built during the Meta Global AI Developer Hackathon 2026.** See [HACKATHON.md](HACKATHON.md) for the development timeline and [technical highlights](docs/demo/TECHNICAL_HIGHLIGHTS.md) for the implementation boundaries. The only corrective action currently supported targets FieldRook's own demo worker; real Windows diagnostics are read-only.
+
+---
+
 # FieldRook — Diagnose. Verify. Resolve.
 
 Evidence-driven AI troubleshooting assistant for IT technicians. A ROOKWELD
@@ -153,7 +215,7 @@ and never commit a real `.env` containing `MODEL_API_KEY`.
 - One corrective action only (`recover_demo_worker` on the application-owned
   demo worker); the registry is intentionally minimal.
 - No per-user authentication; localhost binding is the access boundary.
-- No browser end-to-end suite yet (API-level coverage plus manual UI checks).
+- Browser end-to-end tests cover key flows via Playwright; live model calls remain separate smoke tests.
 - Large investigation histories can approach the 60s model timeout.
 - Model output is advisory: verification outcomes are computed by backend
   diagnostics and can never be overridden by the model.
