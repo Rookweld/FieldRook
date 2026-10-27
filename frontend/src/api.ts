@@ -119,6 +119,20 @@ export function addInvestigationNote(
   );
 }
 
+export function reverifyEvidence(
+  id: string,
+  evidenceId: string,
+): Promise<InvestigationResponse> {
+  return request<InvestigationResponse>(
+    `/api/investigations/${encodeURIComponent(id)}/reverify`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ evidence_id: evidenceId }),
+    },
+  );
+}
+
 export function listTools(): Promise<ToolInfo[]> {
   return request<ToolInfo[]>("/api/tools");
 }

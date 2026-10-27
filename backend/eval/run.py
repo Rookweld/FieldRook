@@ -81,6 +81,15 @@ def _check_citations(body: dict) -> list[str]:
         unknown = set(cause.get("evidence_ids", [])) - known
         if unknown:
             problems.append(f"cause {cause.get('title', '?')[:40]!r} cites unknown ids {sorted(unknown)}")
+    for refresh in body.get("refreshes", []):
+        refs = {refresh.get("old_evidence_id"), refresh.get("new_evidence_id")} - {None}
+        unknown = refs - known
+        if unknown:
+            problems.append(f"refresh references unknown ids {sorted(unknown)}")
+    for hit in body.get("contradictions", []):
+        unknown = set(hit.get("evidence_ids", [])) - known
+        if unknown:
+            problems.append(f"contradiction cites unknown ids {sorted(unknown)}")
     return problems
 
 
@@ -102,6 +111,66 @@ def _check_followup_reuse(case: Case, body: dict) -> list[str]:
     if new_calls > case.followup_max_new_calls:
         return [f"followup made {new_calls} new tool calls (max {case.followup_max_new_calls})"]
     return []
+
+
+def _check_reverify(case: Case, body: dict) -> list[str]:
+    """Post a real reverify call: verdict, history, budget, authorization."""
+    problems: list[str] = []
+    candidates = [
+        item for item in body.get("evidence", [])
+        if item.get("category") == case.reverify_category and item.get("tool_name")
+    ]
+    if not candidates:
+        return [f"no re-runnable {case.reverify_category} evidence to re-verify"]
+    old = candidates[-1]
+    old_snapshot = json.dumps(old.get("data"), sort_keys=True, default=str)
+    calls_before = body.get("tool_calls_used", 0)
+    proposals_before = len(body.get("proposals", []))
+    saved_env = {key: os.environ.get(key) for key in case.reverify_env}
+    os.environ.update(case.reverify_env)
+    try:
+        response = client.post(
+            f"/api/investigations/{body['investigation_id']}/reverify",
+            json={"evidence_id": old["id"]},
+        )
+    except Exception as exc:  # noqa: BLE001 - eval must report, not crash
+        return [f"reverify request failed: {exc}"]
+    finally:
+        for key, value in saved_env.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
+    if response.status_code != 200:
+        return [f"reverify HTTP {response.status_code}: {response.text[:200]}"]
+    after = response.json()
+    refreshes = after.get("refreshes", [])
+    if not refreshes:
+        return ["reverify produced no refresh record"]
+    refresh = refreshes[-1]
+    if case.expect_verdict and refresh.get("verdict") != case.expect_verdict:
+        problems.append(
+            f"verdict {refresh.get('verdict')!r}, want {case.expect_verdict!r}"
+        )
+    by_id = {item["id"]: item for item in after.get("evidence", [])}
+    kept = by_id.get(old["id"])
+    if kept is None:
+        problems.append("historical evidence item missing after reverify")
+    elif json.dumps(kept.get("data"), sort_keys=True, default=str) != old_snapshot:
+        problems.append("historical evidence data was modified by reverify")
+    elif kept.get("collected_at") != old.get("collected_at"):
+        problems.append("historical collected_at was modified by reverify")
+    new_id = refresh.get("new_evidence_id")
+    if new_id and by_id.get(new_id, {}).get("refresh_of") != old["id"]:
+        problems.append("new item is not linked to its historical item")
+    if after.get("tool_calls_used", 0) != calls_before + 1:
+        problems.append(
+            f"reverify cost {after.get('tool_calls_used', 0) - calls_before} calls, want exactly 1"
+        )
+    if len(after.get("proposals", [])) != proposals_before:
+        problems.append("reverify changed the proposal set (authorization boundary)")
+    problems.extend(f"after reverify: {p}" for p in _check_citations(after))
+    return problems
 
 
 def run_case(case: Case) -> dict:
@@ -147,6 +216,15 @@ def run_case(case: Case) -> dict:
         failures.append(f"unrelated sweep tools used {sorted(swept)} (used {sorted(tools_used)})")
     if case.followup:
         failures.extend(_check_followup_reuse(case, body))
+    if case.expect_contradiction and not body.get("contradictions"):
+        failures.append("expected a contradiction record, got none")
+    if case.reverify_category:
+        failures.extend(_check_reverify(case, body))
+    if case.max_tool_calls:
+        # The runner's own reverify post costs one call; budget it too.
+        total = body.get("tool_calls_used", 0) + (1 if case.reverify_category else 0)
+        if total > case.max_tool_calls:
+            failures.append(f"used {total} tool calls (max {case.max_tool_calls})")
     proposals = body.get("proposals", [])
     if case.expect_proposal and not proposals:
         failures.append("expected a proposal, got none")
@@ -169,13 +247,20 @@ def run_case(case: Case) -> dict:
                 failures.append(f"forbidden claim language {banned!r}")
     failures.extend(_check_citations(body))
     tool_requests = sum(1 for r in body.get("activity", []) if r.get("kind") == "tool_request")
+    detail = (
+        f"tools={sorted(tools_used)} calls={tool_requests} "
+        f"proposals={len(proposals)} mode={body.get('analysis_mode')}"
+    )
+    if body.get("contradictions"):
+        detail += f" contradictions={len(body['contradictions'])}"
+    if case.reverify_category:
+        detail += f" reverify={case.expect_verdict or '?'}"
     result = {
         "id": case.id,
         "category": case.category,
         "passed": not failures,
         "latency_s": latency_s,
-        "detail": f"tools={sorted(tools_used)} calls={tool_requests} "
-        f"proposals={len(proposals)} mode={body.get('analysis_mode')}",
+        "detail": detail,
         "failures": failures,
         "reference": case.reference,
     }

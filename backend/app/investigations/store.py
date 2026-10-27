@@ -16,6 +16,7 @@ from ..schemas import (
     AnalysisResult,
     DiagnosticBundle,  # noqa: F401  (re-exported for convenience)
     EvidenceItem,
+    EvidenceRefresh,
     InvestigationResponse,
     InvestigationSummary,
     TechnicianNote,
@@ -48,6 +49,7 @@ class InvestigationState:
     proposals: list[ActionProposal] = field(default_factory=list)
     executions: list[ActionExecution] = field(default_factory=list)
     notes: list[TechnicianNote] = field(default_factory=list)
+    refreshes: list[EvidenceRefresh] = field(default_factory=list)
 
     def add_activity(
         self,
@@ -78,6 +80,9 @@ class InvestigationState:
         source: str,
         data: dict,
         error: str | None = None,
+        tool_name: str | None = None,
+        tool_args: dict | None = None,
+        refresh_of: str | None = None,
     ) -> EvidenceItem:
         self.ev_counter += 1
         item = EvidenceItem(
@@ -87,10 +92,39 @@ class InvestigationState:
             collected_at=_now(),
             data=data,
             error=error,
+            tool_name=tool_name,
+            tool_args=dict(tool_args) if tool_args is not None else None,
+            refresh_of=refresh_of,
         )
         self.evidence.append(item)
         self.updated_at = _now()
         return item
+
+    def add_refresh(
+        self,
+        old_evidence_id: str,
+        new_evidence_id: str | None,
+        tool_name: str,
+        verdict: str,
+        changes: list[str],
+        old_collected_at,
+        new_collected_at,
+        affected_causes: list[str] | None = None,
+    ) -> EvidenceRefresh:
+        record = EvidenceRefresh(
+            old_evidence_id=old_evidence_id,
+            new_evidence_id=new_evidence_id,
+            tool_name=tool_name,
+            verdict=verdict,  # type: ignore[arg-type]
+            changes=list(changes),
+            old_collected_at=old_collected_at,
+            new_collected_at=new_collected_at,
+            compared_at=_now(),
+            affected_causes=affected_causes or [],
+        )
+        self.refreshes.append(record)
+        self.updated_at = _now()
+        return record
 
     def known_evidence_ids(self) -> set[str]:
         return {item.id for item in self.evidence}
@@ -108,6 +142,16 @@ class InvestigationState:
         return note
 
     def to_response(self, uses_fixtures: bool) -> InvestigationResponse:
+        from ..analysis.contradictions import detect_contradictions
+        from ..analysis.loop import MAX_TOOL_CALLS
+        from ..analysis.rechecks import suggest_rechecks
+        from ..config import load_settings
+
+        contradictions = detect_contradictions(self.problem, list(self.evidence))
+        try:
+            ttl_s = load_settings().evidence_ttl_s
+        except Exception:  # noqa: BLE001 - response shaping must not fail
+            ttl_s = 900.0
         return InvestigationResponse(
             investigation_id=self.id,
             problem=self.problem,
@@ -125,6 +169,11 @@ class InvestigationState:
             proposals=list(self.proposals),
             executions=list(self.executions),
             notes=list(self.notes),
+            refreshes=list(self.refreshes),
+            contradictions=contradictions,
+            suggested_rechecks=suggest_rechecks(self, ttl_s, MAX_TOOL_CALLS),
+            tool_calls_used=self.tool_calls_made,
+            tool_calls_max=MAX_TOOL_CALLS,
         )
 
 

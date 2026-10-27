@@ -958,3 +958,132 @@ details summary {
   margin: 0.15rem 0 0;
   white-space: pre-wrap;
 }
+
+/* M007 — active investigator: progress, re-checks, refresh history. */
+
+.budget-row {
+  display: grid;
+  gap: 0.3rem;
+  margin: 0.4rem 0 0.8rem;
+}
+
+.budget-bar {
+  height: 0.55rem;
+  background: var(--bg);
+  border: 1px solid var(--panel-edge);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.budget-fill {
+  height: 100%;
+  background: var(--accent);
+}
+
+.contradictions {
+  margin: 0.6rem 0;
+}
+
+.contradiction {
+  background: var(--bg);
+  border: 1px solid var(--panel-edge);
+  border-radius: 4px;
+  padding: 0.5rem 0.7rem;
+}
+
+.rechecks,
+.refreshes {
+  list-style: none;
+  margin: 0.5rem 0;
+  padding: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.recheck,
+.refresh {
+  border: 1px solid var(--panel-edge);
+  border-radius: 4px;
+  padding: 0.5rem 0.7rem;
+}
+
+.recheck p,
+.refresh p {
+  margin: 0.3rem 0 0;
+}
+
+.button-small {
+  font-size: 0.8rem;
+  padding: 0.25rem 0.6rem;
+}
+
+.verdict {
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  border: 1px solid var(--panel-edge);
+  border-radius: 4px;
+  padding: 0.1rem 0.45rem;
+}
+
+.verdict-changed {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.verdict-unchanged {
+  color: var(--green);
+  border-color: var(--green);
+}
+
+.verdict-unavailable {
+  color: var(--red);
+  border-color: var(--red);
+}
+
+.refresh-times {
+  font-size: 0.8rem;
+}
+
+.refresh-changes {
+  margin: 0.3rem 0 0;
+  padding-left: 1.1rem;
+  font-size: 0.82rem;
+}
+
+.evidence-flags {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin: 0.25rem 0 0.4rem;
+}
+
+.ev-time {
+  font-size: 0.78rem;
+  margin-left: auto;
+}
+
+.flag {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  border-radius: 4px;
+  padding: 0.1rem 0.4rem;
+}
+
+.flag-current {
+  color: var(--green);
+  border: 1px solid var(--green);
+}
+
+.flag-historical {
+  color: var(--muted);
+  border: 1px solid var(--muted);
+}
+
+.tl-reverify .tl-mark {
+  color: var(--accent);
+}

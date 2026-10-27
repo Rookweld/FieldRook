@@ -16,7 +16,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-DB_VERSION = 2
+DB_VERSION = 3
 
 _SCHEMA_V2 = """
 CREATE TABLE IF NOT EXISTS notes (
@@ -24,6 +24,23 @@ CREATE TABLE IF NOT EXISTS notes (
     inv_id TEXT NOT NULL,
     text TEXT NOT NULL,
     created_at TEXT NOT NULL
+);
+"""
+
+_SCHEMA_V3 = """
+CREATE TABLE IF NOT EXISTS refreshes (
+    inv_id TEXT NOT NULL,
+    refresh_seq INTEGER NOT NULL,
+    old_ev_id TEXT NOT NULL,
+    new_ev_id TEXT,
+    tool_name TEXT NOT NULL,
+    verdict TEXT NOT NULL,
+    changes_json TEXT NOT NULL DEFAULT '[]',
+    old_collected_at TEXT NOT NULL,
+    new_collected_at TEXT,
+    compared_at TEXT NOT NULL,
+    affected_causes_json TEXT NOT NULL DEFAULT '[]',
+    PRIMARY KEY (inv_id, refresh_seq)
 );
 """
 
@@ -133,6 +150,16 @@ def _migrate(conn: sqlite3.Connection) -> None:
     if version < 2:
         conn.executescript(_SCHEMA_V2)
         conn.execute("PRAGMA user_version = 2")
+    if version < 3:
+        conn.executescript(_SCHEMA_V3)
+        columns = {row[1] for row in conn.execute("PRAGMA table_info(evidence)").fetchall()}
+        if "tool_name" not in columns:
+            conn.execute("ALTER TABLE evidence ADD COLUMN tool_name TEXT")
+        if "tool_args_json" not in columns:
+            conn.execute("ALTER TABLE evidence ADD COLUMN tool_args_json TEXT")
+        if "refresh_of" not in columns:
+            conn.execute("ALTER TABLE evidence ADD COLUMN refresh_of TEXT")
+        conn.execute("PRAGMA user_version = 3")
     conn.commit()
 
 
@@ -200,8 +227,9 @@ def save_state(state: Any) -> None:
         conn.execute("DELETE FROM evidence WHERE inv_id = ?", (state.id,))
         for item in state.evidence:
             conn.execute(
-                "INSERT INTO evidence (inv_id, ev_id, category, source, collected_at, data_json, error)"
-                " VALUES (?, ?, ?, ?, ?, ?, ?)",
+                "INSERT INTO evidence (inv_id, ev_id, category, source, collected_at, data_json, error,"
+                " tool_name, tool_args_json, refresh_of)"
+                " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     state.id,
                     item.id,
@@ -210,6 +238,29 @@ def save_state(state: Any) -> None:
                     _iso(item.collected_at),
                     json.dumps(item.data, default=str),
                     item.error,
+                    item.tool_name,
+                    json.dumps(item.tool_args, default=str) if item.tool_args is not None else None,
+                    item.refresh_of,
+                ),
+            )
+        conn.execute("DELETE FROM refreshes WHERE inv_id = ?", (state.id,))
+        for seq, refresh in enumerate(getattr(state, "refreshes", []) or []):
+            conn.execute(
+                "INSERT INTO refreshes (inv_id, refresh_seq, old_ev_id, new_ev_id, tool_name, verdict,"
+                " changes_json, old_collected_at, new_collected_at, compared_at, affected_causes_json)"
+                " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    state.id,
+                    seq,
+                    refresh.old_evidence_id,
+                    refresh.new_evidence_id,
+                    refresh.tool_name,
+                    refresh.verdict,
+                    json.dumps(refresh.changes),
+                    _iso(refresh.old_collected_at),
+                    _iso(refresh.new_collected_at) if refresh.new_collected_at else None,
+                    _iso(refresh.compared_at),
+                    json.dumps(refresh.affected_causes),
                 ),
             )
         conn.execute("DELETE FROM activity WHERE inv_id = ?", (state.id,))
@@ -313,6 +364,7 @@ def load_state(investigation_id: str) -> Any | None:
         ActivityRecord,
         AnalysisResult,
         EvidenceItem,
+        EvidenceRefresh,
         TechnicianNote,
     )
     from .store import InvestigationState
@@ -338,9 +390,31 @@ def load_state(investigation_id: str) -> Any | None:
                 collected_at=_parse_dt(e["collected_at"]),
                 data=json.loads(e["data_json"]),
                 error=e["error"],
+                tool_name=e["tool_name"] if "tool_name" in e.keys() else None,
+                tool_args=json.loads(e["tool_args_json"])
+                if "tool_args_json" in e.keys() and e["tool_args_json"]
+                else None,
+                refresh_of=e["refresh_of"] if "refresh_of" in e.keys() else None,
             )
             for e in conn.execute(
                 "SELECT * FROM evidence WHERE inv_id = ? ORDER BY rowid", (investigation_id,)
+            ).fetchall()
+        ]
+        refreshes = [
+            EvidenceRefresh(
+                old_evidence_id=r["old_ev_id"],
+                new_evidence_id=r["new_ev_id"],
+                tool_name=r["tool_name"],
+                verdict=r["verdict"],
+                changes=json.loads(r["changes_json"] or "[]"),
+                old_collected_at=_parse_dt(r["old_collected_at"]),
+                new_collected_at=_parse_dt(r["new_collected_at"]) if r["new_collected_at"] else None,
+                compared_at=_parse_dt(r["compared_at"]),
+                affected_causes=json.loads(r["affected_causes_json"] or "[]"),
+            )
+            for r in conn.execute(
+                "SELECT * FROM refreshes WHERE inv_id = ? ORDER BY refresh_seq",
+                (investigation_id,),
             ).fetchall()
         ]
         activity = [
@@ -437,6 +511,7 @@ def load_state(investigation_id: str) -> Any | None:
             updated_at=_parse_dt(row["updated_at"]),
             proposals=proposals,
             executions=executions,
+            refreshes=refreshes,
         )
     finally:
         conn.close()

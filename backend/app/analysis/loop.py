@@ -13,6 +13,7 @@ import json
 from typing import Any
 
 from ..analysis.provider import MetaModelProvider, select_provider
+from ..analysis.refresh import compare_readings
 from ..analysis.validate import ModelAnalysisError, validate_assessment_output
 from ..config import SIMULATED_MODEL_NAME, Settings
 from ..diagnostics import fixtures as fx
@@ -32,6 +33,9 @@ MAX_INITIAL_CALLS = 8
 MAX_FOLLOWUP_CALLS = 4
 MAX_INVALID_PER_ROUND = 3
 MAX_HISTORY_CHARS = 6000
+# Stop early after this many consecutive rounds that add no usable evidence:
+# further calls are unlikely to change the assessment.
+MAX_UNPRODUCTIVE_ROUNDS = 2
 
 INVESTIGATION_SYSTEM_PROMPT = """You are FieldRook, an evidence-driven troubleshooting assistant for IT technicians.
 
@@ -53,6 +57,14 @@ tools; each result returns as a tool message with structured evidence. Rules:
   get_process_info with service_name to confirm whether it has a live process.
 - Prefer the smallest set that could answer the question; do not sweep every
   tool. Stop requesting when new calls are unlikely to change the assessment.
+- Reuse collected evidence: never re-request a tool with identical arguments
+  unless you are deliberately re-checking for a state change. Say so in that
+  case ("re-checking <tool> for a state change since <evidence_id>").
+- A re-check that returns identical results is an answer, not a failure:
+  report the readings as unchanged and stop instead of calling more tools.
+- When asked to continue but no new information is available, say what is
+  still unknown and which single check would resolve it — do not invent
+  calls to look busy.
 - A Stopped service with Manual startup is an ordinary on-demand state, not
   evidence of failure. Only call it a failure with supporting events or errors.
 - test_dns_resolution is an ACTIVE test (one query, changes nothing): cite it
@@ -149,14 +161,69 @@ def _strip_images(messages: list[dict[str, Any]]) -> None:
             message["content"] = "\n".join(text_parts) + "\n\n[Screenshot removed after failed image analysis; continuing text-only.]"
 
 
-def _store_tool_evidence(state: InvestigationState, tool_name: str, category: str, summary: str, data: dict, warnings: list[str], error: str | None, source: str) -> str:
+def _call_signature(tool_name: str, args: dict[str, Any]) -> str:
+    try:
+        return tool_name + ":" + json.dumps(args, sort_keys=True, default=str)
+    except (TypeError, ValueError):
+        return ""
+
+
+def affected_cause_titles(state: InvestigationState, evidence_id: str) -> list[str]:
+    """Hypothesis titles built on one evidence item (for refresh linkage)."""
+    if state.assessment is None:
+        return []
+    return [
+        cause.title
+        for cause in state.assessment.causes
+        if evidence_id in cause.evidence_ids
+    ]
+
+
+def _store_tool_evidence(
+    state: InvestigationState,
+    tool_name: str,
+    category: str,
+    summary: str,
+    data: dict,
+    warnings: list[str],
+    error: str | None,
+    source: str,
+    tool_args: dict[str, Any] | None = None,
+    refresh_of: str | None = None,
+) -> str:
     item = state.add_evidence(
         category=category,
         source=f"tool:{tool_name}:{source}",
         data={"summary": summary, "warnings": warnings, **data} if error is None else {"summary": summary, "warnings": warnings},
         error=error,
+        tool_name=tool_name,
+        tool_args=tool_args,
+        refresh_of=refresh_of,
     )
     return item.id
+
+
+def _record_recheck(
+    state: InvestigationState, old_id: str, new_id: str, tool_name: str
+) -> None:
+    """Compare a re-check against its historical item and link them."""
+    old = next((item for item in state.evidence if item.id == old_id), None)
+    new = next((item for item in state.evidence if item.id == new_id), None)
+    if old is None or new is None:
+        return
+    verdict, changes = compare_readings(
+        old, None if new.error is not None else new.data, new.error
+    )
+    state.add_refresh(
+        old_evidence_id=old_id,
+        new_evidence_id=new_id,
+        tool_name=tool_name,
+        verdict=verdict,
+        changes=changes,
+        old_collected_at=old.collected_at,
+        new_collected_at=new.collected_at,
+        affected_causes=affected_cause_titles(state, old_id),
+    )
 
 
 def _substitute_simulated(state: InvestigationState, reason: str) -> None:
@@ -260,7 +327,20 @@ async def _run_live(
     tools = tool_schemas()
     ctx = ToolContext(settings=settings, use_fixtures=use_fixtures)
     text_only_retried = False
+    stopped_early = False
+    unproductive_rounds = 0
+    # Cross-round re-check map: signature -> latest evidence id. A later call
+    # with identical tool+args still executes (freshness matters) but is
+    # linked to its historical item and compared, never mistaken for new
+    # coverage.
+    prior_signatures: dict[str, str] = {}
+    for item in state.evidence:
+        if item.tool_name and item.tool_args is not None:
+            signature = _call_signature(item.tool_name, item.tool_args)
+            if signature:
+                prior_signatures[signature] = item.id
     for _ in range(MAX_ROUNDS):
+        usable_before = sum(1 for item in state.evidence if item.error is None)
         try:
             message = await provider.chat(state.messages, tools=tools)
         except ModelAnalysisError as exc:
@@ -328,10 +408,8 @@ async def _run_live(
                     state.add_activity("note", "Too many invalid calls", "Asking the model to continue with valid tools.")
                     break
                 continue
-            try:
-                signature = spec.name + ":" + json.dumps(args.model_dump(mode="json"), sort_keys=True, default=str)
-            except (TypeError, ValueError):
-                signature = ""
+            args_dict: dict[str, Any] = args.model_dump(mode="json")
+            signature = _call_signature(spec.name, args_dict)
             if signature and signature in round_signatures:
                 first_id = round_signatures[signature]
                 state.messages.append(
@@ -360,12 +438,23 @@ async def _run_live(
             output, duration_ms = await execute_prepared(spec, args, ctx)
             state.tool_calls_made += 1
             max_new_calls -= 1
+            recheck_of = prior_signatures.get(signature) if signature else None
             evidence_id = _store_tool_evidence(
                 state, spec.name, spec.category, output.summary, output.data,
                 output.warnings, output.error, output.source,
+                tool_args=args_dict, refresh_of=recheck_of,
             )
             if signature:
                 round_signatures[signature] = evidence_id
+                prior_signatures[signature] = evidence_id
+            if recheck_of:
+                _record_recheck(state, recheck_of, evidence_id, spec.name)
+                state.add_activity(
+                    "reverify", f"Re-check of {recheck_of} completed",
+                    f"{spec.name} re-ran with identical arguments; compared as {evidence_id}.",
+                    tool_name=spec.name, duration_ms=duration_ms,
+                    evidence_ids=[recheck_of, evidence_id],
+                )
             state.messages.append(
                 {
                     "role": "tool",
@@ -397,10 +486,29 @@ async def _run_live(
                         "content": json.dumps({"ok": False, "error": "Skipped before execution."}),
                     }
                 )
+        usable_after = sum(1 for item in state.evidence if item.error is None)
+        if usable_after > usable_before:
+            unproductive_rounds = 0
+        else:
+            unproductive_rounds += 1
+            if unproductive_rounds >= MAX_UNPRODUCTIVE_ROUNDS:
+                state.add_activity(
+                    "note", "Stopping early: no new evidence",
+                    f"{unproductive_rounds} consecutive rounds added no usable evidence; "
+                    "further calls are unlikely to change the assessment. Finalizing from "
+                    "collected evidence instead of spending more budget.",
+                )
+                stopped_early = True
+                break
     state.messages.append(
         {
             "role": "user",
-            "content": "Investigation budget exhausted. Produce the final JSON assessment now from the collected evidence.",
+            "content": (
+                "No new evidence is being produced. Produce the final JSON assessment "
+                "now from the collected evidence."
+                if stopped_early
+                else "Investigation budget exhausted. Produce the final JSON assessment now from the collected evidence."
+            ),
         }
     )
     try:
@@ -519,6 +627,8 @@ async def _run_simulated(
             source=f"tool:{name}:{output.source}",
             data={"summary": output.summary, "warnings": output.warnings, **output.data} if output.error is None else {"summary": output.summary, "warnings": output.warnings},
             error=output.error,
+            tool_name=name,
+            tool_args=args.model_dump(mode="json"),
         )
         state.add_activity(
             "tool_result", f"{name} completed in {duration_ms}ms", output.summary,

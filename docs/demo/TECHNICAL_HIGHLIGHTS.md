@@ -17,7 +17,9 @@ application crashes, OS, network, scheduled tasks, demo-worker health,
 error codes — see `docs/TOOLS.md`). Everything is read-only except one
 explicitly labeled active DNS test. No arbitrary PowerShell exists anywhere
 in the path. Budgets (8 + 4 calls), per-tool timeouts, truncation,
-same-round duplicate suppression, and malformed-call rejection are enforced
+same-round duplicate suppression, cross-round re-check comparison against
+preserved history, early stopping on unproductive rounds, contradiction
+detection between observations, and malformed-call rejection are enforced
 server-side. Every tool call answers with a matching tool message
 (protocol-correct even on budget cutoff).
 

@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import type { EvidenceItem } from "../types";
+import type { EvidenceItem, EvidenceRefresh } from "../types";
 
 const PREVIEW_CHARS = 500;
 
@@ -33,10 +33,18 @@ export function EvidenceCards({
   evidence,
   selectedId,
   onSelect,
+  refreshes,
+  onReverify,
+  reverifyingId,
+  reverifyDisabled,
 }: {
   evidence: EvidenceItem[];
   selectedId: string | null;
   onSelect: (id: string) => void;
+  refreshes?: EvidenceRefresh[];
+  onReverify?: (id: string) => void;
+  reverifyingId?: string | null;
+  reverifyDisabled?: boolean;
 }) {
   useEffect(() => {
     if (!selectedId) return;
@@ -52,6 +60,10 @@ export function EvidenceCards({
     const list = groups.get(label) ?? [];
     list.push(item);
     groups.set(label, list);
+  }
+  const superseded = new Map<string, EvidenceRefresh>();
+  for (const r of refreshes ?? []) {
+    superseded.set(r.old_evidence_id, r);
   }
   return (
     <section className="card">
@@ -85,6 +97,31 @@ export function EvidenceCards({
                   </button>
                   <strong>{item.category}</strong>
                   <code className="mono muted">{item.source}</code>
+                  <span className="muted ev-time">
+                    {new Date(item.collected_at).toLocaleString()}
+                  </span>
+                </div>
+                <div className="evidence-flags">
+                  {item.refresh_of && (
+                    <span className="flag flag-current">RE-CHECK OF {item.refresh_of}</span>
+                  )}
+                  {superseded.has(item.id) && (
+                    <span className="flag flag-historical">
+                      HISTORICAL — SUPERSEDED BY {superseded.get(item.id)?.new_evidence_id} (
+                      {superseded.get(item.id)?.verdict.toUpperCase()})
+                    </span>
+                  )}
+                  {onReverify && item.tool_name && (
+                    <button
+                      type="button"
+                      className="link-button"
+                      disabled={reverifyDisabled || reverifyingId === item.id}
+                      onClick={() => onReverify(item.id)}
+                      title={`Re-run ${item.tool_name} with identical arguments`}
+                    >
+                      {reverifyingId === item.id ? "Re-checking…" : "Re-check"}
+                    </button>
+                  )}
                 </div>
                 {item.error ? (
                   <p className="item-error">Collection error: {item.error}</p>

@@ -6,6 +6,7 @@ const KIND_MARK: Record<ActivityRecord["kind"], string> = {
   tool_result: "\u2713",
   evidence: "\u25C6",
   note: "\u2139",
+  reverify: "\u21BB",
   proposed: "\u2696",
   approval_requested: "\u2696",
   approved: "\u2714",
@@ -30,6 +31,12 @@ function groupRounds(activity: ActivityRecord[]): Round[] {
       rounds.push({
         n: rounds.length + 1,
         label: `Round ${rounds.length + 1} — follow-up`,
+        records: [record],
+      });
+    } else if (record.kind === "tool_request" && record.title.startsWith("Reverify requested")) {
+      rounds.push({
+        n: rounds.length + 1,
+        label: `Round ${rounds.length + 1} — re-check`,
         records: [record],
       });
     } else {

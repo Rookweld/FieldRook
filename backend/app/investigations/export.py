@@ -135,6 +135,19 @@ def build_markdown(state: Any) -> str:
     if not data.get("notes"):
         add("(none)")
     add("")
+    add("## 14. Evidence refresh history")
+    add("Historical items are preserved; each re-check below compares the old reading with the new one.")
+    for refresh in data.get("refreshes", []):
+        add(f"### {refresh['old_evidence_id']} -> {refresh.get('new_evidence_id') or '(collection failed)'}: {refresh['verdict'].upper()}")
+        add(f"Tool: {refresh['tool_name']}")
+        add(f"Historical: {refresh['old_collected_at']} — Current: {refresh.get('new_collected_at') or '-'} — Compared: {refresh['compared_at']}")
+        for change in refresh.get("changes", []):
+            add(f"- {change}")
+        if refresh.get("affected_causes"):
+            add(f"Hypotheses built on the old reading: {', '.join(refresh['affected_causes'])}")
+    if not data.get("refreshes"):
+        add("(no re-checks performed)")
+    add("")
     add("---")
     add(f"Exported {data['exported_at']} by FieldRook. OBSERVED facts are measured; INFERRED causes are hypotheses.")
     return "\n".join(lines) + "\n"

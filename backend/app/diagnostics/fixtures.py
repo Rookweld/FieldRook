@@ -142,10 +142,47 @@ def _key(name: str) -> str:
     return name.strip().lower()
 
 
+def _service_state_overrides() -> dict[str, str]:
+    """Test-only state flips: FIELDROOK_FIXTURE_SERVICE_STATES="a=Running,b=Stopped".
+
+    Lets scenario tests change a fixture service's state mid-investigation
+    without touching real Windows services. Unknown names are ignored.
+    """
+    import os
+
+    overrides: dict[str, str] = {}
+    for pair in os.environ.get("FIELDROOK_FIXTURE_SERVICE_STATES", "").split(","):
+        if "=" not in pair:
+            continue
+        name, _, state = pair.partition("=")
+        name = name.strip().lower()
+        state = state.strip()
+        if name and state:
+            overrides[name] = state
+    return overrides
+
+
+def _missing_fixture_services() -> set[str]:
+    """Test-only removals: FIELDROOK_FIXTURE_MISSING_SERVICES="a,b"."""
+    import os
+
+    return {
+        name.strip().lower()
+        for name in os.environ.get("FIELDROOK_FIXTURE_MISSING_SERVICES", "").split(",")
+        if name.strip()
+    }
+
+
 def get_fixture_status(name: str) -> dict[str, str] | None:
+    if _key(name) in _missing_fixture_services():
+        return None
     for service in FIXTURE_SERVICES:
         if _key(service["name"]) == _key(name):
-            return dict(service)
+            record = dict(service)
+            override = _service_state_overrides().get(_key(name))
+            if override:
+                record["status"] = override
+            return record
     return None
 
 
@@ -383,8 +420,32 @@ _FIXTURE_CRASHES: list[dict[str, Any]] = [
 
 def search_fixture_crashes(app_name: str, hours: int, max_events: int) -> dict[str, Any]:
     """Deterministic mirror of the live crash search over fixture data."""
+    import os
+
     needle = (app_name or "").strip().lower()
     pool = [dict(item) for item in _FIXTURE_CRASHES]
+    # Test-only injection: FIELDROOK_FIXTURE_CRASH_EXTRA="OUTLOOK.EXE" prepends
+    # a newer synthetic crash so scenario tests can change the evidence
+    # mid-investigation.
+    extra = os.environ.get("FIELDROOK_FIXTURE_CRASH_EXTRA", "").strip()
+    if extra:
+        app = extra if extra.lower().endswith(".exe") else f"{extra}.EXE"
+        pool.insert(
+            0,
+            {
+                "time_created": "2026-10-27T07:30:00",
+                "id": 1000,
+                "kind": "application_error",
+                "level": "Error",
+                "provider": "Application Error",
+                "app_name": app,
+                "faulting_module": "ntdll.dll",
+                "exception_code": "0xc0000374",
+                "fault_offset": "0x00000000000e0000",
+                "fault_pid": "0x1b22",
+                "message": f"Faulting application name: {app}. Faulting module name: ntdll.dll. Exception code: 0xc0000374.",
+            },
+        )
     matched = [item for item in pool if not needle or needle in item["app_name"].lower()]
     bounded = matched[:max_events]
     return {
@@ -433,6 +494,7 @@ def get_fixture_process(name: str, pid: int, service_name: str = "") -> dict[str
     service_ctx: dict[str, Any] | None = None
     if clean_service:
         states = {s["name"].strip().lower(): s["status"] for s in FIXTURE_SERVICES}
+        states.update(_service_state_overrides())
         matches = [
             dict(p)
             for p in _FIXTURE_PROCESSES
@@ -887,7 +949,9 @@ def build_simulated_investigation_analysis(
     lowered_problem = problem.lower()
     popup_like = any(word in lowered_problem for word in ("popup", "pop-up", "pop up", "window", "flash", "powershell", "console", "minutes", "periodically"))
     correlated: list[tuple[str, str, str]] = []
-    for item in crash_items:
+    # Newest reading first: after a re-check, hypotheses follow current
+    # evidence while historical facts stay in the record below.
+    for item in reversed(crash_items):
         crashes = item.data.get("crashes", [])
         if not isinstance(crashes, list):
             continue
@@ -965,6 +1029,10 @@ def build_simulated_investigation_analysis(
                     "instead of guessing."
                 )
     uncertainties.extend(f"Evidence {item.id} ({item.category}) failed to collect: {item.error}" for item in failed[:3])
+    from ..analysis.contradictions import detect_contradictions
+
+    for hit in detect_contradictions(problem, evidence):
+        uncertainties.append(f"Apparent contradiction: {hit.description}")
     from ..schemas import RunbookStep
 
     next_steps = [

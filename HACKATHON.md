@@ -39,10 +39,13 @@ error-code interpretation), Milestone 004 (three-stage workstation,
 reproducible demo scenarios, Playwright e2e, demo ops scripts, CI, demo
 package), Milestone 005 (split approve/execute UX with expiry recovery,
 16-case diagnostic gauntlet with live-model evals, phantom safe-guidance,
-static recorded jury demo), and Milestone 006 (application-crash and
+static recorded jury demo), Milestone 006 (application-crash and
 process/service/DNS diagnostics, symptom triage planner, incident overview,
 evidence-linked runbook steps, technician notes, 34-case gauntlet, Windows
-field testing) were all designed and implemented during the event.
+field testing), and Milestone 007 (on-demand evidence reverification with
+historical preservation, contradiction detection, targeted re-checks,
+investigation progress UI, four field scenarios, 39-case gauntlet) were all
+designed and implemented during the event.
 
 ## Meta Muse Spark integration
 

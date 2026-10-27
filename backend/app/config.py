@@ -47,6 +47,7 @@ class Settings:
     fixtures_mode: str  # "auto" | "always" | "never"
     command_timeout_s: float
     model_timeout_s: float
+    evidence_ttl_s: float = 900.0
 
 
 def load_settings() -> Settings:
@@ -64,4 +65,5 @@ def load_settings() -> Settings:
         fixtures_mode=fixtures_mode,
         command_timeout_s=_as_float("FIELDROOK_CMD_TIMEOUT_S", 30.0),
         model_timeout_s=_as_float("FIELDROOK_MODEL_TIMEOUT_S", 60.0),
+        evidence_ttl_s=_as_float("FIELDROOK_EVIDENCE_TTL_S", 900.0),
     )

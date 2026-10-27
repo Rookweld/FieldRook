@@ -1,5 +1,51 @@
 # FieldRook Diagnostic Gauntlet — Evaluation Report
 
+## M007 update (2026-10-27) — read this first
+
+The gauntlet grew from 34 to **39 cases**: 20 investigation + 11 tool cases
+in the deterministic fixture tier, and 8 capped live-model cases. New in M007:
+
+- **Refresh probes**: three fixture cases post a real `/reverify` call and
+  assert the verdict (`unchanged` on stable fixtures, `changed` on a
+  synthetic Stopped → Running flip, `unavailable` when the fixture service
+  vanishes), byte-identical historical preservation, exactly one added tool
+  call, an unchanged proposal set (authorization boundary), and valid
+  citations after the refresh.
+- **Contradiction probes**: `mislead-net-down` now requires the deterministic
+  contradiction record (adapters Up vs down report); new live case
+  `live-contradiction-fixtures` holds the same bar under live reasoning.
+- **Live re-check flow**: `live-recheck-flow` investigates with the live
+  model, then re-checks via the API — verdict `unchanged`, history
+  preserved, no proposals created.
+- **Efficiency budgets**: `max_tool_calls` caps total spend per case
+  (initial + runner reverify); citation checks now also cover refresh links
+  and contradiction references.
+
+**Measured M007 results: 39/39 evaluated cases passed (31 fixture/tool + 8
+live-model).** Raw JSON: `backend/eval/results/20261027T075657Z.json`
+(gitignored; re-run with `python -m eval.run [--live]` from `backend/`).
+
+Notable live runs (all `mode=live`, zero proposals where forbidden):
+
+- `live-network-fixtures` — 5 calls this time (vs 8 in M006): the reuse
+  prompt lines measurably trimmed the sweep.
+- `live-recheck-flow` — perfect 2-call triage, then API re-check `unchanged`.
+- `live-contradiction-fixtures` — 2-call triage; contradiction record fires
+  deterministically under live reasoning.
+- `live-service-failure-fixtures` — contradiction record fires on the known
+  wuauserv Running-vs-Stopped fixture gap instead of papering over it.
+
+Genuine M007 findings from measurement:
+
+1. The progress panel's first draft repeated full uncertainty strings and
+   broke the scenario-A e2e strict-mode assertion — real duplication, fixed
+   by listing missing-evidence needs with an uncertainty count instead.
+2. Gitleaks (installed but not on PATH — now resolved) flags one historical
+   `generic-api-key` hit in `docs/jury-demo/index.html`: 64-hex approval
+   token *hashes* inside the static recorded replay. One-way hashes of
+   expired single-use demo tokens, not credentials — false positive,
+   documented here.
+
 ## M006 update (2026-10-27) — read this first
 
 The gauntlet grew from 19 to **34 cases**: 17 investigation + 11 tool cases
@@ -127,7 +173,7 @@ measurement found a real routing gap.
 ## Limitations
 
 - Fixture tier scores the deterministic pipeline, not model quality.
-- Live tier is small (6 cases, spending-capped) and uses fixture
+- Live tier is small (8 cases, spending-capped) and uses fixture
   diagnostics; live-machine variance is covered by manual rehearsal instead.
 - Content signals are substring checks, not semantic grading — they catch
   regressions, not subtle reasoning errors (`proven` is now hedge-aware).

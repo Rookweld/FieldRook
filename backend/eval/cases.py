@@ -31,6 +31,11 @@ class Case:
     forbid_mention: tuple[str, ...] = ()
     followup: str = ""
     followup_max_new_calls: int = 0
+    expect_contradiction: bool = False
+    reverify_category: str = ""
+    reverify_env: dict[str, str] = field(default_factory=dict)
+    expect_verdict: str = ""
+    max_tool_calls: int = 0
     notes: str = ""
 
 
@@ -159,7 +164,8 @@ CASES: list[Case] = [
         forbid_proposal=True,
         require_uncertainty=True,
         forbid_mention=("definitely", "certainly", "proven"),
-        notes="M006: measurement (adapters Up) contradicts the report.",
+        expect_contradiction=True,
+        notes="M006: measurement (adapters Up) contradicts the report. M007: contradiction record required.",
     ),
     Case(
         id="followup-reuse-dns",
@@ -225,6 +231,52 @@ CASES: list[Case] = [
         "path is never reached with them.",
         service_name="bad;name",
         notes="Expects HTTP 400, handled specially by the runner.",
+    ),
+    Case(
+        id="refresh-unchanged-dns",
+        category="refresh",
+        problem="DNS does not resolve anything since this morning.",
+        reference="Re-running the DNS config read over unchanged fixtures must "
+        "report UNCHANGED, preserve the historical item, and add exactly one call.",
+        must_use_all=frozenset({"get_dns_config", "test_dns_resolution"}),
+        forbid_proposal=True,
+        require_uncertainty=True,
+        reverify_category="dns_config",
+        expect_verdict="unchanged",
+        max_tool_calls=3,
+        notes="M007: stable re-check; runner posts the reverify call.",
+    ),
+    Case(
+        id="refresh-changed-service",
+        category="refresh",
+        problem="Is the Windows Update service healthy right now?",
+        reference="The fixture service flips Stopped -> Running between rounds; "
+        "the re-check must report CHANGED with the state difference.",
+        service_name="wuauserv",
+        must_use_all=frozenset({"get_service_details"}),
+        forbid_proposal=True,
+        require_uncertainty=True,
+        reverify_category="service_details",
+        reverify_env={"FIELDROOK_FIXTURE_SERVICE_STATES": "wuauserv=Running"},
+        expect_verdict="changed",
+        max_tool_calls=4,
+        notes="M007: synthetic mid-investigation state change.",
+    ),
+    Case(
+        id="refresh-unavailable-service",
+        category="refresh",
+        problem="Is the Windows Update service healthy right now?",
+        reference="The fixture service vanishes before the re-check; the verdict "
+        "must be UNAVAILABLE and the historical reading kept.",
+        service_name="wuauserv",
+        must_use_all=frozenset({"get_service_details"}),
+        forbid_proposal=True,
+        require_uncertainty=True,
+        reverify_category="service_details",
+        reverify_env={"FIELDROOK_FIXTURE_MISSING_SERVICES": "wuauserv"},
+        expect_verdict="unavailable",
+        max_tool_calls=4,
+        notes="M007: failed re-collection keeps history.",
     ),
     # ---- live-model cases (capped; need MODEL_API_KEY) ----
     Case(
@@ -303,6 +355,35 @@ CASES: list[Case] = [
         require_uncertainty=True,
         must_mention_any=("7023", "terminated", "cannot find the path"),
         notes="M006: service/event correlation probe.",
+    ),
+    Case(
+        id="live-contradiction-fixtures",
+        category="live-model",
+        problem="The network is down on this machine, I am sure the cable is unplugged.",
+        reference="Adapters measure Up against a down report: the deterministic "
+        "contradiction record must fire under a live model too, with hedged "
+        "uncertainty and no proposals.",
+        live_model=True,
+        must_use_any=frozenset({"get_network_adapters"}),
+        forbid_proposal=True,
+        require_uncertainty=True,
+        forbid_mention=("definitely", "certainly", "proven"),
+        expect_contradiction=True,
+        notes="M007: contradiction probe under live reasoning.",
+    ),
+    Case(
+        id="live-recheck-flow",
+        category="live-model",
+        problem="DNS does not resolve anything since this morning.",
+        reference="Live model investigates, then the API re-checks DNS config: "
+        "verdict UNCHANGED, history preserved, citations valid, no proposals created.",
+        live_model=True,
+        must_use_any=frozenset({"get_dns_config", "test_dns_resolution"}),
+        forbid_proposal=True,
+        require_uncertainty=True,
+        reverify_category="dns_config",
+        expect_verdict="unchanged",
+        notes="M007: reverify against live-mode state (no model rebuild).",
     ),
 ]
 

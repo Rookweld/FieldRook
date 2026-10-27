@@ -4,6 +4,7 @@ import {
   addInvestigationNote,
   followUpInvestigation,
   listServices,
+  reverifyEvidence,
   startInvestigation,
 } from "../api";
 import type { InvestigationResponse, ServiceSummary } from "../types";
@@ -12,6 +13,8 @@ import { DiagnosisPanel } from "./DiagnosisPanel";
 import { StageStepper, resolutionOf, stageOf } from "./WorkflowStage";
 import { EvidenceCards } from "./EvidenceCards";
 import { OverviewPanel } from "./OverviewPanel";
+import { ProgressPanel } from "./ProgressPanel";
+import { RefreshPanel } from "./RefreshPanel";
 import { Timeline } from "./Timeline";
 
 const MAX_FILE_BYTES = 5 * 1024 * 1024;
@@ -49,7 +52,8 @@ export function ProblemWorkstation({
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [consent, setConsent] = useState<boolean>(false);
   const [useFixtures, setUseFixtures] = useState<boolean>(false);
-  const [busy, setBusy] = useState<null | "investigating" | "followup" | "note">(null);
+  const [busy, setBusy] = useState<null | "investigating" | "followup" | "note" | "reverify">(null);
+  const [reverifyingId, setReverifyingId] = useState<string | null>(null);
   const [noteText, setNoteText] = useState<string>("");
   const [investigation, setInvestigation] = useState<InvestigationResponse | null>(
     initial ?? null,
@@ -167,6 +171,31 @@ export function ProblemWorkstation({
       setBusy(null);
     }
   }, [investigation, followup, busy]);
+
+  const reverify = useCallback(
+    async (evidenceId: string): Promise<void> => {
+      if (!investigation || busy) return;
+      setError(null);
+      setBusy("reverify");
+      setReverifyingId(evidenceId);
+      try {
+        const result = await reverifyEvidence(investigation.investigation_id, evidenceId);
+        setInvestigation(result);
+        const latest = result.refreshes[result.refreshes.length - 1];
+        if (latest?.new_evidence_id) setSelectedEvidence(latest.new_evidence_id);
+      } catch (e) {
+        if (e instanceof ApiError) {
+          setError(`Re-check failed (HTTP ${e.status}): ${e.message}`);
+        } else {
+          setError(e instanceof Error ? e.message : String(e));
+        }
+      } finally {
+        setBusy(null);
+        setReverifyingId(null);
+      }
+    },
+    [investigation, busy],
+  );
 
   const saveNote = useCallback(async (): Promise<void> => {
     if (!investigation || !noteText.trim() || busy) return;
@@ -348,11 +377,22 @@ export function ProblemWorkstation({
           </section>
 
           <OverviewPanel investigation={investigation} onEvidenceClick={setSelectedEvidence} />
+          <ProgressPanel
+            investigation={investigation}
+            onEvidenceClick={setSelectedEvidence}
+            onReverify={(id) => void reverify(id)}
+            busy={busy !== null}
+          />
+          <RefreshPanel refreshes={investigation.refreshes} onEvidenceClick={setSelectedEvidence} />
           <Timeline activity={investigation.activity} />
           <EvidenceCards
             evidence={investigation.evidence}
             selectedId={selectedEvidence}
             onSelect={setSelectedEvidence}
+            refreshes={investigation.refreshes}
+            onReverify={(id) => void reverify(id)}
+            reverifyingId={reverifyingId}
+            reverifyDisabled={busy !== null}
           />
           {investigation.assessment && (
             <DiagnosisPanel

@@ -18,6 +18,7 @@ ActivityKind = Literal[
     "note",
     "done",
     "error",
+    "reverify",
     "proposed",
     "approval_requested",
     "approved",
@@ -61,6 +62,48 @@ class EvidenceItem(BaseModel):
     collected_at: datetime
     data: dict[str, Any] = Field(default_factory=dict)
     error: str | None = None
+    # Rerun provenance (M007): which registered tool + validated args produced
+    # this item. Absent for screenshots and pre-M007 legacy rows, which are
+    # not re-runnable. refresh_of points at the older item a re-check
+    # supersedes; the older item is always preserved, never replaced.
+    tool_name: str | None = None
+    tool_args: dict[str, Any] | None = None
+    refresh_of: str | None = None
+
+
+RefreshVerdict = Literal["changed", "unchanged", "unavailable"]
+
+
+class EvidenceRefresh(BaseModel):
+    """One historical-vs-current comparison. Both items stay in evidence."""
+
+    old_evidence_id: str
+    new_evidence_id: str | None = None  # None when the rerun failed entirely
+    tool_name: str
+    verdict: RefreshVerdict
+    changes: list[str] = Field(default_factory=list)
+    old_collected_at: datetime
+    new_collected_at: datetime | None = None
+    compared_at: datetime
+    # Titles of hypotheses (causes) that cited the old item: they were built
+    # on superseded readings and may need review.
+    affected_causes: list[str] = Field(default_factory=list)
+
+
+class Contradiction(BaseModel):
+    """An apparent conflict between observations (deterministic rule hit)."""
+
+    contradiction_id: str
+    evidence_ids: list[str] = Field(default_factory=list)
+    description: str
+
+
+class RecheckSuggestion(BaseModel):
+    """One targeted re-check recommendation with its supporting evidence."""
+
+    evidence_id: str
+    tool_name: str
+    reason: str
 
 
 class DiagnosticBundle(BaseModel):
@@ -172,6 +215,11 @@ class InvestigationResponse(BaseModel):
     proposals: list[ActionProposal] = Field(default_factory=list)
     executions: list[ActionExecution] = Field(default_factory=list)
     notes: list[TechnicianNote] = Field(default_factory=list)
+    refreshes: list[EvidenceRefresh] = Field(default_factory=list)
+    contradictions: list[Contradiction] = Field(default_factory=list)
+    suggested_rechecks: list[RecheckSuggestion] = Field(default_factory=list)
+    tool_calls_used: int = 0
+    tool_calls_max: int = 12
 
 
 class TechnicianNote(BaseModel):
@@ -186,6 +234,10 @@ class FollowupRequest(BaseModel):
 
 class NoteRequest(BaseModel):
     text: str = Field(min_length=1, max_length=2000)
+
+
+class ReverifyRequest(BaseModel):
+    evidence_id: str = Field(min_length=1, max_length=32)
 
 
 class ActionProposal(BaseModel):

@@ -18,6 +18,35 @@ export interface EvidenceItem {
   collected_at: string;
   data: Record<string, unknown>;
   error: string | null;
+  tool_name: string | null;
+  tool_args: Record<string, unknown> | null;
+  refresh_of: string | null;
+}
+
+export type RefreshVerdict = "changed" | "unchanged" | "unavailable";
+
+export interface EvidenceRefresh {
+  old_evidence_id: string;
+  new_evidence_id: string | null;
+  tool_name: string;
+  verdict: RefreshVerdict;
+  changes: string[];
+  old_collected_at: string;
+  new_collected_at: string | null;
+  compared_at: string;
+  affected_causes: string[];
+}
+
+export interface Contradiction {
+  contradiction_id: string;
+  evidence_ids: string[];
+  description: string;
+}
+
+export interface RecheckSuggestion {
+  evidence_id: string;
+  tool_name: string;
+  reason: string;
 }
 
 export interface DiagnosticBundle {
@@ -98,6 +127,7 @@ export type ActivityKind =
   | "tool_result"
   | "evidence"
   | "note"
+  | "reverify"
   | "proposed"
   | "approval_requested"
   | "approved"
@@ -179,6 +209,11 @@ export interface InvestigationResponse {
   proposals: ActionProposal[];
   executions: ActionExecution[];
   notes: TechnicianNote[];
+  refreshes: EvidenceRefresh[];
+  contradictions: Contradiction[];
+  suggested_rechecks: RecheckSuggestion[];
+  tool_calls_used: number;
+  tool_calls_max: number;
 }
 
 export interface InvestigationSummary {

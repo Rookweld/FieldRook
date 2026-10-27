@@ -66,7 +66,24 @@ Evidence-driven AI troubleshooting assistant for IT technicians. A ROOKWELD
 project built for the Meta Global AI Developer Hackathon 2026 (Indie Developer
 track, "Build for Your World").
 
-**Milestone 006 — The Field Technician:** FieldRook is now a usable
+**Milestone 007 — The Active Investigator:** FieldRook now partners through
+an ongoing investigation instead of reporting once. Technicians can re-check
+any tool-backed observation in place: the identical read-only call re-runs,
+the fresh reading is compared against the preserved historical item
+(`CHANGED` / `UNCHANGED` / `UNAVAILABLE` with explicit timestamps), and
+hypotheses built on the old reading are named for review. The reasoning loop
+reuses fresh evidence, links cross-round re-checks automatically, flags
+deterministic contradictions between observations, recommends targeted
+re-checks, and stops early when new calls add no value. The workspace shows
+investigation progress with a tool budget, unresolved questions, suggested
+next checks with one-click re-runs, and refresh history per round; reports
+export the full evidence lineage. The gauntlet grew to 39 cases and measures
+39/39 (31 fixture/tool + 8 capped live `muse-spark-1.3` evaluations); four
+field scenarios (mid-investigation state change, network contradiction,
+redirected crash hypothesis, honest dead end) validate end to end (see
+`backend/eval/REPORT.md`).
+
+**Milestone 006 — The Field Technician:** FieldRook is a usable
 troubleshooting workstation. New read-only diagnostics cover application
 crashes (Event IDs 1000/1001/1002/1026 with faulting module and exception
 codes), process↔service relationships (including a service-name selector),
@@ -110,7 +127,7 @@ Markdown/JSON, and every conclusion stays traceable to evidence framed as
   Meta tool-calling loop with symptom triage, corrective-action subsystem
   (`app/actions/`: registry, policies, approval, executor, verification,
   audit), SQLite persistence, incident export, pytest suite.
-- `backend/eval/` — the diagnostic gauntlet: 34 reproducible cases plus the
+- `backend/eval/` — the diagnostic gauntlet: 39 reproducible cases plus the
   evaluation report (`REPORT.md`).
 - `demo_worker/` — application-owned background process with a heartbeat health
   check plus a failure simulator for the controlled-fix demonstration.
@@ -201,6 +218,7 @@ pnpm run test:e2e   # Playwright: real backend (fixtures, no key) + real UI
 | GET | `/api/investigations/{id}` | Current investigation state |
 | POST | `/api/investigations/{id}/followup` | Continue: `{"message": "..."}` |
 | POST | `/api/investigations/{id}/notes` | Technician note: `{"text": "..."}` (max 2000 chars, persisted, exported) |
+| POST | `/api/investigations/{id}/reverify` | Re-run one observation: `{"evidence_id": "ev-2"}` → new item + `changed/unchanged/unavailable` comparison; history preserved |
 | GET | `/api/investigations/{id}/export?format=markdown\|json` | Ticket-ready incident report |
 | POST | `/api/investigations/{id}/proposals` | Propose a registered action (never executes) |
 | POST | `/api/proposals/{id}/approve` | Human approval → single-use token (5 min TTL) |
@@ -213,7 +231,7 @@ Diagnostics are strictly read-only with one labeled exception: services,
 event logs (System/Application), application crashes, processes, OS info,
 network state, scheduled task definitions, demo-worker health, and error
 codes are only ever read through predefined, schema-validated tools
-(bounded budget: 8 initial + 4 per follow-up tool calls, 12 total; per-tool
+(bounded budget: 8 initial + 4 per follow-up tool calls, 12 total including re-checks; per-tool
 timeouts; truncated results). `test_dns_resolution` is an explicitly labeled ACTIVE
 TEST (one A/AAAA query, changes nothing). The model can never send
 executable commands, and full process command lines are never collected
