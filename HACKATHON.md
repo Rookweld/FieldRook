@@ -44,7 +44,11 @@ process/service/DNS diagnostics, symptom triage planner, incident overview,
 evidence-linked runbook steps, technician notes, 34-case gauntlet, Windows
 field testing), and Milestone 007 (on-demand evidence reverification with
 historical preservation, contradiction detection, targeted re-checks,
-investigation progress UI, four field scenarios, 39-case gauntlet) were all
+investigation progress UI, four field scenarios, 39-case gauntlet), and
+Milestone 008 (resolution plans with measurable criteria, Confirm Fix
+baseline/verify workflow, VERIFIED_RESOLVED/NOT_RESOLVED/INCONCLUSIVE
+outcomes, resolution workspace, eight verification scenarios, 43-case
+gauntlet) were all
 designed and implemented during the event.
 
 ## Meta Muse Spark integration

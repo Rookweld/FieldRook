@@ -1087,3 +1087,69 @@ details summary {
 .tl-reverify .tl-mark {
   color: var(--accent);
 }
+
+/* M008 — resolution workspace. */
+
+.plan-form {
+  display: grid;
+  gap: 0.6rem;
+  margin-top: 0.6rem;
+}
+
+.evidence-pick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.2rem 1rem;
+}
+
+.criterion-row {
+  border: 1px solid var(--panel-edge);
+  border-radius: 4px;
+  padding: 0.5rem 0.7rem;
+  margin: 0;
+}
+
+.criterion-row legend {
+  font-size: 0.8rem;
+  color: var(--muted);
+  padding: 0 0.3rem;
+}
+
+.criterion-grid {
+  display: grid;
+  grid-template-columns: 1.4fr 1.2fr 1fr 0.7fr 1fr;
+  gap: 0.5rem;
+}
+
+@media (max-width: 900px) {
+  .criterion-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+table.criteria {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.5rem 0;
+  font-size: 0.85rem;
+}
+
+table.criteria th,
+table.criteria td {
+  text-align: left;
+  padding: 0.35rem 0.5rem;
+  border-bottom: 1px solid var(--panel-edge);
+  vertical-align: top;
+}
+
+table.criteria th {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.manual-input {
+  flex: 1;
+  min-width: 16rem;
+}
+
+

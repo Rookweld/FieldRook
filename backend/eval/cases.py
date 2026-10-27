@@ -36,6 +36,12 @@ class Case:
     reverify_env: dict[str, str] = field(default_factory=dict)
     expect_verdict: str = ""
     max_tool_calls: int = 0
+    resolution_kind: str = ""
+    resolution_action: str = ""
+    resolution_use_template: str = ""
+    resolution_criteria: tuple = ()
+    resolution_env_verify: dict = field(default_factory=dict)
+    expect_resolution: str = ""
     notes: str = ""
 
 
@@ -278,6 +284,61 @@ CASES: list[Case] = [
         max_tool_calls=4,
         notes="M007: failed re-collection keeps history.",
     ),
+    Case(
+        id="resolve-manual-worker",
+        category="resolution",
+        problem="The FieldRook demo worker is down.",
+        reference="Failing fixture worker, manual plan: baseline failed, manual "
+        "claim recorded, fixture flips healthy, Confirm Fix measures "
+        "VERIFIED_RESOLVED from fresh evidence only.",
+        env={"FIELDROOK_FIXTURE_WORKER": "failing"},
+        must_use_any=frozenset({"get_demo_worker_health"}),
+        require_uncertainty=True,
+        resolution_kind="manual",
+        resolution_use_template="recover_demo_worker",
+        resolution_env_verify={"FIELDROOK_FIXTURE_WORKER": "healthy"},
+        expect_resolution="VERIFIED_RESOLVED",
+        notes="M007-style flow: runner drives plan/baseline/verify via API.",
+    ),
+    Case(
+        id="resolve-still-failing",
+        category="resolution",
+        problem="The FieldRook demo worker is down.",
+        reference="Worker still failing at verify time: honest NOT_RESOLVED "
+        "with failed criteria, no proposals created by the flow.",
+        env={"FIELDROOK_FIXTURE_WORKER": "failing"},
+        must_use_any=frozenset({"get_demo_worker_health"}),
+        require_uncertainty=True,
+        resolution_kind="manual",
+        resolution_use_template="recover_demo_worker",
+        expect_resolution="NOT_RESOLVED",
+        notes="M008: contradiction between claim and measurement.",
+    ),
+    Case(
+        id="resolve-inconclusive",
+        category="resolution",
+        problem="Is the Windows Update service healthy right now?",
+        reference="Service vanishes before verification: the tool failure "
+        "forces INCONCLUSIVE, never a guessed verdict.",
+        service_name="wuauserv",
+        must_use_any=frozenset({"get_service_details"}),
+        forbid_proposal=True,
+        require_uncertainty=True,
+        resolution_kind="manual",
+        resolution_criteria=(
+            {
+                "description": "Service status reads Running.",
+                "tool_name": "get_service_details",
+                "tool_args": {"name": "wuauserv"},
+                "path": "status.status",
+                "op": "eq",
+                "expected": "Running",
+            },
+        ),
+        resolution_env_verify={"FIELDROOK_FIXTURE_MISSING_SERVICES": "wuauserv"},
+        expect_resolution="INCONCLUSIVE",
+        notes="M008: missing measurements prevent verification.",
+    ),
     # ---- live-model cases (capped; need MODEL_API_KEY) ----
     Case(
         id="live-phantom-fixtures",
@@ -384,6 +445,22 @@ CASES: list[Case] = [
         reverify_category="dns_config",
         expect_verdict="unchanged",
         notes="M007: reverify against live-mode state (no model rebuild).",
+    ),
+    Case(
+        id="live-resolution-flow",
+        category="live-model",
+        problem="The FieldRook demo worker is down.",
+        reference="Live model investigates the failing fixture worker, then "
+        "the API runs plan/baseline/manual/verify: honest NOT_RESOLVED with "
+        "valid citations and no flow-created proposals.",
+        live_model=True,
+        env={"FIELDROOK_FIXTURE_WORKER": "failing"},
+        must_use_any=frozenset({"get_demo_worker_health"}),
+        forbid_mention=("definitely", "certainly", "proven"),
+        resolution_kind="manual",
+        resolution_use_template="recover_demo_worker",
+        expect_resolution="NOT_RESOLVED",
+        notes="M008: resolution flow against live-mode state. No uncertainty required: an explicitly failed health read warrants a firm call.",
     ),
 ]
 

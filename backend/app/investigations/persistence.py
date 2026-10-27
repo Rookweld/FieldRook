@@ -16,7 +16,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-DB_VERSION = 3
+DB_VERSION = 4
 
 _SCHEMA_V2 = """
 CREATE TABLE IF NOT EXISTS notes (
@@ -126,6 +126,15 @@ CREATE TABLE IF NOT EXISTS executions (
 """
 
 
+_SCHEMA_V4 = """
+CREATE TABLE IF NOT EXISTS plans (
+    plan_id TEXT PRIMARY KEY,
+    inv_id TEXT NOT NULL,
+    plan_json TEXT NOT NULL
+);
+"""
+
+
 def db_path() -> Path:
     override = os.environ.get("FIELDROOK_DB_PATH")
     if override:
@@ -160,6 +169,9 @@ def _migrate(conn: sqlite3.Connection) -> None:
         if "refresh_of" not in columns:
             conn.execute("ALTER TABLE evidence ADD COLUMN refresh_of TEXT")
         conn.execute("PRAGMA user_version = 3")
+    if version < 4:
+        conn.executescript(_SCHEMA_V4)
+        conn.execute("PRAGMA user_version = 4")
     conn.commit()
 
 
@@ -316,6 +328,12 @@ def save_state(state: Any) -> None:
                     proposal.approval_digest,
                 ),
             )
+        conn.execute("DELETE FROM plans WHERE inv_id = ?", (state.id,))
+        for plan in getattr(state, "plans", []) or []:
+            conn.execute(
+                "INSERT INTO plans (plan_id, inv_id, plan_json) VALUES (?, ?, ?)",
+                (plan.plan_id, state.id, plan.model_dump_json()),
+            )
         conn.execute("DELETE FROM notes WHERE inv_id = ?", (state.id,))
         for note in getattr(state, "notes", []) or []:
             conn.execute(
@@ -365,6 +383,7 @@ def load_state(investigation_id: str) -> Any | None:
         AnalysisResult,
         EvidenceItem,
         EvidenceRefresh,
+        ResolutionPlan,
         TechnicianNote,
     )
     from .store import InvestigationState
@@ -478,6 +497,13 @@ def load_state(investigation_id: str) -> Any | None:
                 (investigation_id,),
             ).fetchall()
         ]
+        plans = [
+            ResolutionPlan.model_validate_json(row["plan_json"])
+            for row in conn.execute(
+                "SELECT plan_json FROM plans WHERE inv_id = ? ORDER BY rowid",
+                (investigation_id,),
+            ).fetchall()
+        ]
         notes = [
             TechnicianNote(
                 note_id=n["note_id"],
@@ -512,6 +538,7 @@ def load_state(investigation_id: str) -> Any | None:
             proposals=proposals,
             executions=executions,
             refreshes=refreshes,
+            plans=plans,
         )
     finally:
         conn.close()
@@ -553,6 +580,17 @@ def list_states(limit: int = 50) -> list[dict[str, Any]]:
                 }
             )
         return summaries
+    finally:
+        conn.close()
+
+
+def find_plan(plan_id: str) -> str | None:
+    conn = _connect()
+    try:
+        row = conn.execute(
+            "SELECT inv_id FROM plans WHERE plan_id = ?", (plan_id,)
+        ).fetchone()
+        return row["inv_id"] if row else None
     finally:
         conn.close()
 

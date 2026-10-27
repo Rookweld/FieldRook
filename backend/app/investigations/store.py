@@ -19,6 +19,7 @@ from ..schemas import (
     EvidenceRefresh,
     InvestigationResponse,
     InvestigationSummary,
+    ResolutionPlan,
     TechnicianNote,
 )
 
@@ -50,6 +51,7 @@ class InvestigationState:
     executions: list[ActionExecution] = field(default_factory=list)
     notes: list[TechnicianNote] = field(default_factory=list)
     refreshes: list[EvidenceRefresh] = field(default_factory=list)
+    plans: list[ResolutionPlan] = field(default_factory=list)
 
     def add_activity(
         self,
@@ -170,6 +172,7 @@ class InvestigationState:
             executions=list(self.executions),
             notes=list(self.notes),
             refreshes=list(self.refreshes),
+            plans=list(self.plans),
             contradictions=contradictions,
             suggested_rechecks=suggest_rechecks(self, ttl_s, MAX_TOOL_CALLS),
             tool_calls_used=self.tool_calls_made,

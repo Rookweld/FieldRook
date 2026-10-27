@@ -216,6 +216,7 @@ class InvestigationResponse(BaseModel):
     executions: list[ActionExecution] = Field(default_factory=list)
     notes: list[TechnicianNote] = Field(default_factory=list)
     refreshes: list[EvidenceRefresh] = Field(default_factory=list)
+    plans: list["ResolutionPlan"] = Field(default_factory=list)
     contradictions: list[Contradiction] = Field(default_factory=list)
     suggested_rechecks: list[RecheckSuggestion] = Field(default_factory=list)
     tool_calls_used: int = 0
@@ -238,6 +239,82 @@ class NoteRequest(BaseModel):
 
 class ReverifyRequest(BaseModel):
     evidence_id: str = Field(min_length=1, max_length=32)
+
+
+CriterionOp = Literal["eq", "ne", "contains", "gt", "gte", "lt", "lte", "exists"]
+PlanOutcome = Literal["VERIFIED_RESOLVED", "NOT_RESOLVED", "INCONCLUSIVE"]
+PlanStatus = Literal[
+    "DRAFT", "BASELINED", "INTERVENED",
+    "VERIFIED_RESOLVED", "NOT_RESOLVED", "INCONCLUSIVE",
+]
+InterventionKind = Literal["manual", "action"]
+CriterionOutcome = Literal["pass", "fail", "inconclusive"]
+
+
+class ResolutionCriterion(BaseModel):
+    """One measurable success check: tool + dot-path + comparison."""
+
+    criterion_id: str
+    description: str
+    tool_name: str
+    tool_args: dict[str, Any] = Field(default_factory=dict)
+    path: str
+    op: CriterionOp
+    expected: Any = None
+
+
+class PlanIntervention(BaseModel):
+    """A recorded intervention. A manual record is a technician claim, never
+    proof; an action record links a real authorized execution. Proof comes
+    only from measured verification."""
+
+    kind: InterventionKind
+    description: str = ""
+    proposal_id: str | None = None
+    execution_id: str | None = None
+    recorded_at: datetime
+
+
+class CriterionResult(BaseModel):
+    criterion_id: str
+    outcome: CriterionOutcome
+    observed: Any = None
+    before_evidence_id: str | None = None
+    after_evidence_id: str | None = None
+    detail: str = ""
+
+
+class PlanVerification(BaseModel):
+    verification_id: str
+    verified_at: datetime
+    after_evidence_ids: list[str] = Field(default_factory=list)
+    results: list[CriterionResult] = Field(default_factory=list)
+    outcome: PlanOutcome
+    uncertainties: list[str] = Field(default_factory=list)
+
+
+class ResolutionPlan(BaseModel):
+    plan_id: str
+    investigation_id: str
+    problem: str
+    evidence_ids: list[str] = Field(default_factory=list)
+    intended_state: str
+    criteria: list[ResolutionCriterion] = Field(default_factory=list)
+    guidance: str = ""
+    risks: str = ""
+    remediation_kind: InterventionKind = "manual"
+    action_id: str | None = None
+    target: str | None = None
+    interventions: list[PlanIntervention] = Field(default_factory=list)
+    baseline_evidence_ids: list[str] = Field(default_factory=list)
+    baseline_captured_at: datetime | None = None
+    baseline_values: dict[str, Any] = Field(default_factory=dict)
+    verifications: list[PlanVerification] = Field(default_factory=list)
+    status: PlanStatus = "DRAFT"
+    created_at: datetime
+
+
+# (Forward references resolved at the end of this module.)
 
 
 class ActionProposal(BaseModel):
@@ -291,3 +368,8 @@ class ToolInfo(BaseModel):
     name: str
     description: str
     category: str
+
+
+# ResolutionPlan and ActionProposal are defined after InvestigationResponse;
+# resolve those forward references now that the module is complete.
+InvestigationResponse.model_rebuild()

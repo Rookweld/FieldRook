@@ -66,6 +66,21 @@ Evidence-driven AI troubleshooting assistant for IT technicians. A ROOKWELD
 project built for the Meta Global AI Developer Hackathon 2026 (Indie Developer
 track, "Build for Your World").
 
+**Milestone 008 — Guided Resolution:** findings become provable recovery.
+Technicians draft resolution plans from supporting evidence with explicit
+measurable criteria (tool + value path + comparison), capture a pre-fix
+baseline, record the intervention (a linked authorized execution or an
+explicitly-labeled manual claim), and Confirm Fix re-measures: fresh
+diagnostics grade each criterion into `VERIFIED_RESOLVED`, `NOT_RESOLVED`,
+or `INCONCLUSIVE`. A manual "done" never counts as proof, verification runs
+read-only diagnostics only (it cannot authorize or execute anything), and
+before/after readings join the M007 refresh lineage. The gauntlet grew to 43
+cases and measures 43/43 (34 fixture/tool + 9 capped live `muse-spark-1.3`
+evaluations); eight verification scenarios cover registered repair, failed
+fixes, manual recovery, contradicted recovery, tool failure, repeat
+verification, persistence, and stale approvals (see
+`backend/eval/REPORT.md`).
+
 **Milestone 007 — The Active Investigator:** FieldRook now partners through
 an ongoing investigation instead of reporting once. Technicians can re-check
 any tool-backed observation in place: the identical read-only call re-runs,
@@ -127,7 +142,7 @@ Markdown/JSON, and every conclusion stays traceable to evidence framed as
   Meta tool-calling loop with symptom triage, corrective-action subsystem
   (`app/actions/`: registry, policies, approval, executor, verification,
   audit), SQLite persistence, incident export, pytest suite.
-- `backend/eval/` — the diagnostic gauntlet: 39 reproducible cases plus the
+- `backend/eval/` — the diagnostic gauntlet: 43 reproducible cases plus the
   evaluation report (`REPORT.md`).
 - `demo_worker/` — application-owned background process with a heartbeat health
   check plus a failure simulator for the controlled-fix demonstration.
@@ -219,6 +234,12 @@ pnpm run test:e2e   # Playwright: real backend (fixtures, no key) + real UI
 | POST | `/api/investigations/{id}/followup` | Continue: `{"message": "..."}` |
 | POST | `/api/investigations/{id}/notes` | Technician note: `{"text": "..."}` (max 2000 chars, persisted, exported) |
 | POST | `/api/investigations/{id}/reverify` | Re-run one observation: `{"evidence_id": "ev-2"}` → new item + `changed/unchanged/unavailable` comparison; history preserved |
+| GET | `/api/plans/template?action_id=...` | Suggested measurable criteria for a registered action |
+| POST | `/api/investigations/{id}/plans` | Draft a resolution plan (evidence, intended state, criteria, remediation) |
+| POST | `/api/plans/{id}/baseline` | Capture pre-fix measurements (rejects unmeasurable criteria) |
+| POST | `/api/plans/{id}/interventions/manual` | Record a manual fix (claim only, never proof) |
+| POST | `/api/plans/{id}/interventions/link-execution` | Link an authorized execution |
+| POST | `/api/plans/{id}/verify` | Confirm Fix: re-measure and grade `VERIFIED_RESOLVED` / `NOT_RESOLVED` / `INCONCLUSIVE` |
 | GET | `/api/investigations/{id}/export?format=markdown\|json` | Ticket-ready incident report |
 | POST | `/api/investigations/{id}/proposals` | Propose a registered action (never executes) |
 | POST | `/api/proposals/{id}/approve` | Human approval → single-use token (5 min TTL) |

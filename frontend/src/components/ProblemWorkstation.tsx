@@ -9,6 +9,7 @@ import {
 } from "../api";
 import type { InvestigationResponse, ServiceSummary } from "../types";
 import { ActionCenter } from "./ActionCenter";
+import { ResolutionWorkspace } from "./ResolutionWorkspace";
 import { DiagnosisPanel } from "./DiagnosisPanel";
 import { StageStepper, resolutionOf, stageOf } from "./WorkflowStage";
 import { EvidenceCards } from "./EvidenceCards";
@@ -405,6 +406,12 @@ export function ProblemWorkstation({
           )}
 
           <ActionCenter investigation={investigation} onUpdate={setInvestigation} />
+
+          <ResolutionWorkspace
+            investigation={investigation}
+            onUpdate={setInvestigation}
+            onEvidenceClick={setSelectedEvidence}
+          />
 
           <section className="card">
             <div className="card-head">

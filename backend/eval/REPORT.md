@@ -1,5 +1,33 @@
 # FieldRook Diagnostic Gauntlet — Evaluation Report
 
+## M008 update (2026-10-27) — read this first
+
+The gauntlet grew from 39 to **43 cases**: 23 investigation + 11 tool cases
+in the deterministic fixture tier, and 9 capped live-model cases. New in M008:
+
+- **Resolution probes**: three fixture cases drive plan → baseline → manual
+  claim → verify through the API and assert the measured outcome
+  (`VERIFIED_RESOLVED` after a synthetic fixture flip, `NOT_RESOLVED` when
+  the worker stays failed, `INCONCLUSIVE` when the criterion tool errors),
+  plus a non-empty baseline, an intervention-gated verify, an unchanged
+  proposal set, zero executions, and valid citations after verification.
+- **Live resolution flow**: `live-resolution-flow` investigates with the
+  live model, then resolves via the API — honest `NOT_RESOLVED` with valid
+  citations. No uncertainty is required here: an explicitly failed health
+  read warrants a firm call (overconfidence wording still forbidden).
+- **Hedge-aware `proven` check, widened again**: the live freeze case wrote
+  "no system-wide freeze cause was proven" and "no proven system cause" —
+  calibrated hedging the old patterns missed. The check now accepts
+  "no ... proven" phrasings (still rejecting confident "no doubt ... proven";
+  pinned by new assertions in `test_banned_claim_allows_hedged_proven`).
+
+**Measured M008 results: 43/43 evaluated cases passed (34 fixture/tool + 9
+live-model).** Raw JSON: `backend/eval/results/20261027T091434Z.json`
+(gitignored; re-run with `python -m eval.run [--live]` from `backend/`).
+The first live pass was 41/43: the two failures above (freeze `proven`
+hedging, resolution uncertainty demand) were both measurement bugs, fixed
+and re-run green — the gauntlet working as intended.
+
 ## M007 update (2026-10-27) — read this first
 
 The gauntlet grew from 34 to **39 cases**: 20 investigation + 11 tool cases
@@ -173,7 +201,7 @@ measurement found a real routing gap.
 ## Limitations
 
 - Fixture tier scores the deterministic pipeline, not model quality.
-- Live tier is small (8 cases, spending-capped) and uses fixture
+- Live tier is small (9 cases, spending-capped) and uses fixture
   diagnostics; live-machine variance is covered by manual rehearsal instead.
 - Content signals are substring checks, not semantic grading — they catch
   regressions, not subtle reasoning errors (`proven` is now hedge-aware).

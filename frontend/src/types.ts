@@ -43,6 +43,93 @@ export interface Contradiction {
   description: string;
 }
 
+export type CriterionOp = "eq" | "ne" | "contains" | "gt" | "gte" | "lt" | "lte" | "exists";
+
+export interface ResolutionCriterion {
+  criterion_id: string;
+  description: string;
+  tool_name: string;
+  tool_args: Record<string, unknown>;
+  path: string;
+  op: CriterionOp;
+  expected: unknown;
+}
+
+export type InterventionKind = "manual" | "action";
+
+export interface PlanIntervention {
+  kind: InterventionKind;
+  description: string;
+  proposal_id: string | null;
+  execution_id: string | null;
+  recorded_at: string;
+}
+
+export type CriterionOutcome = "pass" | "fail" | "inconclusive";
+
+export interface CriterionResult {
+  criterion_id: string;
+  outcome: CriterionOutcome;
+  observed: unknown;
+  before_evidence_id: string | null;
+  after_evidence_id: string | null;
+  detail: string;
+}
+
+export type PlanOutcome = "VERIFIED_RESOLVED" | "NOT_RESOLVED" | "INCONCLUSIVE";
+
+export interface PlanVerification {
+  verification_id: string;
+  verified_at: string;
+  after_evidence_ids: string[];
+  results: CriterionResult[];
+  outcome: PlanOutcome;
+  uncertainties: string[];
+}
+
+export type PlanStatus =
+  | "DRAFT"
+  | "BASELINED"
+  | "INTERVENED"
+  | PlanOutcome;
+
+export interface ResolutionPlan {
+  plan_id: string;
+  investigation_id: string;
+  problem: string;
+  evidence_ids: string[];
+  intended_state: string;
+  criteria: ResolutionCriterion[];
+  guidance: string;
+  risks: string;
+  remediation_kind: InterventionKind;
+  action_id: string | null;
+  target: string | null;
+  interventions: PlanIntervention[];
+  baseline_evidence_ids: string[];
+  baseline_captured_at: string | null;
+  baseline_values: Record<string, unknown>;
+  verifications: PlanVerification[];
+  status: PlanStatus;
+  created_at: string;
+}
+
+export interface PlanTemplate {
+  action_id: string;
+  target: string;
+  intended_state: string;
+  guidance: string;
+  risks: string;
+  criteria: Array<{
+    description: string;
+    tool_name: string;
+    tool_args: Record<string, unknown>;
+    path: string;
+    op: CriterionOp;
+    expected: unknown;
+  }>;
+}
+
 export interface RecheckSuggestion {
   evidence_id: string;
   tool_name: string;
@@ -212,6 +299,7 @@ export interface InvestigationResponse {
   refreshes: EvidenceRefresh[];
   contradictions: Contradiction[];
   suggested_rechecks: RecheckSuggestion[];
+  plans: ResolutionPlan[];
   tool_calls_used: number;
   tool_calls_max: number;
 }

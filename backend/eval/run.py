@@ -62,7 +62,7 @@ def _banned_claim(text: str, banned: str) -> bool:
     if banned != "proven":
         return banned in text
     cleaned = re.sub(
-        r"unproven|not proven|n't proven|never proven|nothing proven|no \w+ proven",
+        r"unproven|not proven|n't proven|never proven|nothing proven|no ((?!doubt|question)[a-z\- ]){0,50}?proven",
         " ",
         text,
     )
@@ -173,6 +173,97 @@ def _check_reverify(case: Case, body: dict) -> list[str]:
     return problems
 
 
+def _check_resolution(case: Case, body: dict) -> list[str]:
+    """Drive plan -> baseline -> manual claim -> verify through the API."""
+    problems: list[str] = []
+    usable = [item for item in body.get("evidence", []) if item.get("tool_name")]
+    if not usable:
+        return ["no tool-backed evidence to plan from"]
+    if case.resolution_use_template:
+        template_response = client.get(
+            f"/api/plans/template?action_id={case.resolution_use_template}"
+        )
+        if template_response.status_code != 200:
+            return [f"template HTTP {template_response.status_code}"]
+        template = template_response.json()
+        criteria = template["criteria"]
+        intended = template["intended_state"]
+        guidance, risks = template["guidance"], template["risks"]
+    else:
+        criteria = list(case.resolution_criteria)
+        intended = "Resolve the reported problem (gauntlet)."
+        guidance, risks = "Gauntlet flow.", "None."
+    if not criteria:
+        return ["no criteria for resolution plan"]
+    payload: dict = {
+        "evidence_ids": [usable[0]["id"]],
+        "intended_state": intended,
+        "criteria": criteria,
+        "guidance": guidance,
+        "risks": risks,
+        "remediation_kind": case.resolution_kind or "manual",
+    }
+    if case.resolution_action:
+        payload["action_id"] = case.resolution_action
+        payload["target"] = "demo-worker"
+    proposals_before = len(body.get("proposals", []))
+    saved_env = {key: os.environ.get(key) for key in case.env}
+    os.environ.update(case.env)
+    try:
+        created = client.post(
+            f"/api/investigations/{body['investigation_id']}/plans", json=payload
+        )
+        if created.status_code != 200:
+            return [f"plan HTTP {created.status_code}: {created.text[:200]}"]
+        plan_id = created.json()["plans"][-1]["plan_id"]
+        baselined = client.post(f"/api/plans/{plan_id}/baseline")
+        if baselined.status_code != 200:
+            return [f"baseline HTTP {baselined.status_code}: {baselined.text[:200]}"]
+        plan = next(p for p in baselined.json()["plans"] if p["plan_id"] == plan_id)
+        if not any(v is not None for v in plan["baseline_values"].values()):
+            return ["baseline measured nothing"]
+        claimed = client.post(
+            f"/api/plans/{plan_id}/interventions/manual",
+            json={"description": "Gauntlet technician claim (not proof)."},
+        )
+        if claimed.status_code != 200:
+            return [f"manual HTTP {claimed.status_code}"]
+        if next(p for p in claimed.json()["plans"] if p["plan_id"] == plan_id)["status"] != "INTERVENED":
+            return ["manual claim changed more than the intervention record"]
+        verify_saved = {key: os.environ.get(key) for key in case.resolution_env_verify}
+        os.environ.update(case.resolution_env_verify)
+        try:
+            verified = client.post(f"/api/plans/{plan_id}/verify")
+        finally:
+            for key, value in verify_saved.items():
+                if value is None:
+                    os.environ.pop(key, None)
+                else:
+                    os.environ[key] = value
+    except Exception as exc:  # noqa: BLE001 - eval must report, not crash
+        return [f"resolution flow failed: {exc}"]
+    finally:
+        for key, value in saved_env.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
+    if verified.status_code != 200:
+        return [f"verify HTTP {verified.status_code}: {verified.text[:200]}"]
+    after = verified.json()
+    plan = next(p for p in after["plans"] if p["plan_id"] == plan_id)
+    if case.expect_resolution and plan["status"] != case.expect_resolution:
+        problems.append(f"resolution {plan['status']!r}, want {case.expect_resolution!r}")
+    if not plan["verifications"]:
+        problems.append("verify produced no verification record")
+    if len(after.get("proposals", [])) != proposals_before:
+        problems.append("resolution flow changed the proposal set")
+    if after.get("executions"):
+        problems.append("resolution flow executed an action")
+    problems.extend(f"after verify: {p}" for p in _check_citations(after))
+    return problems
+
+
 def run_case(case: Case) -> dict:
     saved_env = {key: os.environ.get(key) for key in case.env}
     os.environ.update(case.env)
@@ -220,6 +311,8 @@ def run_case(case: Case) -> dict:
         failures.append("expected a contradiction record, got none")
     if case.reverify_category:
         failures.extend(_check_reverify(case, body))
+    if case.resolution_kind:
+        failures.extend(_check_resolution(case, body))
     if case.max_tool_calls:
         # The runner's own reverify post costs one call; budget it too.
         total = body.get("tool_calls_used", 0) + (1 if case.reverify_category else 0)
@@ -255,6 +348,8 @@ def run_case(case: Case) -> dict:
         detail += f" contradictions={len(body['contradictions'])}"
     if case.reverify_category:
         detail += f" reverify={case.expect_verdict or '?'}"
+    if case.resolution_kind:
+        detail += f" resolution={case.expect_resolution or '?'}"
     result = {
         "id": case.id,
         "category": case.category,

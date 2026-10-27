@@ -3,6 +3,7 @@ import type {
   IncidentAssessment,
   InvestigationResponse,
   InvestigationSummary,
+  PlanTemplate,
   ServiceListResponse,
   StatusResponse,
   ToolInfo,
@@ -131,6 +132,91 @@ export function reverifyEvidence(
       body: JSON.stringify({ evidence_id: evidenceId }),
     },
   );
+}
+
+export interface CriterionDraft {
+  description: string;
+  tool_name: string;
+  tool_args: Record<string, unknown>;
+  path: string;
+  op: string;
+  expected: unknown;
+}
+
+export interface PlanCreateArgs {
+  investigationId: string;
+  evidence_ids: string[];
+  intended_state: string;
+  criteria: CriterionDraft[];
+  guidance: string;
+  risks: string;
+  remediation_kind: "manual" | "action";
+  action_id?: string;
+  target?: string;
+}
+
+export function getPlanTemplate(actionId: string): Promise<PlanTemplate> {
+  return request<PlanTemplate>(`/api/plans/template?action_id=${encodeURIComponent(actionId)}`);
+}
+
+export function createPlan(args: PlanCreateArgs): Promise<InvestigationResponse> {
+  return request<InvestigationResponse>(
+    `/api/investigations/${encodeURIComponent(args.investigationId)}/plans`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        evidence_ids: args.evidence_ids,
+        intended_state: args.intended_state,
+        criteria: args.criteria,
+        guidance: args.guidance,
+        risks: args.risks,
+        remediation_kind: args.remediation_kind,
+        action_id: args.action_id ?? null,
+        target: args.target ?? null,
+      }),
+    },
+  );
+}
+
+export function captureBaseline(planId: string): Promise<InvestigationResponse> {
+  return request<InvestigationResponse>(`/api/plans/${encodeURIComponent(planId)}/baseline`, {
+    method: "POST",
+  });
+}
+
+export function recordManualIntervention(
+  planId: string,
+  description: string,
+): Promise<InvestigationResponse> {
+  return request<InvestigationResponse>(
+    `/api/plans/${encodeURIComponent(planId)}/interventions/manual`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ description }),
+    },
+  );
+}
+
+export function linkPlanExecution(
+  planId: string,
+  executionId: string,
+): Promise<InvestigationResponse> {
+  return request<InvestigationResponse>(
+    `/api/plans/${encodeURIComponent(planId)}/interventions/link-execution`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ execution_id: executionId }),
+    },
+  );
+}
+
+export function verifyPlan(planId: string): Promise<InvestigationResponse> {
+  return request<InvestigationResponse>(`/api/plans/${encodeURIComponent(planId)}/verify`, {
+    method: "POST",
+  });
 }
 
 export function listTools(): Promise<ToolInfo[]> {

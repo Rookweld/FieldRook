@@ -148,6 +148,39 @@ def build_markdown(state: Any) -> str:
     if not data.get("refreshes"):
         add("(no re-checks performed)")
     add("")
+    add("## 15. Resolution plans")
+    for plan in data.get("plans", []):
+        add(f"### {plan['plan_id']} — {plan['status']}")
+        add(f"Problem: {plan.get('problem', '')}")
+        add(f"Intended state: {plan.get('intended_state', '')}")
+        add(f"Supporting evidence: {', '.join(plan.get('evidence_ids', [])) or '(none)'}")
+        if plan.get("remediation_kind") == "action":
+            add(f"Remediation: registered action {plan.get('action_id')} on {plan.get('target')}")
+        else:
+            add("Remediation: manual (technician-performed; FieldRook attributes nothing)")
+        if plan.get("guidance"):
+            add(f"Guidance: {plan['guidance']}")
+        if plan.get("risks"):
+            add(f"Risks: {plan['risks']}")
+        for criterion in plan.get("criteria", []):
+            add(f"- {criterion['criterion_id']}: {criterion['description']} "
+                f"[{criterion['tool_name']} {criterion['path']} {criterion['op']} {criterion.get('expected')}]")
+        if plan.get("baseline_captured_at"):
+            add(f"Baseline: {plan['baseline_captured_at']} ({', '.join(plan.get('baseline_evidence_ids', []))})")
+        for intervention in plan.get("interventions", []):
+            if intervention.get("kind") == "action":
+                add(f"- Intervention (authorized action): {intervention.get('description', '')} at {intervention.get('recorded_at', '')}")
+            else:
+                add(f"- Intervention (manual, technician claim only): {intervention.get('description', '')} at {intervention.get('recorded_at', '')}")
+        for verification in plan.get("verifications", []):
+            add(f"#### Confirm Fix {verification['verification_id']}: {verification['outcome']} at {verification['verified_at']}")
+            for result in verification.get("results", []):
+                add(f"- {result['criterion_id']}: {result['outcome'].upper()} — {result.get('detail', '')}")
+            for uncertainty in verification.get("uncertainties", []):
+                add(f"- Uncertainty: {uncertainty}")
+    if not data.get("plans"):
+        add("(no resolution plans)")
+    add("")
     add("---")
     add(f"Exported {data['exported_at']} by FieldRook. OBSERVED facts are measured; INFERRED causes are hypotheses.")
     return "\n".join(lines) + "\n"

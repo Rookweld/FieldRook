@@ -15,6 +15,9 @@ def test_banned_claim_allows_hedged_proven() -> None:
     assert _banned_claim("causation is not proven", "proven") is False
     assert _banned_claim("the distinction is unproven", "proven") is False
     assert _banned_claim("nothing proven yet", "proven") is False
+    assert _banned_claim("no system-wide freeze cause was proven", "proven") is False
+    assert _banned_claim("found no proven system cause yet", "proven") is False
+    assert _banned_claim("there is no doubt it is proven", "proven") is True
     assert _banned_claim("definitely the driver", "definitely") is True
 
 

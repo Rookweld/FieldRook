@@ -58,3 +58,14 @@ output is never presented as a live model call.
   persistence, export.
 
 The model advises; FieldRook measures, gates, and verifies.
+
+## 7. Resolution as measurement (M008)
+
+A resolution plan is a contract: supporting evidence, an intended state, and
+criteria that name a tool, a value path, and a comparison. Confirm Fix
+captures a pre-fix baseline, waits for a recorded intervention (a linked
+authorized execution or an explicitly-labeled manual claim), re-runs the
+criterion diagnostics, and grades fresh readings into VERIFIED_RESOLVED,
+NOT_RESOLVED, or INCONCLUSIVE. Verification is read-only and budget-bound;
+it cannot authorize or execute anything, and a manual "done" is stored as a
+claim, never as proof.
