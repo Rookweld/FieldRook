@@ -14,6 +14,14 @@ export function App() {
   const [status, setStatus] = useState<StatusResponse | null>(null);
   const [seeded, setSeeded] = useState<InvestigationResponse | null>(null);
 
+  // Ambient tint for the library tabs; the problem workstation owns
+  // data-view while it is mounted.
+  useEffect(() => {
+    if (tab !== "problem") {
+      document.querySelector(".app")?.setAttribute("data-view", tab);
+    }
+  }, [tab]);
+
   useEffect(() => {
     let cancelled = false;
     getStatus().then(
@@ -91,7 +99,7 @@ export function App() {
         </ErrorBoundary>
       </main>
       <footer className="footer">
-        <span>FieldRook Milestone 013 · Diagnose. Verify. Resolve.</span>
+        <span>FieldRook Milestone 014 · Diagnose. Verify. Resolve.</span>
       </footer>
     </div>
   );

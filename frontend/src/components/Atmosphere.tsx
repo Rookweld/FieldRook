@@ -1,3 +1,5 @@
+import { useEffect, useRef } from "react";
+
 const EMBERS = [
   { left: "6%", size: 5, delay: "0s", duration: "26s" },
   { left: "14%", size: 3, delay: "7s", duration: "32s" },
@@ -16,8 +18,42 @@ const EMBERS = [
  * from assistive tech. All motion freezes under prefers-reduced-motion.
  */
 export function Atmosphere() {
+  const root = useRef<HTMLDivElement>(null);
+
+  // Whisper-quiet pointer parallax on the background hall only — the
+  // reading surface never moves. Skipped for reduced motion, coarse
+  // pointers, and narrow viewports.
+  useEffect(() => {
+    const el = root.current;
+    if (!el) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    if (window.matchMedia("(pointer: coarse)").matches) return;
+    if (window.innerWidth < 700) return;
+    let raf = 0;
+    let tx = 0;
+    let ty = 0;
+    const onMove = (e: PointerEvent) => {
+      tx = (e.clientX / window.innerWidth - 0.5) * 2;
+      ty = (e.clientY / window.innerHeight - 0.5) * 2;
+      if (!raf) {
+        raf = requestAnimationFrame(() => {
+          raf = 0;
+          el.style.setProperty("--px", tx.toFixed(3));
+          el.style.setProperty("--py", ty.toFixed(3));
+        });
+      }
+    };
+    window.addEventListener("pointermove", onMove, { passive: true });
+    return () => {
+      window.removeEventListener("pointermove", onMove);
+      cancelAnimationFrame(raf);
+    };
+  }, []);
+
   return (
-    <div className="atmosphere" aria-hidden="true">
+    <div className="atmosphere" aria-hidden="true" ref={root}>
+      <div className="atmosphere-hall" />
+      <div className="atmosphere-shade" />
       <svg className="atmosphere-grid" viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice">
         <defs>
           <pattern id="rook-grid" width="72" height="72" patternUnits="userSpaceOnUse">
@@ -55,6 +91,7 @@ export function Atmosphere() {
         <rect x="0" y="0" width="1440" height="900" fill="url(#rook-fade)" />
       </svg>
       <div className="atmosphere-light" />
+      <div className="atmosphere-tint" />
       {EMBERS.map((e, i) => (
         <span
           key={i}

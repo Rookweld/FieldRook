@@ -2115,51 +2115,8 @@ textarea:focus {
   }
 }
 
-/* ---------- Diagnostic core animation ---------- */
-
-.diag-ring-a {
-  transform-origin: 32px 32px;
-  animation: ring-spin 7s linear infinite;
-}
-
-.diag-ring-b {
-  transform-origin: 32px 32px;
-  animation: ring-spin-rev 16s linear infinite;
-}
-
-.diag-sweep {
-  transform-origin: 32px 32px;
-  animation: ring-spin 3.2s linear infinite;
-}
-
-@keyframes ring-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-@keyframes ring-spin-rev {
-  to {
-    transform: rotate(-360deg);
-  }
-}
-
-.diag-heart {
-  transform-origin: 32px 32px;
-  animation: heart-pulse 2.4s ease-in-out infinite;
-}
-
-@keyframes heart-pulse {
-  0%,
-  100% {
-    transform: scale(1);
-    opacity: 1;
-  }
-  50% {
-    transform: scale(1.18);
-    opacity: 0.82;
-  }
-}
+/* M014: InvestigationCore retired in favor of SignalScope; its
+   diag-* animation rules were removed with the component. */
 
 /* ---------- Elevated result ---------- */
 
@@ -2311,10 +2268,7 @@ ol.refreshes > li.refresh,
   background: linear-gradient(180deg, rgba(111, 195, 232, 0.05), transparent 60%), var(--panel-2);
 }
 
-/* The small in-flight core needs a glow to read as active, not a dim blob. */
-.pending .diag-core {
-  filter: drop-shadow(0 0 10px rgba(111, 195, 232, 0.4));
-}
+/* M014: pending glow moved to .scope-active in the M014 layer. */
 
 /* ---------- Badges, tags, header mark ---------- */
 
@@ -2385,9 +2339,9 @@ ol.history-list > li.history-item:hover {
     padding: 0.8rem;
   }
 
-  .core-stage .diag-core {
-    width: 104px;
-    height: 104px;
+  .core-stage .scope {
+    width: 200px;
+    height: auto;
   }
 
   .file-row {
@@ -2401,10 +2355,6 @@ ol.history-list > li.history-item:hover {
   .atmosphere-node,
   .ember,
   .core-idle,
-  .diag-ring-a,
-  .diag-ring-b,
-  .diag-sweep,
-  .diag-heart,
   .result,
   .result-good .result-status,
   .view-panel,
@@ -2420,5 +2370,253 @@ ol.history-list > li.history-item:hover {
   .preset-button:hover:not(:disabled),
   button.chip-button:hover {
     transform: none;
+  }
+}
+
+/* =====================================================================
+   M014 — CINEMATIC ATMOSPHERE. Living environment, material system,
+   SignalScope instrument, coordinated motion. Additive over M013.
+   ===================================================================== */
+
+.atmosphere {
+  --px: 0;
+  --py: 0;
+}
+
+/* ---------- Living environment ---------- */
+
+.atmosphere-hall {
+  position: absolute;
+  /* Overscanned so pointer parallax never reveals an edge. */
+  inset: -3%;
+  background: url("./assets/env/forge-hall.jpg") center / cover no-repeat;
+  opacity: 0.55;
+  filter: saturate(0.88) brightness(0.94);
+  transform: translate3d(calc(var(--px) * 8px), calc(var(--py) * 6px), 0);
+  transition: transform 0.7s ease-out;
+  animation: hall-breathe 110s ease-in-out infinite alternate;
+}
+
+@keyframes hall-breathe {
+  from {
+    opacity: 0.5;
+  }
+  to {
+    opacity: 0.6;
+  }
+}
+
+/* Reading well + vignette: the environment frames content, never
+   competes with it. Painted above the hall, below the grid. */
+.atmosphere-shade {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(62% 58% at 50% 40%, rgba(5, 7, 11, 0.82) 0%, rgba(5, 7, 11, 0.45) 55%, transparent 78%),
+    linear-gradient(180deg, rgba(5, 7, 11, 0.72) 0%, transparent 22%, transparent 74%, rgba(5, 7, 11, 0.62) 100%),
+    radial-gradient(130% 110% at 50% 50%, transparent 58%, rgba(3, 4, 7, 0.5) 100%);
+}
+
+/* Per-view ambient tint. Driven by data-view on .app; slow crossfade. */
+.atmosphere-tint {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 0.9s ease;
+}
+
+.app[data-view="evidence"] .atmosphere-tint {
+  opacity: 1;
+  background: radial-gradient(90% 70% at 78% 18%, rgba(111, 195, 232, 0.09), transparent 70%);
+}
+
+.app[data-view="resolve"] .atmosphere-tint {
+  opacity: 1;
+  background: radial-gradient(90% 70% at 16% 88%, rgba(226, 166, 61, 0.09), transparent 70%);
+}
+
+.app[data-view="history"] .atmosphere-tint,
+.app[data-view="knowledge"] .atmosphere-tint,
+.app[data-view="service"] .atmosphere-tint {
+  opacity: 1;
+  background: radial-gradient(80% 60% at 50% 100%, rgba(139, 148, 163, 0.05), transparent 70%);
+}
+
+/* ---------- Material system ---------- */
+
+/* Structural titanium: brushed, grounded, hard top-light. */
+.header {
+  background:
+    repeating-linear-gradient(0deg, rgba(217, 224, 234, 0.014) 0 1px, transparent 1px 3px),
+    linear-gradient(180deg, rgba(217, 224, 234, 0.06), transparent 70%),
+    #0e1319;
+  border-top: 1px solid rgba(217, 224, 234, 0.07);
+}
+
+/* Primary elevated panels: warm key-side sheen + reflection band.
+   Verified-success keeps its own green treatment. */
+.surface-hero,
+.result:not(.result-good) {
+  background:
+    linear-gradient(to top right, rgba(226, 166, 61, 0.05) 0%, transparent 34%),
+    linear-gradient(180deg, rgba(217, 224, 234, 0.055), transparent 26%),
+    radial-gradient(600px 180px at 8% 0%, rgba(111, 195, 232, 0.05), transparent 70%),
+    var(--panel);
+  box-shadow:
+    inset 0 1px 0 rgba(217, 224, 234, 0.09),
+    0 0 0 1px rgba(3, 5, 8, 0.9),
+    var(--shadow-3);
+}
+
+/* ---------- SignalScope instrument ---------- */
+
+.scope {
+  display: block;
+  filter: drop-shadow(0 0 12px rgba(111, 195, 232, 0.12));
+}
+
+.scope-wave {
+  animation: scope-sway 7s ease-in-out infinite alternate;
+}
+
+@keyframes scope-sway {
+  from {
+    transform: translate3d(-5px, 0, 0);
+    opacity: 0.7;
+  }
+  to {
+    transform: translate3d(5px, 0, 0);
+    opacity: 0.9;
+  }
+}
+
+.scope-sweep {
+  animation: scope-travel 14s linear infinite;
+}
+
+@keyframes scope-travel {
+  from {
+    transform: translate3d(-40px, 0, 0);
+  }
+  to {
+    transform: translate3d(210px, 0, 0);
+  }
+}
+
+.scope-tick {
+  animation: tick-blink 5s ease-in-out infinite;
+}
+
+.scope-tick.tick-2 {
+  animation-delay: 1.3s;
+}
+
+.scope-tick.tick-3 {
+  animation-delay: 2.6s;
+}
+
+.scope-tick.tick-4 {
+  animation-delay: 3.4s;
+}
+
+.scope-tick.tick-5 {
+  animation-delay: 4.1s;
+}
+
+@keyframes tick-blink {
+  0%,
+  100% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.scope-active {
+  filter: drop-shadow(0 0 16px rgba(226, 166, 61, 0.22));
+}
+
+.scope-active .scope-sweep {
+  animation-duration: 3.2s;
+}
+
+.scope-active .scope-wave {
+  animation-duration: 2.8s;
+}
+
+.scope-active .scope-echo {
+  opacity: 0.45;
+  animation: scope-sway 2.8s ease-in-out infinite alternate-reverse;
+}
+
+.scope-active .scope-corners {
+  stroke: #c9a24e;
+  opacity: 0.85;
+}
+
+.scope-active .scope-lamp {
+  animation: tick-blink 1.6s ease-in-out infinite;
+}
+
+.core-stage {
+  background:
+    radial-gradient(220px 150px at 50% 30%, rgba(111, 195, 232, 0.07), transparent 70%),
+    radial-gradient(260px 170px at 50% 112%, rgba(226, 166, 61, 0.08), transparent 70%),
+    linear-gradient(180deg, #101720, var(--panel-2));
+  border-top: 1px solid rgba(217, 224, 234, 0.09);
+}
+
+.pending .scope {
+  flex: none;
+}
+
+/* ---------- Raven tab accent ---------- */
+
+/* When a tab newly matches .tab-active its indicator sweeps in once
+   from the left — a brief travelling accent, then the static line. */
+.tab-active::before {
+  transform-origin: left center;
+  animation: tab-sweep 0.38s ease-out;
+}
+
+@keyframes tab-sweep {
+  from {
+    transform: scaleX(0);
+    opacity: 0;
+  }
+  to {
+    transform: scaleX(1);
+    opacity: 1;
+  }
+}
+
+/* ---------- M014 responsive + reduced motion ---------- */
+
+@media (max-width: 900px) {
+  .pending .scope {
+    width: 104px;
+    height: auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .atmosphere-hall,
+  .scope-wave,
+  .scope-sweep,
+  .scope-echo,
+  .scope-tick,
+  .scope-active .scope-lamp,
+  .tab-active::before {
+    animation: none !important;
+  }
+
+  .atmosphere-hall {
+    transform: none;
+    opacity: 0.55;
+  }
+
+  .atmosphere-tint {
+    transition: none;
   }
 }

@@ -13,7 +13,7 @@ Turn a reported symptom into an investigation with traceable evidence, technicia
 
 **[Quickstart](#quickstart) · [Demo walkthrough](docs/demo/DEMO_SCRIPT.md) · [How it works](#how-it-works) · [Safety](#safety)**
 
-![FieldRook technician workstation](docs/assets/fieldrook-m013-landing.png)
+![FieldRook technician workstation](docs/assets/fieldrook-m014-landing.png)
 
 </div>
 
@@ -29,12 +29,12 @@ IT diagnosis often means switching between service managers, Windows event logs,
 
 The example below uses a **clearly labeled synthetic fixture** based on a real class of recurring PowerShell-window issues. It is not a claim that the same issue is currently active.
 
-![FieldRook investigation findings](docs/assets/fieldrook-m013-investigation.png)
+![FieldRook investigation findings](docs/assets/fieldrook-m014-investigation.png)
 
 <details>
 <summary>View evidence-backed diagnosis screenshot</summary>
 
-![FieldRook evidence-backed assessment](docs/assets/fieldrook-m013-evidence.png)
+![FieldRook evidence-backed assessment](docs/assets/fieldrook-m014-evidence.png)
 
 </details>
 
@@ -67,16 +67,16 @@ Constrained execution -> fresh independent health check -> incident report
 - **Resolve:** prepare measurable repair plans, require explicit technician approval for registered actions, then independently check the outcome. Only the application-owned demo worker has an implemented corrective action.
 - **Remember:** reopen investigations, add technician notes, and compare them with previously saved resolutions (no automatic reuse of old fixes).
 
-**Current stage:** M013 living forge. The M012 workstation kept its Findings / Evidence / Resolve information architecture and gained a cinematic ROOKWELD visual identity: atmospheric environment, elevation hierarchy, tactile controls, an investigation instrument, and a restrained motion language — see the [visual audit](docs/audit/M013_VISUAL.md) and the [product tour video](docs/assets/fieldrook-m013-tour.webm). Backend behavior is unchanged since the M011 live pilot: nine genuine Windows/live-model operations with valid evidence references, plus the fixture-based [gauntlet report](backend/eval/REPORT.md). See the [first-run guide](docs/FIRST_RUN.md), [manual acceptance checklist](docs/ACCEPTANCE.md), and [full milestone log](HACKATHON.md).
+**Current stage:** M014 cinematic atmosphere. The workstation kept its Findings / Evidence / Resolve architecture and gained a living industrial environment: original atmospheric artwork, a material system, the SignalScope diagnostic instrument, per-view ambient light, and a coordinated motion language — see the [style direction](docs/audit/M014_STYLE.md), the [visual audit](docs/audit/M014_VISUAL.md), and the [product tour video](docs/assets/fieldrook-m014-tour.webm). Backend behavior is unchanged since the M011 live pilot: nine genuine Windows/live-model operations with valid evidence references, plus the fixture-based [gauntlet report](backend/eval/REPORT.md). See the [first-run guide](docs/FIRST_RUN.md), [manual acceptance checklist](docs/ACCEPTANCE.md), and [full milestone log](HACKATHON.md).
 
-![FieldRook findings view](docs/assets/fieldrook-m013-findings.png)
+![FieldRook findings view](docs/assets/fieldrook-m014-findings.png)
 
 <details>
 <summary>View Evidence and Resolve screenshots</summary>
 
-![FieldRook evidence view](docs/assets/fieldrook-m013-evidence-view.png)
+![FieldRook evidence view](docs/assets/fieldrook-m014-evidence-view.png)
 
-![FieldRook resolve view](docs/assets/fieldrook-m013-resolve.png)
+![FieldRook resolve view](docs/assets/fieldrook-m014-resolve.png)
 
 </details>
 

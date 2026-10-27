@@ -15,7 +15,7 @@ import { DiagnosisPanel } from "./DiagnosisPanel";
 import { resolutionOf } from "./WorkflowStage";
 import { EvidenceCards } from "./EvidenceCards";
 import { EvidencePeek } from "./EvidencePeek";
-import { InvestigationCore } from "./InvestigationCore";
+import { SignalScope } from "./SignalScope";
 import {
   OverviewPanel,
   type InvestigationView,
@@ -62,7 +62,7 @@ function PendingPanel({ what }: { what: string }) {
   }, []);
   return (
     <div className="pending" role="status" aria-live="polite">
-      <InvestigationCore size={56} />
+      <SignalScope width={132} active />
       <div>
         <p>{what}</p>
         <p>
@@ -96,6 +96,15 @@ export function ProblemWorkstation({
     initial ?? null,
   );
   const [view, setView] = useState<InvestigationView>("findings");
+
+  // Drives the per-view ambient tint on the environment. Purely
+  // decorative; App.tsx owns the attribute for non-problem tabs.
+  useEffect(() => {
+    document.querySelector(".app")?.setAttribute("data-view", view);
+    return () => {
+      document.querySelector(".app")?.removeAttribute("data-view");
+    };
+  }, [view]);
   const [pendingFocus, setPendingFocus] = useState<string | null>(null);
   const [pendingScroll, setPendingScroll] = useState<string | null>(null);
 
@@ -311,7 +320,7 @@ export function ProblemWorkstation({
       )}
 
       {!investigation ? (
-        <section className="card">
+        <section className="card surface-hero">
           <div className="hero">
             <div className="hero-copy">
               <h2>Name the symptom.</h2>
@@ -425,9 +434,11 @@ export function ProblemWorkstation({
             </div>
             <div className="core-stage" aria-hidden="true">
               <div className="core-idle">
-                <InvestigationCore size={148} />
+                <SignalScope width={264} active={busy === "investigating"} />
               </div>
-              <p className="core-caption">Diagnostic core · standby</p>
+              <p className="core-caption">
+                Signal scope · {busy === "investigating" ? "active" : "standby"}
+              </p>
             </div>
           </div>
         </section>
