@@ -28,6 +28,7 @@ timestamps preserved; history has not been rewritten):
 | `cf6f3d4` | 2026-10-27 | fix(ci): declare pnpm frontend workspace |
 | `459583c` | 2026-10-27 | docs(fieldrook): showcase real workstation screenshots |
 | `b9fd710` | 2026-10-27 | feat(fieldrook): milestone 005 proof of value |
+| `814c03b` | 2026-10-27 | feat(fieldrook): milestone 006 the field technician |
 
 Milestone 001 (first diagnosis slice), Milestone 002 (natural-language
 intake, screenshot understanding, tool-calling investigations, follow-ups),
