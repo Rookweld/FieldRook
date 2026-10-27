@@ -14,6 +14,7 @@ import { WorkedBefore } from "./WorkedBefore";
 import { DiagnosisPanel } from "./DiagnosisPanel";
 import { StageStepper, resolutionOf, stageOf } from "./WorkflowStage";
 import { EvidenceCards } from "./EvidenceCards";
+import { EvidencePeek } from "./EvidencePeek";
 import { OverviewPanel } from "./OverviewPanel";
 import { ProgressPanel } from "./ProgressPanel";
 import { RefreshPanel } from "./RefreshPanel";
@@ -392,6 +393,11 @@ export function ProblemWorkstation({
             ))}
           </section>
 
+          <EvidencePeek
+            evidence={investigation.evidence}
+            selectedId={selectedEvidence}
+            onClose={() => setSelectedEvidence(null)}
+          />
           <OverviewPanel investigation={investigation} onEvidenceClick={setSelectedEvidence} />
           <ProgressPanel
             investigation={investigation}

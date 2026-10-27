@@ -1,4 +1,3 @@
-import { useEffect } from "react";
 import type { EvidenceItem, EvidenceRefresh } from "../types";
 
 const PREVIEW_CHARS = 500;
@@ -54,13 +53,6 @@ export function EvidenceCards({
   reverifyingId?: string | null;
   reverifyDisabled?: boolean;
 }) {
-  useEffect(() => {
-    if (!selectedId) return;
-    document
-      .getElementById(`evcard-${selectedId}`)
-      ?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-  }, [selectedId]);
-
   if (evidence.length === 0) return null;
   const groups = new Map<string, EvidenceItem[]>();
   for (const item of evidence) {

@@ -13,7 +13,7 @@ Turn a reported symptom into an investigation with traceable evidence, technicia
 
 **[Quickstart](#quickstart) · [Demo walkthrough](docs/demo/DEMO_SCRIPT.md) · [How it works](#how-it-works) · [Safety](#safety)**
 
-![FieldRook technician workstation](docs/assets/fieldrook-workstation.png)
+![FieldRook technician workstation](docs/assets/fieldrook-m011-live-landing.png)
 
 </div>
 
@@ -58,122 +58,20 @@ Constrained execution -> fresh independent health check -> incident report
 
 **Built during the Meta Global AI Developer Hackathon 2026.** See [HACKATHON.md](HACKATHON.md) for the development timeline and [technical highlights](docs/demo/TECHNICAL_HIGHLIGHTS.md) for the implementation boundaries. The only corrective action currently supported targets FieldRook's own demo worker; real Windows diagnostics are read-only.
 
----
 
-# FieldRook — Diagnose. Verify. Resolve.
+## What is available today?
 
-Evidence-driven AI troubleshooting assistant for IT technicians. A ROOKWELD
-project built for the Meta Global AI Developer Hackathon 2026 (Indie Developer
-track, "Build for Your World").
+- **Investigate:** collect targeted read-only Windows diagnostics for applications, services, events, network, processes and scheduled tasks.
+- **Understand:** separate measured facts from hypotheses, inspect linked evidence, re-check readings and see unresolved contradictions.
+- **Resolve:** prepare measurable repair plans, require explicit technician approval for registered actions, then independently check the outcome. Only the application-owned demo worker has an implemented corrective action.
+- **Remember:** reopen investigations, add technician notes, and compare them with previously saved resolutions (no automatic reuse of old fixes).
 
-**Milestone 011 — The Real-World Technician Pilot:** FieldRook proved
-itself on genuine Windows data. Nine live-model operations on Fury
-(applications, services, DNS, scheduled tasks, ambiguous symptoms, a
-follow-up, a repeat, and a demo-worker recovery) all ran fixture-free
-with zero bad citations in 11–42s; the pilot found and fixed four
-real defects (bare-hex error codes rejected, evidence warnings buried
-in JSON, doubled timeline durations, stale footer) and verified each
-fix against live data. New operator docs (`docs/FIRST_RUN.md`,
-`docs/ACCEPTANCE.md`, `docs/pilot/M011_PILOT.md`) leave the product
-ready for human acceptance testing. Quality gate: backend 252 passed,
-gauntlet 47/47 (37 fixture/tool + 10 capped live `muse-spark-1.3`),
-Playwright 17/17.
+**Current stage:** M011 technician pilot. Nine genuine Windows/live-model operations were reported with valid evidence references; separate fixture-based evaluation remains documented in [the gauntlet report](backend/eval/REPORT.md). See the [pilot](docs/pilot/M011_PILOT.md), [first-run guide](docs/FIRST_RUN.md), [manual acceptance checklist](docs/ACCEPTANCE.md), and [full milestone log](HACKATHON.md).
 
-**Milestone 010 — The Reality Check:** no new features — a full product
-audit turned into fixes. Ten reproducible findings (see
-`docs/audit/M010_AUDIT.md`) all resolved: bare "task" questions now route
-to scheduled-tasks diagnostics, the header label and stage stepper follow
-resolution-plan outcomes, the simulated assessment rebuilds after plan
-baseline/verify, superseded evidence collapses to expandable summary
-lines, plan runs get their own timeline rounds, badges carry explanatory
-tooltips, library search is debounced, and keyboard focus is visible.
-Five measured field trials (crash, service, DNS, scheduled task,
-recurring worker) run 0.03–0.13s with zero bad citations; before/after
-screenshots live in `docs/assets/`. Quality gate: backend 251 passed,
-gauntlet 47/47 (37 fixture/tool + 10 capped live `muse-spark-1.3`),
-Playwright 17/17.
+![Latest live FieldRook investigation](docs/assets/fieldrook-m011-live-investigation.png)
 
-**Milestone 009 — The Technician's Memory:** FieldRook remembers. Resolved
-(and unresolved) incidents are saved to a local SQLite library with redacted
-symptom signatures, evidence fingerprints, measured criteria, and outcomes.
-New incidents match deterministically against history — every suggestion
-explains its signals (shared symptoms, identity, event codes, evidence
-values) and its differences, with no fictional confidence scores. The Worked
-Before panel offers one-click follow-up investigation of a historical
-hypothesis (read-only; never auto-executes), and on-demand rechecks flag
-regressions when fresh measurements contradict a verified fix. The gauntlet
-grew to 47 cases and measures 47/47 (37 fixture/tool + 10 capped live
-`muse-spark-1.3` evaluations); eight memory scenarios cover matching,
-different-cause flagging, failed-repair honesty, clustering, regression,
-migration, and redaction (see `backend/eval/REPORT.md`).
+> **Operator note:** when updating the source while a local backend is still running, restart the Python API server too. An older backend process may return an incompatible response to a newer frontend. The UI now surfaces this mismatch instead of crashing.
 
-**Milestone 008 — Guided Resolution:** findings become provable recovery.
-Technicians draft resolution plans from supporting evidence with explicit
-measurable criteria (tool + value path + comparison), capture a pre-fix
-baseline, record the intervention (a linked authorized execution or an
-explicitly-labeled manual claim), and Confirm Fix re-measures: fresh
-diagnostics grade each criterion into `VERIFIED_RESOLVED`, `NOT_RESOLVED`,
-or `INCONCLUSIVE`. A manual "done" never counts as proof, verification runs
-read-only diagnostics only (it cannot authorize or execute anything), and
-before/after readings join the M007 refresh lineage. The gauntlet grew to 43
-cases and measures 43/43 (34 fixture/tool + 9 capped live `muse-spark-1.3`
-evaluations); eight verification scenarios cover registered repair, failed
-fixes, manual recovery, contradicted recovery, tool failure, repeat
-verification, persistence, and stale approvals (see
-`backend/eval/REPORT.md`).
-
-**Milestone 007 — The Active Investigator:** FieldRook now partners through
-an ongoing investigation instead of reporting once. Technicians can re-check
-any tool-backed observation in place: the identical read-only call re-runs,
-the fresh reading is compared against the preserved historical item
-(`CHANGED` / `UNCHANGED` / `UNAVAILABLE` with explicit timestamps), and
-hypotheses built on the old reading are named for review. The reasoning loop
-reuses fresh evidence, links cross-round re-checks automatically, flags
-deterministic contradictions between observations, recommends targeted
-re-checks, and stops early when new calls add no value. The workspace shows
-investigation progress with a tool budget, unresolved questions, suggested
-next checks with one-click re-runs, and refresh history per round; reports
-export the full evidence lineage. The gauntlet grew to 39 cases and measures
-39/39 (31 fixture/tool + 8 capped live `muse-spark-1.3` evaluations); four
-field scenarios (mid-investigation state change, network contradiction,
-redirected crash hypothesis, honest dead end) validate end to end (see
-`backend/eval/REPORT.md`).
-
-**Milestone 006 — The Field Technician:** FieldRook is a usable
-troubleshooting workstation. New read-only diagnostics cover application
-crashes (Event IDs 1000/1001/1002/1026 with faulting module and exception
-codes), process↔service relationships (including a service-name selector),
-and DNS with one bounded active control query. A symptom triage planner
-routes crash/DNS/VPN/task problems to the smallest relevant tool set, the
-workspace shows an incident overview with a leading hypothesis and evidence
-coverage, next steps render as evidence-linked runbook cards (why, what to
-inspect, what confirms it, read-only vs changes-system, admin hint), and
-technicians can record persistent notes. The gauntlet grew to 34 cases and
-measures 34/34 (28 fixture/tool + 6 capped live `muse-spark-1.3`
-evaluations); field testing on Windows fixed a real uptime-parsing bug (see
-`backend/eval/REPORT.md`).
-
-**Milestone 005 — Proof of Value:** approval and execution are now distinct
-deliberate steps (approve authorizes, a separate execute runs, expiry returns
-the proposal for re-approval), the result panel shows
-BEFORE → ACTION → AFTER → VERIFIED OUTCOME from measured states, and a
-16-case diagnostic gauntlet measures real quality: 16/16 fixture cases plus
-3/3 capped live `muse-spark-1.3` evaluations pass (see
-`backend/eval/REPORT.md`). A static read-only replay of a real captured
-incident lives in `docs/jury-demo/` for judges without a Windows install.
-
-**Milestone 004 — The Field Demonstration:** the M003 controlled-fix loop is
-now a polished three-stage technician workstation — **Investigate → Understand
-→ Resolve** — with three reproducible demo scenarios: (A) a phantom PowerShell
-scheduled task diagnosed from fixtures, (B) the full live loop of failure,
-human approval, fenced recovery, and independent `VERIFIED_RESOLVED`, and (C)
-an insufficient-evidence case that reports `UNRESOLVED` honestly instead of
-inventing certainty. Corrective actions come only from a predefined backend
-registry, require explicit single-use human approval, and are verified by fresh
-diagnostics, never by model confidence. Incidents persist in SQLite, export to
-Markdown/JSON, and every conclusion stays traceable to evidence framed as
-**OBSERVED** (measured), **INFERRED** (AI hypothesis), or **UNVERIFIED**
-(unknown or missing).
 
 ## Layout
 
