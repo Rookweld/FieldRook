@@ -1,11 +1,12 @@
 import type { StatusResponse } from "../types";
+import { RavenMark } from "./RavenMark";
 
 export function Header({ status }: { status: StatusResponse | null }) {
   return (
     <header className="header">
       <div className="brand">
         <span className="brand-mark" aria-hidden="true">
-          &#9820;
+          <RavenMark size={34} />
         </span>
         <div>
           <h1>FieldRook</h1>

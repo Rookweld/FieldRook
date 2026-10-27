@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { getStatus } from "./api";
+import { Atmosphere } from "./components/Atmosphere";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { Header } from "./components/Header";
 import { History } from "./components/History";
@@ -30,6 +31,7 @@ export function App() {
 
   return (
     <div className="app">
+      <Atmosphere />
       <Header status={status} />
       <nav className="tabs" aria-label="Workstation">
         <button
@@ -89,7 +91,7 @@ export function App() {
         </ErrorBoundary>
       </main>
       <footer className="footer">
-        <span>FieldRook Milestone 012 · Diagnose. Verify. Resolve.</span>
+        <span>FieldRook Milestone 013 · Diagnose. Verify. Resolve.</span>
       </footer>
     </div>
   );

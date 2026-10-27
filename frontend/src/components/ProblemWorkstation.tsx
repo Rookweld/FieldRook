@@ -15,6 +15,7 @@ import { DiagnosisPanel } from "./DiagnosisPanel";
 import { resolutionOf } from "./WorkflowStage";
 import { EvidenceCards } from "./EvidenceCards";
 import { EvidencePeek } from "./EvidencePeek";
+import { InvestigationCore } from "./InvestigationCore";
 import {
   OverviewPanel,
   type InvestigationView,
@@ -61,7 +62,7 @@ function PendingPanel({ what }: { what: string }) {
   }, []);
   return (
     <div className="pending" role="status" aria-live="polite">
-      <span className="pending-dot" aria-hidden="true" />
+      <InvestigationCore size={56} />
       <div>
         <p>{what}</p>
         <p>
@@ -311,11 +312,15 @@ export function ProblemWorkstation({
 
       {!investigation ? (
         <section className="card">
-          <div className="card-head">
-            <h2>New investigation</h2>
-            <span className="muted">describe the problem — service optional</span>
-          </div>
-          <div className="preset-row" role="group" aria-label="Investigation templates">
+          <div className="hero">
+            <div className="hero-copy">
+              <h2>Name the symptom.</h2>
+              <p className="lede">
+                FieldRook runs read-only Windows diagnostics, cites every claim to
+                timestamped evidence, and verifies fixes by measurement — never by
+                assumption.
+              </p>
+              <div className="preset-row" role="group" aria-label="Investigation templates">
             {PRESETS.map((preset) => (
               <button
                 key={preset.id}
@@ -417,6 +422,14 @@ export function ProblemWorkstation({
           {busy === "investigating" && (
             <PendingPanel what="Investigating — the problem is with the analysis engine, which may call several read-only diagnostic tools." />
           )}
+            </div>
+            <div className="core-stage" aria-hidden="true">
+              <div className="core-idle">
+                <InvestigationCore size={148} />
+              </div>
+              <p className="core-caption">Diagnostic core · standby</p>
+            </div>
+          </div>
         </section>
       ) : (
         <>
@@ -481,7 +494,7 @@ export function ProblemWorkstation({
           </nav>
 
           {view === "findings" && (
-            <>
+            <div className="view-panel">
               <OverviewPanel
                 investigation={investigation}
                 onEvidenceClick={setSelectedEvidence}
@@ -582,11 +595,11 @@ export function ProblemWorkstation({
                   </button>
                 </div>
               </section>
-            </>
+            </div>
           )}
 
           {view === "evidence" && (
-            <>
+            <div className="view-panel">
               <EvidenceCards
                 evidence={investigation.evidence}
                 selectedId={selectedEvidence}
@@ -598,11 +611,11 @@ export function ProblemWorkstation({
               />
               <RefreshPanel refreshes={investigation.refreshes} onEvidenceClick={setSelectedEvidence} />
               <Timeline activity={investigation.activity} />
-            </>
+            </div>
           )}
 
           {view === "resolve" && (
-            <>
+            <div className="view-panel">
               <ActionCenter investigation={investigation} onUpdate={setInvestigation} />
               <ResolutionWorkspace
                 investigation={investigation}
@@ -632,7 +645,7 @@ export function ProblemWorkstation({
                   records, and the verified outcome.
                 </p>
               </section>
-            </>
+            </div>
           )}
         </>
       )}
