@@ -676,6 +676,45 @@ button.chip {
   margin: 0.8rem 0 0.2rem !important;
 }
 
+.result-strip {
+  display: flex;
+  align-items: stretch;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  background: var(--bg);
+  border: 1px solid var(--panel-edge);
+  border-radius: 6px;
+  padding: 0.7rem 0.9rem;
+  margin: 0.6rem 0;
+}
+
+.result-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  flex: 1;
+  min-width: 8rem;
+}
+
+.result-cell strong {
+  font-size: 1.05rem;
+}
+
+.result-arrow {
+  align-self: center;
+  color: var(--accent);
+  font-weight: 700;
+  font-size: 1.2rem;
+}
+
+.approval-note {
+  background: #12241b;
+  border: 1px solid var(--green);
+  border-radius: 4px;
+  padding: 0.5rem 0.7rem;
+  font-size: 0.86rem;
+}
+
 details summary {
   cursor: pointer;
   color: var(--muted);

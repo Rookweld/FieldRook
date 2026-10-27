@@ -706,6 +706,33 @@ def build_simulated_investigation_analysis(
                     "instead of guessing."
                 )
     uncertainties.extend(f"Evidence {item.id} ({item.category}) failed to collect: {item.error}" for item in failed[:3])
+    next_actions = [
+        "Re-run with live diagnostics on the affected host.",
+        "Widen the event search to the Application log and a longer window.",
+        "Collect the exact error text or code from the reporter.",
+        "Compare against a known-good host or a prior working state.",
+    ]
+    suspect_tasks = sorted({
+        task.get("task_name", "?")
+        for item in task_items
+        for task in (item.data.get("tasks", []) if isinstance(item.data.get("tasks", []), list) else [])
+        if isinstance(task, dict)
+        and any(
+            "windowstyle" in str(action.get("working_directory", "") or "").lower().replace(" ", "").replace("-", "")
+            for action in (task.get("actions", []) or [])
+            if isinstance(action, dict)
+        )
+    })
+    if suspect_tasks:
+        names = ", ".join(f"'{name}'" for name in suspect_tasks[:3])
+        next_actions.insert(
+            0,
+            f"Have a technician review scheduled task {names}: window-hiding text "
+            "sits in WorkingDirectory instead of Arguments, so the console window "
+            "may show and the directory is invalid. Move the flag into Arguments, "
+            "set a real working directory, and re-check read-only (FieldRook "
+            "cannot modify tasks).",
+        )
     proposed_action = None
     failed_workers = [
         item for item in usable
@@ -733,12 +760,7 @@ def build_simulated_investigation_analysis(
             "Full event-log history around the reported failure time.",
             "User-reported symptom details: when it started, exact messages, reproducibility.",
         ],
-        next_actions=[
-            "Re-run with live diagnostics on the affected host.",
-            "Widen the event search to the Application log and a longer window.",
-            "Collect the exact error text or code from the reporter.",
-            "Compare against a known-good host or a prior working state.",
-        ],
+        next_actions=next_actions,
         explanation=(
             f"FieldRook ran a bounded read-only investigation and kept {len(usable)} usable "
             "evidence items. OBSERVED facts restate those readings. INFERRED causes are "

@@ -102,6 +102,7 @@ export interface ActivityRecord {
 export type ProposalStatus =
   | "PROPOSED"
   | "AWAITING_APPROVAL"
+  | "APPROVED"
   | "REJECTED"
   | "EXECUTING"
   | "EXECUTED_UNVERIFIED"
@@ -129,8 +130,9 @@ export interface ActionProposal {
 export interface ActionExecution {
   execution_id: string;
   proposal_id: string;
-  action_id: string;
-  target: string;
+  // Optional: the backend identifies the action via the linked proposal.
+  action_id?: string;
+  target?: string;
   started_at: string;
   finished_at: string | null;
   outcome: ProposalStatus;

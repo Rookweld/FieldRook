@@ -73,7 +73,12 @@ def approve(state: Any, proposal_id: str) -> str:
     import secrets
 
     proposal = _find(state, proposal_id)
-    if proposal.status != "AWAITING_APPROVAL" or proposal.decision is not None:
+    reissue = (
+        proposal.status == "APPROVED"
+        and proposal.decision == "approved"
+        and not proposal.approval_used
+    )
+    if not reissue and (proposal.status != "AWAITING_APPROVAL" or proposal.decision is not None):
         raise ApprovalError("Proposal is not awaiting approval.")
     get_action(proposal.action_id)  # still registered?
     token = secrets.token_urlsafe(24)
@@ -84,7 +89,10 @@ def approve(state: Any, proposal_id: str) -> str:
     proposal.decision = "approved"
     proposal.decided_at = _now()
     proposal.status = "APPROVED"
-    state.add_activity("approved", f"Action approved: {proposal.action_id} on {proposal.target}", "Single-use approval token issued; exact arguments bound.")
+    if reissue:
+        state.add_activity("approved", f"Approval re-issued: {proposal.action_id} on {proposal.target}", "Previous token was never used; a fresh single-use token replaces it.")
+    else:
+        state.add_activity("approved", f"Action approved: {proposal.action_id} on {proposal.target}", "Single-use approval token issued; exact arguments bound.")
     # Digest AFTER recording the approval: the consume-time comparison must see
     # the same counters, so only later evidence/conclusion changes invalidate it.
     proposal.approval_digest = investigation_digest(
@@ -117,7 +125,17 @@ def consume_approval(state: Any, proposal_id: str, token: str, args: object) -> 
     if proposal.approval_used:
         raise ApprovalError("Approval token was already used (replay rejected).")
     if _now().timestamp() > (proposal.approval_expires_at or 0):
-        raise ApprovalError("Approval has expired.")
+        proposal.status = "AWAITING_APPROVAL"
+        proposal.decision = None
+        proposal.decided_at = None
+        proposal.approval_token_hash = None
+        proposal.approval_used = False
+        state.add_activity(
+            "approval_requested",
+            "Approval expired",
+            "The single-use approval lapsed; review and approve again to proceed.",
+        )
+        raise ApprovalError("Approval has expired; re-approval required.")
     if not isinstance(args, dict) or args_hash(args) != proposal.approval_args_hash:
         raise ApprovalError("Action arguments differ from the approved set.")
     current = investigation_digest(state.ev_counter, state.seq_counter, _summary(state))

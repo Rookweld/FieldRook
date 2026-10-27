@@ -358,7 +358,7 @@ async def _run_live(
 
 NETWORK_KEYWORDS = ("network", "vpn", "wi-fi", "wifi", "dns", "internet", "adapter", "ethernet", "disconnect", "ip address")
 
-SCHEDULED_KEYWORDS = ("powershell", "console window", "cmd window", "popup", "pop-up", "flash", "scheduled", "task scheduler", "periodic", "minutes", "hourly", "daily")
+SCHEDULED_KEYWORDS = ("powershell", "console window", "cmd window", "popup", "pop-up", "flash", "scheduled", "task scheduler", "periodic", "recur", "minutes", "hour", "hourly", "daily")
 
 PERFORMANCE_KEYWORDS = ("freeze", "freezes", "frozen", "hang", "hangs", "slow", "sluggish", "stutter", "crash", "crashes", "blue screen", "bsod", "unresponsive")
 

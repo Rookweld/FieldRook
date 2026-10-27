@@ -66,6 +66,15 @@ Evidence-driven AI troubleshooting assistant for IT technicians. A ROOKWELD
 project built for the Meta Global AI Developer Hackathon 2026 (Indie Developer
 track, "Build for Your World").
 
+**Milestone 005 — Proof of Value:** approval and execution are now distinct
+deliberate steps (approve authorizes, a separate execute runs, expiry returns
+the proposal for re-approval), the result panel shows
+BEFORE → ACTION → AFTER → VERIFIED OUTCOME from measured states, and a
+16-case diagnostic gauntlet measures real quality: 16/16 fixture cases plus
+3/3 capped live `muse-spark-1.3` evaluations pass (see
+`backend/eval/REPORT.md`). A static read-only replay of a real captured
+incident lives in `docs/jury-demo/` for judges without a Windows install.
+
 **Milestone 004 — The Field Demonstration:** the M003 controlled-fix loop is
 now a polished three-stage technician workstation — **Investigate → Understand
 → Resolve** — with three reproducible demo scenarios: (A) a phantom PowerShell

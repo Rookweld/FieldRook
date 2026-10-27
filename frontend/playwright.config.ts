@@ -30,11 +30,12 @@ export default defineConfig({
   },
   webServer: [
     {
-      command: `"${pythonExe}" -m uvicorn app.main:app --host 127.0.0.1 --port 8000`,
+      // Dedicated port: never collides with a developer's live backend on :8000.
+      command: `"${pythonExe}" -m uvicorn app.main:app --host 127.0.0.1 --port 8123`,
       cwd: backendDir,
-      url: "http://127.0.0.1:8000/api/status",
+      url: "http://127.0.0.1:8123/api/status",
       timeout: 60000,
-      reuseExistingServer: !process.env.CI,
+      reuseExistingServer: false,
       env: {
         MODEL_API_KEY: "",
         FIELDROOK_FIXTURES: "always",
@@ -47,7 +48,10 @@ export default defineConfig({
       command: "pnpm exec vite --port 4173 --strictPort",
       url: "http://localhost:4173",
       timeout: 90000,
-      reuseExistingServer: !process.env.CI,
+      reuseExistingServer: false,
+      env: {
+        FIELDROOK_API_PORT: "8123",
+      },
     },
   ],
 });

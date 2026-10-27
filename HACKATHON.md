@@ -22,13 +22,24 @@ timestamps preserved; history has not been rewritten):
 | `48551e4` | 2026-10-26 | feat(fieldrook): complete milestone 002 eyes of the raven |
 | `3f8196f` | 2026-10-26 | feat(fieldrook): add read-only scheduled-tasks diagnostics (case 001) |
 | `f87aecb` | 2026-10-27 | feat(fieldrook): complete milestone 003 controlled fix |
+| `ca4f4c2` | 2026-10-27 | chore(fieldrook): prepare open-source hackathon release |
+| `0e5da37` | 2026-10-27 | feat(fieldrook): milestone 004 field demonstration |
+| `cc9907d` | 2026-10-27 | fix(ci): declare frontend pnpm workspace |
+| `cf6f3d4` | 2026-10-27 | fix(ci): declare pnpm frontend workspace |
+| `459583c` | 2026-10-27 | docs(fieldrook): showcase real workstation screenshots |
+| *(pending)* | 2026-10-27 | feat(fieldrook): milestone 005 proof of value |
 
 Milestone 001 (first diagnosis slice), Milestone 002 (natural-language
 intake, screenshot understanding, tool-calling investigations, follow-ups),
-the real-world scheduled-task diagnostic case, and Milestone 003 (registry-only
+the real-world scheduled-task diagnostic case, Milestone 003 (registry-only
 corrective actions, single-use human approval, demo-worker recovery,
 independent verification, SQLite persistence, Markdown/JSON export, Windows
-error-code interpretation) were all designed and implemented during the event.
+error-code interpretation), Milestone 004 (three-stage workstation,
+reproducible demo scenarios, Playwright e2e, demo ops scripts, CI, demo
+package), and Milestone 005 (split approve/execute UX with expiry recovery,
+16-case diagnostic gauntlet with live-model evals, phantom safe-guidance,
+static recorded jury demo) were all designed and implemented during the
+event. Replace `*(pending)*` with the real M005 commit hash after landing.
 
 ## Meta Muse Spark integration
 

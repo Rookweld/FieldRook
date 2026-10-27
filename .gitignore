@@ -25,3 +25,4 @@ demo_token.txt
 test-results/
 playwright-report/
 playwright/.auth/
+backend/eval/results/

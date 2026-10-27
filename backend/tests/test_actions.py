@@ -131,6 +131,25 @@ def test_expired_approval_rejected(monkeypatch: pytest.MonkeyPatch, tmp_path: Pa
         asyncio.run(execute_approved(state, proposal.proposal_id, token, {}))
 
 
+def test_expired_approval_allows_reapproval(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv("FIELDROOK_DEMO_STATE", str(tmp_path))
+    state = _state()
+    proposal = create_proposal(state, "recover_demo_worker", "demo-worker", {}, "Reapprove.", [])
+    token = approve(state, proposal.proposal_id)
+    assert proposal.status == "APPROVED"
+    proposal.approval_expires_at = 1.0
+    with pytest.raises(ApprovalError, match="expired"):
+        asyncio.run(execute_approved(state, proposal.proposal_id, token, {}))
+    assert proposal.status == "AWAITING_APPROVAL"
+    assert proposal.decision is None
+    assert state.executions == []
+    fresh = approve(state, proposal.proposal_id)
+    assert proposal.status == "APPROVED"
+    assert fresh != token
+
+
 def test_replayed_approval_rejected(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     worker = _Worker(monkeypatch, tmp_path)
     worker.start()
@@ -314,6 +333,34 @@ def test_restart_recovery_marks_executing_failed(
     assert reloaded is not None
     assert reloaded.proposals[0].status == "EXECUTION_FAILED"
     assert any(r.kind == "error" for r in reloaded.activity)
+
+
+def test_approve_reissues_unused_token(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setenv("FIELDROOK_DEMO_STATE", str(tmp_path))
+    state = _state()
+    proposal = create_proposal(state, "recover_demo_worker", "demo-worker", {}, "Reissue.", [])
+    first = approve(state, proposal.proposal_id)
+    second = approve(state, proposal.proposal_id)
+    assert second != first
+    assert proposal.status == "APPROVED"
+    with pytest.raises(ApprovalError, match="mismatch"):
+        asyncio.run(execute_approved(state, proposal.proposal_id, first, {}))
+    assert proposal.status == "APPROVED"  # stale token changes nothing
+
+
+def test_approve_refuses_after_use(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    worker = _Worker(monkeypatch, tmp_path)
+    worker.start()
+    try:
+        worker.fail()
+        state = _state()
+        proposal = create_proposal(state, "recover_demo_worker", "demo-worker", {}, "Used.", [])
+        token = approve(state, proposal.proposal_id)
+        asyncio.run(execute_approved(state, proposal.proposal_id, token, {}))
+        with pytest.raises(ApprovalError):
+            approve(state, proposal.proposal_id)
+    finally:
+        worker.stop()
 
 
 def test_reject_accepts_bodiless_calls(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:

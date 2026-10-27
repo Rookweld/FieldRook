@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FieldRook - Recorded Demonstration (static, read-only)</title>
+<style>
+:root{--bg:#0b0e12;--panel:#141a22;--edge:#2a3340;--ink:#d7dee8;--muted:#8b96a5;
+--accent:#e8a33d;--green:#4cc38a;--red:#e06c5b;--mono:"Cascadia Code",Consolas,monospace}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);
+font-family:"Segoe UI",system-ui,sans-serif;line-height:1.5}
+.wrap{max-width:1000px;margin:0 auto;padding:1.2rem}
+.banner{background:#2a2113;border:2px solid var(--accent);border-radius:6px;
+padding:.7rem 1rem;margin-bottom:1rem;font-size:.9rem}
+.banner strong{color:var(--accent);letter-spacing:.08em}
+header.top{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;
+gap:.6rem;border-bottom:2px solid var(--accent);padding-bottom:.7rem;margin-bottom:1rem}
+h1{margin:0;font-size:1.3rem;letter-spacing:.1em}.tag{color:var(--muted);font-size:.85rem}
+.card{background:var(--panel);border:1px solid var(--edge);border-radius:6px;
+padding:1rem 1.2rem;margin-bottom:1rem}
+.card h2{margin:.1rem 0 .6rem;font-size:1.05rem}
+.muted{color:var(--muted)}.mono{font-family:var(--mono);font-size:.8rem}
+.badge{display:inline-block;padding:.2rem .55rem;font-size:.72rem;font-weight:700;
+border:1px solid var(--edge);border-radius:3px;font-family:var(--mono);margin:.1rem .2rem}
+.b-live{border-color:var(--green);color:var(--green)}
+.b-warn{border-color:var(--accent);color:var(--accent)}
+.bad{border-color:var(--red);color:var(--red)}
+.strip{display:flex;gap:.6rem;flex-wrap:wrap;background:var(--bg);
+border:1px solid var(--edge);border-radius:6px;padding:.7rem .9rem;margin:.6rem 0}
+.cell{display:flex;flex-direction:column;flex:1;min-width:8rem}
+.cell .k{font-size:.68rem;font-weight:700;letter-spacing:.12em;color:var(--accent);
+text-transform:uppercase}
+.arrow{align-self:center;color:var(--accent);font-weight:700;font-size:1.2rem}
+ol.tl{list-style:none;margin:.4rem 0 0;padding:0;display:flex;flex-direction:column;gap:.5rem}
+ol.tl li{display:flex;gap:.6rem}
+.seq{font-family:var(--mono);font-size:.75rem;color:var(--muted)}
+pre{background:#07090c;border:1px solid var(--edge);border-radius:4px;padding:.7rem;
+overflow-x:auto;font-size:.78rem;font-family:var(--mono)}
+details summary{cursor:pointer;color:var(--muted);font-size:.85rem;margin-top:.3rem}
+table.kv{border-collapse:collapse;width:100%;font-size:.86rem}
+table.kv td{border-top:1px solid var(--edge);padding:.3rem .4rem;vertical-align:top}
+table.kv td:first-child{color:var(--muted);width:11rem}
+footer{color:var(--muted);font-size:.78rem;font-family:var(--mono);margin-top:1.4rem;
+border-top:1px solid var(--edge);padding-top:.7rem}
+</style>
+</head>
+<body>
+<div class="wrap">
+<div class="banner"><strong>RECORDED DEMONSTRATION - STATIC &amp; READ-ONLY.</strong>
+This page replays one real captured FieldRook incident. There is no backend,
+no execution, no credentials, and nothing here can change any system.
+The working application is a separate local install (see README).</div>
+<header class="top"><div><h1>FIELDROOK</h1><div class="tag">Diagnose. Verify. Resolve.</div></div>
+<div id="badges"></div></header>
+<div id="app"></div>
+<footer>FieldRook · Meta Global AI Developer Hackathon 2026 · Apache-2.0 ·
+Recorded incident; timestamps and ids are from the original live run.</footer>
+</div>
+<script>
+const INV = {"investigation_id": "inv-cd61de02c190", "problem": "The FieldRook demo worker (demo-worker) appears to be down. Please investigate its health and recommend a fix.", "service_name": null, "status": "complete", "created_at": "2026-10-27T03:24:58.943902Z", "uses_fixtures": false, "analysis_mode": "live", "model": "muse-spark-1.3", "evidence": [{"id": "ev-1", "category": "demo_worker", "source": "tool:get_demo_worker_health:live", "collected_at": "2026-10-27T03:25:02.502812Z", "data": {"summary": "Demo worker reports failed (live).", "warnings": [], "worker_id": "demo-worker", "status": "failed", "pid": 12508, "detail": "Simulated fault (mode=failing).", "updated_at": 1793071499.5085845, "heartbeat_age_s": 1.6721644401550293, "process_verified": true}, "error": null}, {"id": "ev-2", "category": "action_before", "source": "action:recover_demo_worker:live", "collected_at": "2026-10-27T03:25:30.924642Z", "data": {"action_id": "recover_demo_worker", "target": "demo-worker", "state": {"worker_id": "demo-worker", "status": "failed", "pid": 12508, "detail": "Simulated fault (mode=failing).", "updated_at": 1793071529.574091, "heartbeat_age_s": 0.2268662452697754, "process_verified": true}}, "error": null}, {"id": "ev-3", "category": "action_after", "source": "action:recover_demo_worker:live", "collected_at": "2026-10-27T03:25:37.737839Z", "data": {"action_id": "recover_demo_worker", "target": "demo-worker", "state": {"worker_id": "demo-worker", "status": "healthy", "pid": 12508, "detail": "ok", "updated_at": 1793071535.5849411, "heartbeat_age_s": 1.0169219970703125, "process_verified": true}}, "error": null}], "activity": [{"seq": 1, "kind": "note", "title": "Model reasoning", "detail": "Investigating the demo-worker outage \u2014 checking its health first.", "tool_name": null, "duration_ms": null, "evidence_ids": []}, {"seq": 2, "kind": "tool_request", "title": "Model requested get_demo_worker_health", "detail": "{}", "tool_name": "get_demo_worker_health", "duration_ms": null, "evidence_ids": []}, {"seq": 3, "kind": "tool_result", "title": "get_demo_worker_health completed in 1345ms", "detail": "Demo worker reports failed (live).", "tool_name": "get_demo_worker_health", "duration_ms": 1345, "evidence_ids": ["ev-1"]}, {"seq": 4, "kind": "evidence", "title": "Evidence ev-1 collected", "detail": "Demo worker reports failed (live).", "tool_name": "get_demo_worker_health", "duration_ms": null, "evidence_ids": ["ev-1"]}, {"seq": 5, "kind": "note", "title": "Model reasoning", "detail": "{\n  \"summary\": \"Demo worker (demo-worker) is OBSERVED failed with fresh heartbeat and verified process, indicating an active application-level fault requiring recovery.\",\n  \"facts\": [\n    {\n      \"statement\": \"OBSERVED: Demo worker worker_id is demo-worker.\",\n      \"evidence_ids\": [\"ev-1\"]\n    },\n    {\n      \"statement\": \"OBSERVED: Demo worker status is failed.\",\n      \"evidence_ids\": [\"ev-1\"]\n    },\n    {\n      \"statement\": \"OBSERVED: Demo worker detail is 'Simulated fault (mode=failing).'\",\n  ", "tool_name": null, "duration_ms": null, "evidence_ids": []}, {"seq": 6, "kind": "done", "title": "Investigation complete", "detail": "Demo worker (demo-worker) is OBSERVED failed with fresh heartbeat and verified process, indicating an active application-level fault requiring recovery.", "tool_name": null, "duration_ms": null, "evidence_ids": []}, {"seq": 7, "kind": "proposed", "title": "Action proposed: recover_demo_worker on demo-worker", "detail": "Demo worker reports failed with verified process and fresh heartbeat due to simulated fault (mode=failing) requiring recovery.", "tool_name": null, "duration_ms": null, "evidence_ids": ["ev-1"]}, {"seq": 8, "kind": "approval_requested", "title": "Approval requested: recover_demo_worker on demo-worker", "detail": "Risk low. Approval expires 5 minutes after being granted and is single-use.", "tool_name": null, "duration_ms": null, "evidence_ids": ["ev-1"]}, {"seq": 9, "kind": "approved", "title": "Action approved: recover_demo_worker on demo-worker", "detail": "Single-use approval token issued; exact arguments bound.", "tool_name": null, "duration_ms": null, "evidence_ids": []}, {"seq": 10, "kind": "executed", "title": "Executing: recover_demo_worker on demo-worker", "detail": "Approved execution started.", "tool_name": null, "duration_ms": null, "evidence_ids": []}, {"seq": 11, "kind": "verification_started", "title": "Verifying: recover_demo_worker on demo-worker", "detail": "Independent post-action diagnostics running.", "tool_name": null, "duration_ms": null, "evidence_ids": []}, {"seq": 12, "kind": "verified", "title": "recover_demo_worker: VERIFIED_RESOLVED", "detail": "Demo worker reports healthy with a fresh heartbeat.", "tool_name": null, "duration_ms": null, "evidence_ids": ["ev-2", "ev-3"]}], "assessment": {"summary": "Demo worker (demo-worker) is OBSERVED failed with fresh heartbeat and verified process, indicating an active application-level fault requiring recovery.", "facts": [{"statement": "OBSERVED: Demo worker worker_id is demo-worker.", "evidence_ids": ["ev-1"]}, {"statement": "OBSERVED: Demo worker status is failed.", "evidence_ids": ["ev-1"]}, {"statement": "OBSERVED: Demo worker detail is 'Simulated fault (mode=failing).'", "evidence_ids": ["ev-1"]}, {"statement": "OBSERVED: Demo worker PID is 12508 and process_verified is true.", "evidence_ids": ["ev-1"]}, {"statement": "OBSERVED: Demo worker heartbeat_age_s is 1.67 seconds, reported as live.", "evidence_ids": ["ev-1"]}], "causes": [{"title": "Simulated fault in failing mode", "description": "INFERRED: Worker is in simulated failing mode as directly reported in detail field, with fresh heartbeat and verified process indicating active fault rather than stale data.", "likelihood": "high", "evidence_ids": ["ev-1"]}], "uncertainties": ["UNVERIFIED: Underlying trigger that placed worker into failing mode", "UNVERIFIED: Whether other system factors contributed, as no OS, service, or event log evidence was collected"], "missing_evidence": ["Historical health trend or prior heartbeat history for demo-worker", "System/Application event log entries correlating with failure time", "OS and host service context, not yet collected"], "next_actions": ["Re-read demo worker health with get_demo_worker_health after approved recovery to verify status returns to healthy", "Search event logs for demo-worker related errors to identify trigger, if needed after recovery"], "explanation": "Health was directly read and shows failed status with 1.67s-old heartbeat (live) and process_verified true, so this is OBSERVED active failure, not stale or UNVERIFIED. Detail explicitly states simulated fault mode=failing, supporting high-likelihood cause. No action has been taken. Recovery is recommended pending human approval.", "mode": "live", "model": "muse-spark-1.3", "validation_warnings": [], "proposed_action": {"action_id": "recover_demo_worker", "target": "demo-worker", "reason": "Demo worker reports failed with verified process and fresh heartbeat due to simulated fault (mode=failing) requiring recovery.", "evidence_ids": ["ev-1"]}}, "warnings": [], "has_screenshot": false, "proposals": [{"proposal_id": "prop-1ba86f35c822", "investigation_id": "inv-cd61de02c190", "action_id": "recover_demo_worker", "target": "demo-worker", "args": {}, "reason": "Demo worker reports failed with verified process and fresh heartbeat due to simulated fault (mode=failing) requiring recovery.", "evidence_ids": ["ev-1"], "risk": "low", "action_description": "Restore the application-owned FieldRook demo worker to healthy operation: reset its control flag to healthy, and restart its own verified process only when it is not running. Operates solely on demo-worker state files and its own process; never touches other processes, services, or files.", "expected_result": "Demo worker reports healthy with a fresh heartbeat.", "verification_method": "Independent health re-read: status must be healthy with a fresh heartbeat and a verified worker process.", "status": "VERIFIED_RESOLVED", "created_at": "2026-10-27T03:25:12.297217Z", "decided_at": "2026-10-27T03:25:28.615575Z", "decision": "approved", "approval_token_hash": "e21611689d0eeb0963f4ab5680d7585b525e68d329da5658663d587b6c15c387", "approval_expires_at": 1793071828.615514, "approval_used": true, "approval_args_hash": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a", "approval_digest": "ce688426e81b80a878bbec675a558d91064d42cce03de7c10b8155b2036572fc"}], "executions": [{"execution_id": "exe-53670fcad1c6", "proposal_id": "prop-1ba86f35c822", "before_state": {"worker_id": "demo-worker", "status": "failed", "pid": 12508, "detail": "Simulated fault (mode=failing).", "updated_at": 1793071529.574091, "heartbeat_age_s": 0.2268662452697754, "process_verified": true}, "after_state": {"worker_id": "demo-worker", "status": "healthy", "pid": 12508, "detail": "ok", "updated_at": 1793071535.5849411, "heartbeat_age_s": 1.0169219970703125, "process_verified": true}, "outcome": "VERIFIED_RESOLVED", "error": null, "started_at": "2026-10-27T03:25:29.782777Z", "finished_at": "2026-10-27T03:25:37.737788Z"}]};
+function esc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}
+const app = document.getElementById("app");
+const last = INV.executions.length ? INV.executions[INV.executions.length-1] : null;
+document.getElementById("badges").innerHTML =
+  `<span class="badge ${INV.uses_fixtures ? "b-warn" : "b-live"}">${INV.uses_fixtures ? "FIXTURES" : "LIVE DIAGNOSTICS"}</span>` +
+  `<span class="badge ${INV.analysis_mode === "live" ? "b-live" : "b-warn"}">${INV.analysis_mode === "live" ? "LIVE MODEL" : "SIMULATED"}</span>` +
+  `<span class="badge">${esc(INV.model)}</span>`;
+let h = `<section class="card"><h2>Incident overview</h2>
+<table class="kv">
+<tr><td>Problem</td><td>${esc(INV.problem)}</td></tr>
+<tr><td>Status</td><td>${esc(INV.status)} · ${esc(INV.investigation_id)}</td></tr>
+<tr><td>Evidence</td><td>${INV.evidence.length} items · ${INV.activity.length} timeline records</td></tr>
+<tr><td>Outcome</td><td>${last ? `<span class="badge b-live">${esc(last.outcome)}</span>` : "UNRESOLVED - diagnosed, no verified correction"}</td></tr>
+</table></section>`;
+if (last) {
+  const b = last.before_state && last.before_state.status, a = last.after_state && last.after_state.status;
+  const pact = INV.proposals.find(p => p.proposal_id === last.proposal_id);
+  const aname = pact ? pact.action_id : (last.action_id || "?");
+  h += `<section class="card"><h2>Proof of fix</h2><div class="strip">
+  <div class="cell"><span class="k">Before</span><strong>${esc(b || "?")}</strong></div><span class="arrow">&rarr;</span>
+  <div class="cell"><span class="k">Action</span><strong class="mono">${esc(aname)}</strong></div><span class="arrow">&rarr;</span>
+  <div class="cell"><span class="k">After</span><strong>${esc(a || "?")}</strong></div><span class="arrow">&rarr;</span>
+  <div class="cell"><span class="k">Verified outcome</span><span class="badge b-live">${esc(last.outcome)}</span></div>
+  </div><div class="muted">Measured by independent post-action diagnostics, not by the action exit code or model claims.</div></section>`;
+}
+h += `<section class="card"><h2>Diagnostic activity (${INV.activity.length} records)</h2><ol class="tl">` +
+  INV.activity.map(r => `<li><span class="seq">#${r.seq}</span><div><div><strong>${esc(r.title)}</strong>` +
+    (r.tool_name ? ` <span class="mono muted">${esc(r.tool_name)}</span>` : "") +
+    (r.duration_ms != null ? ` <span class="muted">(${r.duration_ms}ms)</span>` : "") + `</div>` +
+    (r.detail ? `<div class="muted">${esc(r.detail)}</div>` : "") +
+    (r.evidence_ids && r.evidence_ids.length ? `<div>${r.evidence_ids.map(e => `<span class="badge">${esc(e)}</span>`).join("")}</div>` : "") +
+    `</div></li>`).join("") + `</ol></section>`;
+h += `<section class="card"><h2>Evidence (${INV.evidence.length} items)</h2>` +
+  INV.evidence.map(e => `<div style="margin-bottom:.7rem"><span class="badge">${esc(e.id)}</span>
+  <strong>${esc(e.category)}</strong> <span class="muted mono">${esc(e.source)} · ${esc(e.collected_at)}</span>
+  ${e.error ? `<div class="bad">${esc(e.error)}</div>` : ""}
+  <details><summary>Raw JSON</summary><pre>${esc(JSON.stringify(e.data, null, 2))}</pre></details></div>`).join("") + `</section>`;
+const an = INV.assessment;
+if (an) {
+  h += `<section class="card"><h2>Assessment</h2><p>${esc(an.summary)}</p>
+  <h2>Observed facts (OBSERVED)</h2><ul>` +
+    an.facts.map(f => `<li>${esc(f.statement)} ${f.evidence_ids.map(e => `<span class="badge">${esc(e)}</span>`).join("")}</li>`).join("") + `</ul>
+  <h2>Hypotheses (INFERRED)</h2><ul>` +
+    an.causes.map(c => `<li><strong>${esc(c.title)}</strong> [${esc(c.likelihood)}] — ${esc(c.description)}
+    ${c.evidence_ids.map(e => `<span class="badge">${esc(e)}</span>`).join("")}</li>`).join("") + `</ul>
+  <h2>Uncertainty (UNVERIFIED)</h2><ul>` +
+    an.uncertainties.map(u => `<li>${esc(u)}</li>`).join("") + `</ul>
+  ${an.missing_evidence && an.missing_evidence.length ? `<h2>Missing evidence</h2><ul>` + an.missing_evidence.map(u => `<li>${esc(u)}</li>`).join("") + `</ul>` : ""}
+  <h2>Recommended next diagnostics</h2><ul>` + an.next_actions.map(u => `<li>${esc(u)}</li>`).join("") + `</ul>
+  <p class="muted">${esc(an.explanation)}</p></section>`;
+}
+h += `<section class="card"><h2>Approval &amp; execution</h2>` +
+  INV.proposals.map(p => `<div style="margin-bottom:.6rem"><span class="badge">${esc(p.status)}</span>
+  <strong class="mono">${esc(p.action_id)}</strong> <span class="muted">→ ${esc(p.target)}</span>
+  <div class="muted">${esc(p.reason)}</div>
+  <div class="muted">Risk ${esc(p.risk)} · Expected: ${esc(p.expected_result)} · Verify: ${esc(p.verification)}</div></div>`).join("") +
+  INV.executions.map(e => `<div><span class="badge b-live">${esc(e.outcome)}</span>
+  <span class="mono muted">${esc(e.execution_id)} · ${esc(e.started_at)} → ${esc(e.finished_at || "")}</span>
+  ${e.error ? `<div class="bad">${esc(e.error)}</div>` : ""}</div>`).join("") + `</section>`;
+app.innerHTML = h;
+</script>
+</body>
+</html>

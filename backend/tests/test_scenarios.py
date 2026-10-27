@@ -28,6 +28,9 @@ def test_scenario_a_phantom_task_investigation() -> None:
     assert "FieldRookDemoPhantom" in joined
     assert "window-hiding" in joined
     assert "2147942667" in joined
+    guidance = " ".join(body["assessment"]["next_actions"])
+    assert "FieldRookDemoPhantom" in guidance
+    assert "FieldRook cannot modify tasks" in guidance
     assert body["proposals"] == []  # diagnosis only; no corrective action exists for tasks
     assert body["assessment"]["mode"] == "simulated"
 

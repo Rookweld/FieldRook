@@ -50,6 +50,9 @@ export function resolutionOf(inv: InvestigationResponse): Resolution {
   if (inv.proposals.some((p) => p.status === "AWAITING_APPROVAL")) {
     return { label: "AWAITING DECISION — approval required, nothing executed", tone: "warn" };
   }
+  if (inv.proposals.some((p) => p.status === "APPROVED")) {
+    return { label: "APPROVED — authorized, awaiting deliberate execution", tone: "warn" };
+  }
   if (inv.proposals.some((p) => p.status === "REJECTED")) {
     return { label: "NO ACTION — rejected by technician, system unchanged", tone: "mute" };
   }

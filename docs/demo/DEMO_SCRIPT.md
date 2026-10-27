@@ -57,8 +57,10 @@ staged or faked. Bracketed text is narration; bullets are on-screen actions.
   expected result, risk, verification method).
 - Emphasize: nothing changed so far — show worker still failed
   (`scripts/demo/check-health.ps1` in a terminal, or the evidence).
-- Click "Approve & execute". Watch real transitions: APPROVED → EXECUTING →
-  independent verification → **VERIFIED_RESOLVED**.
+- Click "Approve action": the proposal turns APPROVED and still nothing has
+  executed. Then click "Execute approved action" as the separate deliberate
+  step. Watch real transitions: APPROVED → EXECUTING → independent
+  verification → **VERIFIED_RESOLVED**.
 - Show before/after: `failed → healthy`, verified by a fresh diagnostic read,
   not by model confidence.
 - "Rejection would have left the system untouched. Approval was single-use
