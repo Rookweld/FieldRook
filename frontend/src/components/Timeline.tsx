@@ -17,41 +17,79 @@ const KIND_MARK: Record<ActivityRecord["kind"], string> = {
   error: "\u2716",
 };
 
+interface Round {
+  n: number;
+  label: string;
+  records: ActivityRecord[];
+}
+
+function groupRounds(activity: ActivityRecord[]): Round[] {
+  const rounds: Round[] = [{ n: 1, label: "Round 1 — initial investigation", records: [] }];
+  for (const record of activity) {
+    if (record.kind === "note" && record.title === "Follow-up received") {
+      rounds.push({
+        n: rounds.length + 1,
+        label: `Round ${rounds.length + 1} — follow-up`,
+        records: [record],
+      });
+    } else {
+      rounds[rounds.length - 1].records.push(record);
+    }
+  }
+  return rounds;
+}
+
+function RecordItem({ record }: { record: ActivityRecord }) {
+  return (
+    <li className={`tl tl-${record.kind}`}>
+      <span className="tl-mark" aria-hidden="true">
+        {KIND_MARK[record.kind]}
+      </span>
+      <div className="tl-body">
+        <div className="tl-title">
+          <span className="tl-seq">#{record.seq}</span> {record.title}
+          {record.duration_ms !== null && record.duration_ms !== undefined && (
+            <span className="muted"> ({record.duration_ms}ms)</span>
+          )}
+        </div>
+        {record.detail && <p className="tl-detail">{record.detail}</p>}
+        {record.evidence_ids.length > 0 && (
+          <div className="tl-refs">
+            {record.evidence_ids.map((eid) => (
+              <code key={eid} className="chip">
+                {eid}
+              </code>
+            ))}
+          </div>
+        )}
+      </div>
+    </li>
+  );
+}
+
 export function Timeline({ activity }: { activity: ActivityRecord[] }) {
   if (activity.length === 0) return null;
+  const rounds = groupRounds(activity);
   return (
     <section className="card">
       <div className="card-head">
         <h2>Diagnostic activity</h2>
-        <span className="muted">{activity.length} records</span>
+        <span className="muted">
+          {activity.length} records · {rounds.length} round{rounds.length === 1 ? "" : "s"}
+        </span>
       </div>
-      <ol className="timeline">
-        {activity.map((record) => (
-          <li key={record.seq} className={`tl tl-${record.kind}`}>
-            <span className="tl-mark" aria-hidden="true">
-              {KIND_MARK[record.kind]}
-            </span>
-            <div className="tl-body">
-              <div className="tl-title">
-                <span className="tl-seq">#{record.seq}</span> {record.title}
-                {record.duration_ms !== null && record.duration_ms !== undefined && (
-                  <span className="muted"> ({record.duration_ms}ms)</span>
-                )}
-              </div>
-              {record.detail && <p className="tl-detail">{record.detail}</p>}
-              {record.evidence_ids.length > 0 && (
-                <div className="tl-refs">
-                  {record.evidence_ids.map((eid) => (
-                    <code key={eid} className="chip">
-                      {eid}
-                    </code>
-                  ))}
-                </div>
-              )}
-            </div>
-          </li>
-        ))}
-      </ol>
+      {rounds.map((round) => (
+        <div key={round.n}>
+          {rounds.length > 1 && <h3 className="round-head">{round.label}</h3>}
+          <ol className="timeline">
+            {round.records.map((record) => (
+              <RecordItem key={record.seq} record={record} />
+            ))}
+          </ol>
+        </div>
+      ))}
     </section>
   );
 }
+
+

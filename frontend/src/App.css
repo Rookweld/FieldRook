@@ -567,6 +567,115 @@ button.chip {
   align-items: center;
 }
 
+.eyebrow {
+  display: block;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.stages {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.6rem;
+}
+
+@media (max-width: 700px) {
+  .stages {
+    grid-template-columns: 1fr;
+  }
+}
+
+.stage {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  background: var(--panel);
+  border: 1px solid var(--panel-edge);
+  border-radius: 6px;
+  padding: 0.55rem 0.8rem;
+  color: var(--muted);
+}
+
+.stage-num {
+  font-family: var(--mono);
+  font-weight: 700;
+  border: 1px solid var(--panel-edge);
+  border-radius: 50%;
+  width: 1.5rem;
+  height: 1.5rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  align-self: center;
+}
+
+.stage-name {
+  font-weight: 700;
+  color: inherit;
+}
+
+.stage-hint {
+  font-size: 0.78rem;
+  margin-left: auto;
+}
+
+.stage-active {
+  border-color: var(--accent);
+  color: var(--ink);
+}
+
+.stage-active .stage-num {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+
+.stage-done {
+  color: var(--green);
+}
+
+.stage-done .stage-num {
+  border-color: var(--green);
+}
+
+.resolution {
+  font-family: var(--mono);
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  border: 1px solid var(--panel-edge);
+  border-radius: 4px;
+  padding: 0.5rem 0.7rem;
+}
+
+.resolution-good {
+  border-color: var(--green);
+  color: var(--green);
+}
+
+.resolution-bad {
+  border-color: var(--red);
+  color: var(--red);
+}
+
+.resolution-warn {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.resolution-mute {
+  color: var(--muted);
+}
+
+.round-head {
+  font-size: 0.85rem !important;
+  margin: 0.8rem 0 0.2rem !important;
+}
+
 details summary {
   cursor: pointer;
   color: var(--muted);

@@ -4,15 +4,18 @@ Evidence-driven AI troubleshooting assistant for IT technicians. A ROOKWELD
 project built for the Meta Global AI Developer Hackathon 2026 (Indie Developer
 track, "Build for Your World").
 
-**Milestone 003 — The Controlled Fix:** the investigation workstation from
-Milestones 001/002 now completes the loop — **diagnosis → proposed correction
-→ human approval → controlled execution → independent verification** — against
-an application-owned demo worker. Corrective actions come only from a
-predefined backend registry, require explicit single-use human approval, and
-are verified by fresh diagnostics, never by model confidence. Incidents persist
-in SQLite, export to Markdown/JSON, and every conclusion stays traceable to
-evidence framed as **OBSERVED** (measured), **INFERRED** (AI hypothesis), or
-**UNVERIFIED** (unknown or missing).
+**Milestone 004 — The Field Demonstration:** the M003 controlled-fix loop is
+now a polished three-stage technician workstation — **Investigate → Understand
+→ Resolve** — with three reproducible demo scenarios: (A) a phantom PowerShell
+scheduled task diagnosed from fixtures, (B) the full live loop of failure,
+human approval, fenced recovery, and independent `VERIFIED_RESOLVED`, and (C)
+an insufficient-evidence case that reports `UNRESOLVED` honestly instead of
+inventing certainty. Corrective actions come only from a predefined backend
+registry, require explicit single-use human approval, and are verified by fresh
+diagnostics, never by model confidence. Incidents persist in SQLite, export to
+Markdown/JSON, and every conclusion stays traceable to evidence framed as
+**OBSERVED** (measured), **INFERRED** (AI hypothesis), or **UNVERIFIED**
+(unknown or missing).
 
 ## Layout
 
@@ -26,7 +29,12 @@ evidence framed as **OBSERVED** (measured), **INFERRED** (AI hypothesis), or
 - `frontend/` — React + TypeScript + Vite: problem workstation (intake,
   activity timeline, evidence cards, assessment, follow-ups), Action Center
   (approve/reject, before/after, executions), incident history with export,
-  plus the original Milestone 001 service lookup tab.
+  plus the original Milestone 001 service lookup tab. Playwright e2e suite
+  under `frontend/tests/e2e/`.
+- `scripts/demo/` — demo operations: preflight, worker start, failure
+  injection, health checks, and reset (no admin rights needed).
+- `docs/demo/` — three-minute demo script, demo-day checklist, technical
+  highlights, and judging notes.
 
 ## Prerequisites
 
@@ -58,19 +66,27 @@ pnpm run dev
 
 Open <http://localhost:5173>. The Vite dev server proxies `/api` to the backend.
 
-### 3. Demo worker (for the controlled-fix scenario)
+### 3. Demo operations (Scenario B)
 
 ```powershell
 cd C:\dev\FieldRook
-.\backend\.venv\Scripts\python demo_worker/worker.py   # healthy heartbeat loop
-.\backend\.venv\Scripts\python demo_worker/simulate_failure.py   # inject the fault
+powershell -ExecutionPolicy Bypass -File scripts/demo/preflight.ps1     # readiness
+powershell -ExecutionPolicy Bypass -File scripts/demo/start-worker.ps1  # healthy worker
+powershell -ExecutionPolicy Bypass -File scripts/demo/inject-failure.ps1 # inject the fault
+powershell -ExecutionPolicy Bypass -File scripts/demo/check-health.ps1  # worker + backend
+powershell -ExecutionPolicy Bypass -File scripts/demo/reset-demo.ps1    # healthy again
 ```
+
+Set `$env:FIELDROOK_PYTHON` to override the interpreter if the venv lives
+elsewhere. See `docs/demo/DEMO_SCRIPT.md` for the three-minute run.
 
 ### 4. Tests
 
 ```powershell
 cd C:\dev\FieldRook\backend
 .\.venv\Scripts\python -m pytest -q
+cd ..\frontend
+pnpm run test:e2e   # Playwright: real backend (fixtures, no key) + real UI
 ```
 
 ## Modes

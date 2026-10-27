@@ -142,16 +142,21 @@ export function proposeAction(args: ProposeActionArgs): Promise<InvestigationRes
 }
 
 export interface ApproveResult {
-  proposal_id: string;
-  status: string;
+  investigation: InvestigationResponse;
   approval_token: string;
-  expires_at: number;
+  expires_in_s: number;
 }
 
 export function approveProposal(proposalId: string): Promise<ApproveResult> {
   return request<ApproveResult>(`/api/proposals/${encodeURIComponent(proposalId)}/approve`, {
     method: "POST",
   });
+}
+
+export interface ExecuteResult {
+  investigation: InvestigationResponse;
+  execution_id: string;
+  outcome: string;
 }
 
 export function rejectProposal(proposalId: string): Promise<InvestigationResponse> {
@@ -164,8 +169,8 @@ export function rejectProposal(proposalId: string): Promise<InvestigationRespons
 export function executeProposal(
   proposalId: string,
   approvalToken: string,
-): Promise<InvestigationResponse> {
-  return request<InvestigationResponse>(
+): Promise<ExecuteResult> {
+  return request<ExecuteResult>(
     `/api/proposals/${encodeURIComponent(proposalId)}/execute`,
     {
       method: "POST",

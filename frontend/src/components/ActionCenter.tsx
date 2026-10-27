@@ -41,7 +41,7 @@ function BeforeAfter({ execution }: { execution: ActionExecution }) {
       <p className="muted">
         {typeof before === "string" && typeof after === "string"
           ? `${before} → ${after}`
-          : `verified: ${execution.verified ? "yes" : "no"}`}
+          : `outcome: ${execution.outcome}`}
       </p>
     </div>
   );
@@ -78,13 +78,16 @@ export function ActionCenter({
   const approveThenExecute = (proposal: ActionProposal) =>
     run(`exec-${proposal.proposal_id}`, async () => {
       const approval = await approveProposal(proposal.proposal_id);
-      return executeProposal(proposal.proposal_id, approval.approval_token);
+      const result = await executeProposal(proposal.proposal_id, approval.approval_token);
+      return result.investigation;
     });
 
   return (
     <section className="card">
       <div className="card-head">
-        <h2>Action Center</h2>
+        <h2>
+          <span className="eyebrow">Stage 3 — Resolve</span>Action Center
+        </h2>
         <span className="muted">human approval required — nothing runs automatically</span>
       </div>
       {error && <p className="warn">{error}</p>}

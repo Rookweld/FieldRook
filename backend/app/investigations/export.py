@@ -97,7 +97,11 @@ def build_markdown(state: Any) -> str:
     add("")
     outcomes = [e.get("outcome") for e in data.get("executions", [])]
     add("## 10. Final verified outcome")
-    add(outcomes[-1] if outcomes else (assessment.get("summary") or "Investigated; no action taken."))
+    if outcomes:
+        add(outcomes[-1])
+    else:
+        add("UNRESOLVED - investigated; no verified correction.")
+        add(assessment.get("summary") or "No assessment recorded.")
     add("")
     add("## 11. Remaining uncertainty")
     for item in list(assessment.get("uncertainties", [])) + list(assessment.get("missing_evidence", [])):

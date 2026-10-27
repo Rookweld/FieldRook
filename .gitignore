@@ -21,3 +21,7 @@ vite.config.ts.timestamp-*
 *.log
 *.token
 demo_token.txt
+
+test-results/
+playwright-report/
+playwright/.auth/

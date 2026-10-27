@@ -180,8 +180,8 @@ def test_scheduled_tasks_fixture_shape_and_redaction() -> None:
     output, _ = _run("get_scheduled_tasks", {})
     assert output.error is None
     assert output.source == "fixture"
-    assert output.data["total_scanned"] == 4
-    assert output.data["count"] == 3
+    assert output.data["total_scanned"] == 5
+    assert output.data["count"] == 4
     task = next(t for t in output.data["tasks"] if t["task_name"] == "RookweldSync")
     assert task["actions"][0]["execute"] == "powershell.exe"
     assert "[REDACTED]" in task["actions"][0]["arguments"]
@@ -194,21 +194,35 @@ def test_scheduled_tasks_fixture_shape_and_redaction() -> None:
 
 def test_scheduled_tasks_filters() -> None:
     all_tasks, _ = _run("get_scheduled_tasks", {"include_microsoft": True})
-    assert all_tasks.data["count"] == 4
+    assert all_tasks.data["count"] == 5
     named, _ = _run("get_scheduled_tasks", {"name_contains": "rookweld"})
     assert named.data["count"] == 1
     folder, _ = _run("get_scheduled_tasks", {"folder": "\\Rookweld\\"})
     assert folder.data["count"] == 1
     limited, _ = _run("get_scheduled_tasks", {"include_microsoft": True, "limit": 2})
     assert limited.data["count"] == 2
-    assert limited.data["total_scanned"] == 4
+    assert limited.data["total_scanned"] == 5
 
 
 def test_scheduled_tasks_action_filter() -> None:
     output, _ = _run("get_scheduled_tasks", {"action_contains": "powershell"})
     assert output.error is None
+    assert output.data["count"] == 2
+    assert {t["task_name"] for t in output.data["tasks"]} == {"RookweldSync", "FieldRookDemoPhantom"}
+
+
+def test_scenario_a_phantom_task_shape() -> None:
+    output, _ = _run("get_scheduled_tasks", {"name_contains": "phantom"})
+    assert output.error is None
     assert output.data["count"] == 1
-    assert output.data["tasks"][0]["task_name"] == "RookweldSync"
+    task = output.data["tasks"][0]
+    assert task["task_path"] == "\\FieldRookDemo\\"
+    assert task["triggers"][0]["repetition_interval"] == "PT5M"
+    assert task["actions"][0]["execute"] == "powershell.exe"
+    assert "-WindowStyle Hidden" in task["actions"][0]["working_directory"]
+    assert task["last_task_result"] == 2147942667
+    assert task["last_run_succeeded"] is False
+    assert "Not a real system task" in task["description"]
 
 
 def test_scheduled_tasks_invalid_folder_is_error_output() -> None:

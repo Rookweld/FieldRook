@@ -360,6 +360,8 @@ NETWORK_KEYWORDS = ("network", "vpn", "wi-fi", "wifi", "dns", "internet", "adapt
 
 SCHEDULED_KEYWORDS = ("powershell", "console window", "cmd window", "popup", "pop-up", "flash", "scheduled", "task scheduler", "periodic", "minutes", "hourly", "daily")
 
+PERFORMANCE_KEYWORDS = ("freeze", "freezes", "frozen", "hang", "hangs", "slow", "sluggish", "stutter", "crash", "crashes", "blue screen", "bsod", "unresponsive")
+
 
 def _simulated_plan(problem: str, service_name: str | None, already_ran: set[str]) -> list[tuple[str, dict]]:
     lowered = problem.lower()
@@ -387,6 +389,15 @@ def _simulated_plan(problem: str, service_name: str | None, already_ran: set[str
             plan.append(("search_event_logs", {"keywords": "PowerShell", "logs": ["System", "Application"], "hours": 24, "max_events": 10}))
         if service_name and "get_service_details" not in already_ran:
             plan.append(("get_service_details", {"name": service_name}))
+        return plan[:3]
+    if any(keyword in lowered for keyword in PERFORMANCE_KEYWORDS):
+        plan = []
+        if "get_os_info" not in already_ran:
+            plan.append(("get_os_info", {}))
+        if "search_event_logs" not in already_ran:
+            plan.append(("search_event_logs", {"keywords": "freeze hang crash error", "logs": ["System", "Application"], "hours": 24, "max_events": 10}))
+        if "list_services" not in already_ran:
+            plan.append(("list_services", {"limit": 10}))
         return plan[:3]
     plan = []
     if "get_os_info" not in already_ran:

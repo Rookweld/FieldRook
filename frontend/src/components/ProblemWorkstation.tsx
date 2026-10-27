@@ -8,6 +8,7 @@ import {
 import type { InvestigationResponse, ServiceSummary } from "../types";
 import { ActionCenter } from "./ActionCenter";
 import { DiagnosisPanel } from "./DiagnosisPanel";
+import { StageStepper, resolutionOf, stageOf } from "./WorkflowStage";
 import { EvidenceCards } from "./EvidenceCards";
 import { Timeline } from "./Timeline";
 
@@ -153,9 +154,13 @@ export function ProblemWorkstation({
         </div>
       )}
 
+      <StageStepper stage={stageOf(investigation)} />
+
       <section className="card">
         <div className="card-head">
-          <h2>New investigation</h2>
+          <h2>
+            <span className="eyebrow">Stage 1 — Investigate</span>New investigation
+          </h2>
           <span className="muted">describe the problem — service optional</span>
         </div>
         <label className="field">
@@ -252,7 +257,9 @@ export function ProblemWorkstation({
         <>
           <section className="card">
             <div className="card-head">
-              <h2>Investigation</h2>
+              <h2>
+                <span className="eyebrow">Stage 2 — Understand</span>Investigation
+              </h2>
               <div className="badges">
                 <span className={investigation.uses_fixtures ? "badge badge-sim" : "badge badge-live"}>
                   {investigation.uses_fixtures ? "FIXTURES" : "LIVE DIAGNOSTICS"}
@@ -270,6 +277,9 @@ export function ProblemWorkstation({
               {investigation.service_name && ` · service: ${investigation.service_name}`}
             </p>
             <p className="quote">{investigation.problem}</p>
+            <p className={`resolution resolution-${resolutionOf(investigation).tone}`}>
+              {resolutionOf(investigation).label}
+            </p>
             {investigation.warnings.map((w, i) => (
               <p key={i} className="warn">
                 {w}

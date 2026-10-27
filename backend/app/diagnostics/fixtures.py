@@ -210,6 +210,34 @@ _FIXTURE_TASKS: list[dict[str, Any]] = [
         "missed_runs": 0,
     },
     {
+        "task_name": "FieldRookDemoPhantom",
+        "task_path": "\\FieldRookDemo\\",
+        "state": "Ready",
+        "author": "FieldRook demo fixture",
+        "description": "Fixture: synthetic recurring PowerShell task with a misplaced window-hiding argument (Scenario A). Not a real system task.",
+        "principal": {"user_id": "TestUser", "logon_type": "Interactive", "run_level": "Limited"},
+        "triggers": [
+            {
+                "type": "MSFT_TaskTimeTrigger",
+                "enabled": True,
+                "start_boundary": "2026-10-26T08:00:00",
+                "repetition_interval": "PT5M",
+            }
+        ],
+        "actions": [
+            {
+                "execute": "powershell.exe",
+                "arguments": "-NoProfile -File C:\\FieldRookDemo\\phantom.ps1",
+                "working_directory": "C:\\FieldRookDemo -WindowStyle Hidden",
+            }
+        ],
+        "last_run_time": "2026-10-26T19:45:00",
+        "last_task_result": 2147942667,
+        "last_run_succeeded": False,
+        "next_run_time": "2026-10-26T19:50:00",
+        "missed_runs": 0,
+    },
+    {
         "task_name": "GoogleUpdateTaskMachineUA",
         "task_path": "\\",
         "state": "Ready",
@@ -521,6 +549,27 @@ def build_simulated_analysis(bundle: DiagnosticBundle) -> AnalysisResult:
     )
 
 
+def _periodic_powershell_tasks(tasks: object) -> list[tuple[str, str]]:
+    """Names + repetition intervals of periodic PowerShell tasks (honest listing)."""
+    found: list[tuple[str, str]] = []
+    if not isinstance(tasks, list):
+        return found
+    for task in tasks:
+        if not isinstance(task, dict):
+            continue
+        actions = task.get("actions", [])
+        if not any(str(action.get("execute", "")).lower().endswith("powershell.exe") for action in actions if isinstance(action, dict)):
+            continue
+        intervals = [
+            str(trigger.get("repetition_interval", ""))
+            for trigger in task.get("triggers", [])
+            if isinstance(trigger, dict) and trigger.get("repetition_interval")
+        ]
+        if intervals:
+            found.append((str(task.get("task_name", "?")), intervals[0]))
+    return found
+
+
 def _summarize_investigation_item(item: EvidenceItem) -> str:
     data = item.data
     category = item.category
@@ -549,7 +598,12 @@ def _summarize_investigation_item(item: EvidenceItem) -> str:
     if category == "connections":
         return f"{data.get('count', 0)} established connections sampled."
     if category == "scheduled_tasks":
-        return f"{data.get('count', 0)} scheduled tasks matched (scanned {data.get('total_scanned', 0)})."
+        base = f"{data.get('count', 0)} scheduled tasks matched (scanned {data.get('total_scanned', 0)})."
+        periodic = _periodic_powershell_tasks(data.get("tasks", []))
+        if periodic:
+            names = ", ".join(f"{name} (every {interval})" for name, interval in periodic[:4])
+            base += f" Periodic PowerShell tasks: {names}."
+        return base
     if category == "demo_worker":
         return (
             f"Demo worker '{data.get('worker_id', '?')}' reports {data.get('status', '?')} "
@@ -602,10 +656,55 @@ def build_simulated_investigation_analysis(
             evidence_ids=[],
         ),
     ]
+    task_items = [item for item in usable if item.category == "scheduled_tasks"]
+    lowered_problem = problem.lower()
+    popup_like = any(word in lowered_problem for word in ("popup", "pop-up", "pop up", "window", "flash", "powershell", "console", "minutes", "periodically"))
+    if popup_like and task_items:
+        periodic_ids = [item.id for item in task_items if _periodic_powershell_tasks(item.data.get("tasks", []))]
+        if periodic_ids:
+            causes.insert(
+                0,
+                RootCause(
+                    title="A periodic PowerShell task matches the reported cadence",
+                    description=(
+                        "At least one scheduled task runs PowerShell on a short repetition "
+                        "interval, which is consistent with recurring console windows. This "
+                        "is correlation, not proof: the task may be hidden, disabled, or "
+                        "unrelated. Check trigger intervals against the symptom timing and "
+                        "inspect action metadata (arguments vs working directory) before "
+                        "concluding anything."
+                    ),
+                    likelihood="medium",
+                    evidence_ids=periodic_ids,
+                ),
+            )
     uncertainties = [
         "Simulated mode: the causes above are generic hypotheses, not Meta model conclusions.",
         "Bounded samples cannot prove absence of failure; zero matches only mean zero matches in the examined window.",
     ]
+    for item in task_items:
+        tasks = item.data.get("tasks", [])
+        if not isinstance(tasks, list):
+            continue
+        for task in tasks:
+            if not isinstance(task, dict):
+                continue
+            name = task.get("task_name", "?")
+            for action in task.get("actions", []) or []:
+                if not isinstance(action, dict):
+                    continue
+                workdir = str(action.get("working_directory", "") or "")
+                if "windowstyle" in workdir.lower().replace(" ", "").replace("-", ""):
+                    uncertainties.append(
+                        f"Task '{name}' has window-hiding text inside its working directory "
+                        f"({item.id}); arguments may be misplaced. Suspicious but unverified."
+                    )
+            if task.get("last_run_succeeded") is False and task.get("state") != "Disabled":
+                uncertainties.append(
+                    f"Task '{name}' reports a failing last run (result "
+                    f"{task.get('last_task_result')}); decode it with interpret_error_code "
+                    "instead of guessing."
+                )
     uncertainties.extend(f"Evidence {item.id} ({item.category}) failed to collect: {item.error}" for item in failed[:3])
     proposed_action = None
     failed_workers = [

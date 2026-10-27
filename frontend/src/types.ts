@@ -136,7 +136,8 @@ export interface ActionExecution {
   outcome: ProposalStatus;
   before_state: Record<string, unknown>;
   after_state: Record<string, unknown>;
-  verified: boolean;
+  // Optional: the backend encodes verification in `outcome` (VERIFIED_*).
+  verified?: boolean;
   error: string | null;
 }
 
