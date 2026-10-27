@@ -40,6 +40,26 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return (await res.json()) as T;
 }
 
+// Guard the boundary between hot-reloaded frontend code and a still-running
+// older backend process. A schema mismatch must show an actionable error,
+// never crash React while rendering an incomplete investigation.
+function requestInvestigation(path: string, init?: RequestInit): Promise<InvestigationResponse> {
+  return request<InvestigationResponse>(path, init).then((inv) => {
+    const arrays: (keyof InvestigationResponse)[] = [
+      "evidence", "activity", "warnings", "proposals", "executions",
+      "notes", "refreshes", "plans", "regression_checks",
+      "contradictions", "suggested_rechecks",
+    ];
+    if (!inv || arrays.some((field) => !Array.isArray(inv[field]))) {
+      throw new ApiError(
+        0,
+        "FieldRook frontend/backend version mismatch. Restart the backend on port 8000 to load the current code, then try again. Existing investigations are preserved.",
+      );
+    }
+    return inv;
+  });
+}
+
 function fixturesQuery(useFixtures?: boolean): string {
   if (useFixtures === undefined) return "";
   return `?use_fixtures=${useFixtures ? "true" : "false"}`;
@@ -88,7 +108,7 @@ export function startInvestigation(args: StartInvestigationArgs): Promise<Invest
   if (args.useFixtures !== undefined) form.append("use_fixtures", args.useFixtures ? "true" : "false");
   form.append("share_consent", args.shareConsent ? "true" : "false");
   if (args.screenshot) form.append("screenshot", args.screenshot, args.screenshot.name);
-  return request<InvestigationResponse>("/api/investigations", {
+  return requestInvestigation("/api/investigations", {
     method: "POST",
     body: form,
   });
@@ -98,7 +118,7 @@ export function followUpInvestigation(
   id: string,
   message: string,
 ): Promise<InvestigationResponse> {
-  return request<InvestigationResponse>(
+  return requestInvestigation(
     `/api/investigations/${encodeURIComponent(id)}/followup`,
     {
       method: "POST",
@@ -112,7 +132,7 @@ export function addInvestigationNote(
   id: string,
   text: string,
 ): Promise<InvestigationResponse> {
-  return request<InvestigationResponse>(
+  return requestInvestigation(
     `/api/investigations/${encodeURIComponent(id)}/notes`,
     {
       method: "POST",
@@ -126,7 +146,7 @@ export function reverifyEvidence(
   id: string,
   evidenceId: string,
 ): Promise<InvestigationResponse> {
-  return request<InvestigationResponse>(
+  return requestInvestigation(
     `/api/investigations/${encodeURIComponent(id)}/reverify`,
     {
       method: "POST",
@@ -162,7 +182,7 @@ export function getPlanTemplate(actionId: string): Promise<PlanTemplate> {
 }
 
 export function createPlan(args: PlanCreateArgs): Promise<InvestigationResponse> {
-  return request<InvestigationResponse>(
+  return requestInvestigation(
     `/api/investigations/${encodeURIComponent(args.investigationId)}/plans`,
     {
       method: "POST",
@@ -182,7 +202,7 @@ export function createPlan(args: PlanCreateArgs): Promise<InvestigationResponse>
 }
 
 export function captureBaseline(planId: string): Promise<InvestigationResponse> {
-  return request<InvestigationResponse>(`/api/plans/${encodeURIComponent(planId)}/baseline`, {
+  return requestInvestigation(`/api/plans/${encodeURIComponent(planId)}/baseline`, {
     method: "POST",
   });
 }
@@ -191,7 +211,7 @@ export function recordManualIntervention(
   planId: string,
   description: string,
 ): Promise<InvestigationResponse> {
-  return request<InvestigationResponse>(
+  return requestInvestigation(
     `/api/plans/${encodeURIComponent(planId)}/interventions/manual`,
     {
       method: "POST",
@@ -205,7 +225,7 @@ export function linkPlanExecution(
   planId: string,
   executionId: string,
 ): Promise<InvestigationResponse> {
-  return request<InvestigationResponse>(
+  return requestInvestigation(
     `/api/plans/${encodeURIComponent(planId)}/interventions/link-execution`,
     {
       method: "POST",
@@ -216,7 +236,7 @@ export function linkPlanExecution(
 }
 
 export function verifyPlan(planId: string): Promise<InvestigationResponse> {
-  return request<InvestigationResponse>(`/api/plans/${encodeURIComponent(planId)}/verify`, {
+  return requestInvestigation(`/api/plans/${encodeURIComponent(planId)}/verify`, {
     method: "POST",
   });
 }
@@ -275,7 +295,7 @@ export function recheckKnowledgeEntry(
   investigationId: string,
   entryId: string,
 ): Promise<InvestigationResponse> {
-  return request<InvestigationResponse>(
+  return requestInvestigation(
     `/api/investigations/${encodeURIComponent(investigationId)}/knowledge/${encodeURIComponent(entryId)}/recheck`,
     { method: "POST" },
   );
@@ -286,7 +306,7 @@ export function listTools(): Promise<ToolInfo[]> {
 }
 
 export function getInvestigation(id: string): Promise<InvestigationResponse> {
-  return request<InvestigationResponse>(
+  return requestInvestigation(
     `/api/investigations/${encodeURIComponent(id)}`,
   );
 }
@@ -303,7 +323,7 @@ export interface ProposeActionArgs {
 }
 
 export function proposeAction(args: ProposeActionArgs): Promise<InvestigationResponse> {
-  return request<InvestigationResponse>(
+  return requestInvestigation(
     `/api/investigations/${encodeURIComponent(args.investigationId)}/proposals`,
     {
       method: "POST",
@@ -336,7 +356,7 @@ export interface ExecuteResult {
 }
 
 export function rejectProposal(proposalId: string): Promise<InvestigationResponse> {
-  return request<InvestigationResponse>(
+  return requestInvestigation(
     `/api/proposals/${encodeURIComponent(proposalId)}/reject`,
     { method: "POST" },
   );
