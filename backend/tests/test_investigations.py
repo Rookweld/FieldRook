@@ -322,6 +322,25 @@ def test_powershell_popup_problem_uses_task_tool() -> None:
     assert body["assessment"]["mode"] == "simulated"
 
 
+def test_bare_task_problem_uses_task_tool() -> None:
+    """M010 audit finding 1: 'is task X safe?' must check the scheduler."""
+    body = client.post(
+        "/api/investigations",
+        data={"problem": "Is the FieldRookDemoPhantom task safe to disable?"},
+    ).json()
+    tools_used = {record["tool_name"] for record in body["activity"] if record["tool_name"]}
+    assert "get_scheduled_tasks" in tools_used
+
+
+def test_multitask_word_does_not_trigger_scheduler() -> None:
+    body = client.post(
+        "/api/investigations",
+        data={"problem": "My laptop freezes when I multitask every afternoon."},
+    ).json()
+    tools_used = {record["tool_name"] for record in body["activity"] if record["tool_name"]}
+    assert "get_scheduled_tasks" not in tools_used
+
+
 def test_multi_step_activity_is_ordered() -> None:
     body = client.post("/api/investigations", data={"problem": NETWORK_PROBLEM}).json()
     seqs = [record["seq"] for record in body["activity"]]

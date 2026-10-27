@@ -66,6 +66,20 @@ Evidence-driven AI troubleshooting assistant for IT technicians. A ROOKWELD
 project built for the Meta Global AI Developer Hackathon 2026 (Indie Developer
 track, "Build for Your World").
 
+**Milestone 010 — The Reality Check:** no new features — a full product
+audit turned into fixes. Ten reproducible findings (see
+`docs/audit/M010_AUDIT.md`) all resolved: bare "task" questions now route
+to scheduled-tasks diagnostics, the header label and stage stepper follow
+resolution-plan outcomes, the simulated assessment rebuilds after plan
+baseline/verify, superseded evidence collapses to expandable summary
+lines, plan runs get their own timeline rounds, badges carry explanatory
+tooltips, library search is debounced, and keyboard focus is visible.
+Five measured field trials (crash, service, DNS, scheduled task,
+recurring worker) run 0.03–0.13s with zero bad citations; before/after
+screenshots live in `docs/assets/`. Quality gate: backend 251 passed,
+gauntlet 47/47 (37 fixture/tool + 10 capped live `muse-spark-1.3`),
+Playwright 17/17.
+
 **Milestone 009 — The Technician's Memory:** FieldRook remembers. Resolved
 (and unresolved) incidents are saved to a local SQLite library with redacted
 symptom signatures, evidence fingerprints, measured criteria, and outcomes.

@@ -14,6 +14,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from ..config import load_settings
+from ..diagnostics import fixtures as fx
 from ..investigations.store import store
 from ..resolutions import service as plans
 from ..resolutions.service import PlanBudgetError, PlanError
@@ -117,6 +118,12 @@ async def capture_baseline(plan_id: str) -> InvestigationResponse:
     except PlanError as exc:
         status = 422 if "measurable" in str(exc) else 400
         raise HTTPException(status_code=status, detail=str(exc)) from exc
+    if state.mode == "simulated":
+        state.assessment = fx.build_simulated_investigation_analysis(state.problem, state.evidence)
+        state.add_activity(
+            "note", "Assessment refreshed after plan baseline",
+            f"Simulated hypotheses recomputed over {len(state.evidence)} evidence items.",
+        )
     store.save(state)
     return state.to_response(uses_fixtures=_uses_fixtures(state))
 
@@ -161,6 +168,14 @@ async def verify_plan(plan_id: str) -> InvestigationResponse:
     settings = load_settings()
     try:
         await plans.verify_plan(state, plan, settings)
+        if state.mode == "simulated":
+            state.assessment = fx.build_simulated_investigation_analysis(
+                state.problem, state.evidence
+            )
+            state.add_activity(
+                "note", "Assessment refreshed after Confirm Fix",
+                f"Simulated hypotheses recomputed over {len(state.evidence)} evidence items.",
+            )
     except PlanBudgetError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     except PlanError as exc:

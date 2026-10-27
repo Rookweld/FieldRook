@@ -22,6 +22,8 @@ test("evidence re-check shows unchanged verdict and history", async ({ page }) =
   await expect(page.getByText("Evidence changes between rounds")).toBeVisible({ timeout: 15000 });
   await expect(page.getByText("UNCHANGED", { exact: true }).first()).toBeVisible();
   await expect(page.getByText(/HISTORICAL — SUPERSEDED BY/)).toBeVisible();
+  // M010-5: superseded JSON collapses to an expandable summary line.
+  await expect(page.getByText("Superseded JSON").first()).toBeVisible();
   await expect(page.getByText(/RE-CHECK OF ev-/)).toBeVisible();
   await expect(page.getByRole("heading", { name: /re-check/i })).toBeVisible();
   await page.screenshot({ path: "test-results/shot-reverify.png", fullPage: true });

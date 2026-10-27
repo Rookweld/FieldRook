@@ -174,7 +174,7 @@ export function ActionCenter({
       : null;
 
   return (
-    <section className="card">
+    <section className="card" id="stage-resolve">
       <div className="card-head">
         <h2>
           <span className="eyebrow">Stage 3 — Resolve</span>Action Center

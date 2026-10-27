@@ -39,6 +39,31 @@ function groupRounds(activity: ActivityRecord[]): Round[] {
         label: `Round ${rounds.length + 1} — re-check`,
         records: [record],
       });
+    } else if (
+      record.kind === "tool_request" &&
+      (record.title.startsWith("Plan baseline:") ||
+        record.title.startsWith("Plan verification:"))
+    ) {
+      // M010-7: each plan baseline / Confirm Fix run is its own round, but
+      // consecutive tools within one run stay grouped together.
+      const label = record.title.startsWith("Plan baseline:")
+        ? "pre-fix baseline"
+        : "Confirm Fix verification";
+      const last = rounds[rounds.length - 1];
+      const prev = last.records[last.records.length - 1];
+      const continuesRun =
+        prev !== undefined &&
+        (prev.title.startsWith("Plan baseline:") ||
+          prev.title.startsWith("Plan verification:"));
+      if (last.label.endsWith(label) && continuesRun) {
+        last.records.push(record);
+      } else {
+        rounds.push({
+          n: rounds.length + 1,
+          label: `Round ${rounds.length + 1} — ${label}`,
+          records: [record],
+        });
+      }
     } else {
       rounds[rounds.length - 1].records.push(record);
     }

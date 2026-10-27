@@ -10,6 +10,7 @@ schema-invalid arguments are rejected without executing anything.
 from __future__ import annotations
 
 import json
+import re
 from typing import Any
 
 from ..analysis.provider import MetaModelProvider, select_provider
@@ -574,7 +575,12 @@ def _simulated_plan(problem: str, service_name: str | None, already_ran: set[str
             ("search_event_logs", {"keywords": service_name, "logs": ["System"], "hours": 24, "max_events": 10}),
             ("get_process_info", {"service_name": service_name}),
         ]
-    if any(keyword in lowered for keyword in SCHEDULED_KEYWORDS):
+    # A bare "task"/"tasks" also signals the Task Scheduler in Windows
+    # troubleshooting ("is task X safe to disable?"); match on word
+    # boundaries so "multitask" and friends do not trigger it.
+    if any(keyword in lowered for keyword in SCHEDULED_KEYWORDS) or re.search(
+        r"\btasks?\b", lowered
+    ):
         plan = []
         if "get_scheduled_tasks" not in already_ran:
             plan.append(("get_scheduled_tasks", {}))

@@ -43,7 +43,7 @@ export function OverviewPanel({
     steps[0]?.step ?? investigation.assessment?.next_actions[0] ?? null;
 
   return (
-    <section className="card overview">
+    <section className="card overview" id="stage-understand">
       <div className="card-head">
         <h2>Incident overview</h2>
         <span className="muted">

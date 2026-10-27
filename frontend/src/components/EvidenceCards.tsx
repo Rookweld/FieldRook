@@ -125,6 +125,11 @@ export function EvidenceCards({
                 </div>
                 {item.error ? (
                   <p className="item-error">Collection error: {item.error}</p>
+                ) : superseded.has(item.id) ? (
+                  <details className="ev-historical-details">
+                    <summary>Superseded JSON &mdash; expand to compare with current</summary>
+                    <pre className="pre">{JSON.stringify(item.data, null, 2)}</pre>
+                  </details>
                 ) : (
                   <>
                     <pre className="pre">{previewText(item)}</pre>

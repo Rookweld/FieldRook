@@ -50,7 +50,12 @@ baseline/verify workflow, VERIFIED_RESOLVED/NOT_RESOLVED/INCONCLUSIVE
 outcomes, resolution workspace, eight verification scenarios, 43-case
 gauntlet), and Milestone 009 (verified resolution library, deterministic
 similar-incident matching, Worked Before panel, on-demand regression
-rechecks, redacted local knowledge management, 47-case gauntlet) were all
+rechecks, redacted local knowledge management, 47-case gauntlet), and
+Milestone 010 (full product audit with ten fixed findings, five measured
+field trials, plan-aware header and clickable stage stepper,
+historical-evidence collapsing, plan timeline rounds, badge tooltips,
+debounced search, visible keyboard focus, before/after screenshots,
+47-case gauntlet re-measured) were all
 designed and implemented during the event.
 
 ## Meta Muse Spark integration

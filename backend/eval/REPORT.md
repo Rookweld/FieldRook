@@ -1,5 +1,30 @@
 # FieldRook Diagnostic Gauntlet — Evaluation Report
 
+## M010 update (2026-10-27) — read this first
+
+M010 added no gauntlet cases (a polish milestone, not a feature
+milestone), so the suite stays at **47 cases**: 26 investigation + 11
+tool cases in the deterministic fixture tier, and 10 capped live-model
+cases. M010's two behavioral backend fixes are covered one level down
+instead:
+
+- **Bare-task triage** (`loop.py`):
+  `test_bare_task_problem_uses_task_tool` and
+  `test_multitask_word_does_not_trigger_scheduler` pin the word-boundary
+  fix; the `investigate.spec.ts` e2e asserts the Scheduled tasks evidence
+  group appears for "is the FieldRookDemoPhantom task safe to disable?".
+- **Assessment refresh after plan runs** (`resolutions.py`):
+  `test_assessment_refreshes_after_baseline_and_verify` pins the M008 gap
+  fix; the resolution e2e asserts plan-aware header text and split
+  baseline rounds.
+
+**Measured M010 results: 47/47 evaluated cases passed (37 fixture/tool +
+10 live-model).** Raw JSON:
+`backend/eval/results/20261027T113426Z.json` (gitignored; re-run with
+`python -m eval.run [--live]` from `backend/`). The live tier passed
+first try; all 10 live cases used fixture diagnostics with the live
+`muse-spark-1.3` reasoning loop.
+
 ## M009 update (2026-10-27) — read this first
 
 The gauntlet grew from 43 to **47 cases**: 26 investigation + 11 tool cases

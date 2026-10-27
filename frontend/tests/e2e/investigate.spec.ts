@@ -28,3 +28,16 @@ test("fixture network investigation shows activity, evidence, assessment", async
   await page.getByRole("button", { name: "Send follow-up" }).click();
   await expect(page.getByText("Round 2 — follow-up")).toBeVisible({ timeout: 30000 });
 });
+
+test("bare task question collects scheduled-tasks evidence (M010-1)", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.getByPlaceholder(/vpn disconnects/i).fill(
+    "E2E probe: is the FieldRookDemoPhantom task safe to disable?",
+  );
+  await page.getByText("Force fixture data").click();
+  await page.getByRole("button", { name: "Investigate", exact: true }).click();
+  await expect(page.getByText("FIXTURES", { exact: true })).toBeVisible({ timeout: 30000 });
+  await expect(page.getByText("Scheduled tasks").first()).toBeVisible({ timeout: 15000 });
+});

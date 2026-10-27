@@ -89,16 +89,23 @@ export function KnowledgeLibrary() {
   const [outcome, setOutcome] = useState("");
   const [open, setOpen] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // M010-9: debounce free-text search so typing does not hit the API per keystroke.
+  const [debouncedQ, setDebouncedQ] = useState(q);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedQ(q), 250);
+    return () => clearTimeout(timer);
+  }, [q]);
 
   const refresh = useCallback(async () => {
     setError(null);
     try {
-      setEntries(await listKnowledge({ q, category, outcome }));
+      setEntries(await listKnowledge({ q: debouncedQ, category, outcome }));
       setLoaded(true);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     }
-  }, [q, category, outcome]);
+  }, [debouncedQ, category, outcome]);
 
   useEffect(() => {
     void refresh();

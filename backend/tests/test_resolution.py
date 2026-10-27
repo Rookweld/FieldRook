@@ -463,6 +463,35 @@ def test_plan_template_rejects_unknown_action() -> None:
     assert client.get("/api/plans/template?action_id=format_drive").status_code == 400
 
 
+def test_assessment_refreshes_after_baseline_and_verify() -> None:
+    """M010 audit finding 4: plan evidence must reach the assessment."""
+    body = _investigate("The FieldRook demo worker is down.")
+    worker_items = [item for item in body["evidence"] if item["category"] == "demo_worker"]
+    before_facts = len(body["assessment"]["facts"])
+    payload = _manual_worker_plan(worker_items[0]["id"])
+    plan = client.post(
+        f"/api/investigations/{body['investigation_id']}/plans", json=payload
+    ).json()["plans"][-1]
+    baselined = client.post(f"/api/plans/{plan['plan_id']}/baseline").json()
+    assert len(baselined["assessment"]["facts"]) > before_facts
+    assert any(
+        r["title"] == "Assessment refreshed after plan baseline"
+        for r in baselined["activity"]
+    )
+    client.post(
+        f"/api/plans/{plan['plan_id']}/interventions/manual",
+        json={"description": "Restarted by hand."},
+    )
+    verified = client.post(f"/api/plans/{plan['plan_id']}/verify").json()
+    assert any(
+        r["title"] == "Assessment refreshed after Confirm Fix"
+        for r in verified["activity"]
+    )
+    known = {item["id"] for item in verified["evidence"]}
+    for fact in verified["assessment"]["facts"]:
+        assert set(fact["evidence_ids"]) <= known
+
+
 def test_plan_mutations_reject_cross_origin() -> None:
     body = _investigate("The FieldRook demo worker is down.")
     worker_items = [item for item in body["evidence"] if item["category"] == "demo_worker"]

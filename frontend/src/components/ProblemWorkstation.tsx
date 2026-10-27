@@ -233,7 +233,7 @@ export function ProblemWorkstation({
 
       <StageStepper stage={stageOf(investigation)} />
 
-      <section className="card">
+      <section className="card" id="stage-investigate">
         <div className="card-head">
           <h2>
             <span className="eyebrow">Stage 1 — Investigate</span>New investigation
@@ -352,10 +352,24 @@ export function ProblemWorkstation({
                 <span className="eyebrow">Stage 2 — Understand</span>Investigation
               </h2>
               <div className="badges">
-                <span className={investigation.uses_fixtures ? "badge badge-sim" : "badge badge-live"}>
+                <span
+                  className={investigation.uses_fixtures ? "badge badge-sim" : "badge badge-live"}
+                  title={
+                    investigation.uses_fixtures
+                      ? "Evidence source for THIS investigation: synthetic fixtures"
+                      : "Evidence source for THIS investigation: live read-only diagnostics"
+                  }
+                >
                   {investigation.uses_fixtures ? "FIXTURES" : "LIVE DIAGNOSTICS"}
                 </span>
-                <span className={investigation.analysis_mode === "live" ? "badge badge-live" : "badge badge-sim"}>
+                <span
+                  className={investigation.analysis_mode === "live" ? "badge badge-live" : "badge badge-sim"}
+                  title={
+                    investigation.analysis_mode === "live"
+                      ? "Reasoning engine for THIS investigation: live model"
+                      : "Reasoning engine for THIS investigation: simulated analysis"
+                  }
+                >
                   {investigation.analysis_mode === "live" ? "LIVE MODEL" : "SIMULATED"}
                 </span>
                 {investigation.has_screenshot && <span className="badge">SCREENSHOT</span>}
