@@ -219,6 +219,46 @@ class ActivityRecord(BaseModel):
     evidence_ids: list[str] = Field(default_factory=list)
 
 
+class TargetOS(BaseModel):
+    platform: str = ""
+    version: str = ""
+    build: str = ""
+
+
+class TargetIdentity(BaseModel):
+    """FORGE 1A: which machine the evidence describes. Raw hostnames never persist."""
+
+    schema_version: str = "1.0"
+    hostname_hash: str = ""
+    hint: str | None = None
+    os: TargetOS | None = None
+
+
+class CollectorPackageRecord(BaseModel):
+    """FORGE 1B/1G: one imported collector package linked to a case."""
+
+    schema_version: str = "1.0"
+    package_id: str
+    collector_version: str = ""
+    collector_lang: str = ""
+    created_at: datetime | None = None
+    hostname_hash: str = ""
+    manifest_sha256: str = ""
+    evidence_ids: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+
+
+class CitationRecord(BaseModel):
+    """FORGE 1D/1G: a case-memory or reference-doc citation attached to a case."""
+
+    schema_version: str = "1.0"
+    kind: str = "reference"  # "case" | "reference"
+    ref_id: str
+    title: str = ""
+    locator: str = ""
+    rank: str = ""
+
+
 class InvestigationResponse(BaseModel):
     investigation_id: str
     problem: str
@@ -254,6 +294,10 @@ class InvestigationResponse(BaseModel):
     rounds_used: int = 0
     blocked_reason: str | None = None
     assistant_message: str = ""
+    # FORGE layer (all defaulted for backward compatibility).
+    target_identity: TargetIdentity | None = None
+    collector_packages: list[CollectorPackageRecord] = Field(default_factory=list)
+    citations: list[CitationRecord] = Field(default_factory=list)
 
 
 class TechnicianNote(BaseModel):

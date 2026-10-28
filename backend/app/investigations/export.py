@@ -16,6 +16,7 @@ def _export_dict(state: Any) -> dict[str, Any]:
     response = state.to_response(uses_fixtures=(state.mode == "simulated"))
     data = response.model_dump(mode="json")
     data["exported_at"] = datetime.now(timezone.utc).isoformat()
+    data["exporter_version"] = "1.1"
     return data
 
 
@@ -225,6 +226,22 @@ def build_markdown(state: Any) -> str:
         add("(none asked)")
     if data.get("assistant_message"):
         add(f"Latest assistant message: {data['assistant_message']}")
+    add("")
+    add("## 18. Collector package provenance")
+    for pkg in data.get("collector_packages", []):
+        add(f"### {pkg['package_id']} (collector {pkg.get('collector_version', '?')}, {pkg.get('collector_lang', '?')})")
+        add(f"Manifest SHA-256: {pkg.get('manifest_sha256', '-')}")
+        add(f"Evidence items: {', '.join(pkg.get('evidence_ids', [])) or '(none)'}")
+        for warning in pkg.get('warnings', []):
+            add(f"- Warning: {warning}")
+    if not data.get("collector_packages"):
+        add("(no collector packages imported)")
+    add("")
+    add("## 19. Citations")
+    for cite in data.get("citations", []):
+        add(f"- [{cite.get('kind', '?')}] {cite.get('title', cite.get('ref_id', ''))} ({cite.get('locator', '-')}) rank={cite.get('rank', '-')}")
+    if not data.get("citations"):
+        add("(none recorded)")
     add("")
     add("---")
     add(f"Exported {data['exported_at']} by FieldRook. OBSERVED facts are measured; INFERRED causes are hypotheses.")

@@ -441,6 +441,15 @@ def save_state(state: Any) -> None:
             "rounds_used": getattr(state, "rounds_used", 0),
             "blocked_reason": getattr(state, "blocked_reason", None),
             "assist_counters": dict(getattr(state, "assist_counters", {}) or {}),
+            "target_identity": state.target_identity.model_dump(mode="json")
+            if getattr(state, "target_identity", None) is not None
+            else None,
+            "collector_packages": [
+                p.model_dump(mode="json") for p in getattr(state, "collector_packages", []) or []
+            ],
+            "citations": [
+                c.model_dump(mode="json") for c in getattr(state, "citations", []) or []
+            ],
         }
         conn.execute(
             "INSERT INTO assist (inv_id, doc_json) VALUES (?, ?)"
@@ -491,9 +500,12 @@ def load_state(investigation_id: str) -> Any | None:
         ClarifyingQuestion,
         EvidenceItem,
         EvidenceRefresh,
+        CitationRecord,
+        CollectorPackageRecord,
         Hypothesis,
         RegressionCheck,
         ResolutionPlan,
+        TargetIdentity,
         TechnicianNote,
         TroubleshootPlan,
     )
@@ -690,6 +702,19 @@ def load_state(investigation_id: str) -> Any | None:
             rounds_used=int(assist_doc.get("rounds_used") or 0),
             blocked_reason=assist_doc.get("blocked_reason"),
             assist_counters=dict(assist_doc.get("assist_counters") or {}),
+            target_identity=TargetIdentity.model_validate(assist_doc.get("target_identity"))
+            if isinstance(assist_doc.get("target_identity"), dict)
+            else None,
+            collector_packages=[
+                CollectorPackageRecord.model_validate(x)
+                for x in assist_doc.get("collector_packages") or []
+                if isinstance(x, dict)
+            ],
+            citations=[
+                CitationRecord.model_validate(x)
+                for x in assist_doc.get("citations") or []
+                if isinstance(x, dict)
+            ],
         )
         if assist_missing and state.assessment is not None:
             # Pre-V6 row: rebuild the assist layer in memory from the stored

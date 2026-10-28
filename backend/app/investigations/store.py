@@ -14,7 +14,9 @@ from ..schemas import (
     ActionProposal,
     ActivityRecord,
     AnalysisResult,
+    CitationRecord,
     ClarifyingQuestion,
+    CollectorPackageRecord,
     DiagnosticBundle,  # noqa: F401  (re-exported for convenience)
     EvidenceItem,
     EvidenceRefresh,
@@ -24,6 +26,7 @@ from ..schemas import (
     ProviderInfo,
     RegressionCheck,
     ResolutionPlan,
+    TargetIdentity,
     TechnicianNote,
     TroubleshootPlan,
 )
@@ -68,6 +71,10 @@ class InvestigationState:
     rounds_used: int = 0
     blocked_reason: str | None = None
     assist_counters: dict = field(default_factory=dict)
+    # FORGE layer (persisted in the `assist` table JSON doc, no migration).
+    target_identity: TargetIdentity | None = None
+    collector_packages: list[CollectorPackageRecord] = field(default_factory=list)
+    citations: list[CitationRecord] = field(default_factory=list)
 
     def add_activity(
         self,
@@ -240,6 +247,9 @@ class InvestigationState:
             rounds_used=self.rounds_used,
             blocked_reason=self.blocked_reason,
             assistant_message=assistant_message,
+            target_identity=self.target_identity,
+            collector_packages=list(self.collector_packages),
+            citations=list(self.citations),
         )
 
 
