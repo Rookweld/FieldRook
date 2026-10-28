@@ -34,7 +34,7 @@ def _write_tmp_corpus(root: Path, body: str = EVIL_BODY) -> Path:
     ref_dir.mkdir(parents=True, exist_ok=True)
     target = ref_dir / "evil.md"
     target.write_text(body, encoding="utf-8")
-    digest = hashlib.sha256(target.read_bytes()).hexdigest()
+    digest = hashlib.sha256(target.read_bytes().replace(b"\r\n", b"\n")).hexdigest()
     manifest = root / "reference_manifest.json"
     manifest.write_text(
         json.dumps(

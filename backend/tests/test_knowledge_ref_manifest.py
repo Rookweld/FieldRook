@@ -26,7 +26,7 @@ EXPECTED_IDS = {
 
 
 def _sha(data: bytes) -> str:
-    return hashlib.sha256(data).hexdigest()
+    return hashlib.sha256(data.replace(b"\r\n", b"\n")).hexdigest()  # LF-normalized per contract
 
 
 def _write_doc(root: Path, name: str, text: str) -> str:
@@ -231,3 +231,16 @@ def test_bad_manifest_json_fails_closed(tmp_path: Path) -> None:
 def test_missing_manifest_fails_closed(tmp_path: Path) -> None:
     with pytest.raises(ManifestError, match="not found"):
         load_corpus(manifest_path=tmp_path / "nope.json")
+
+
+def test_crlf_checkout_verifies_against_lf_hash(tmp_path: Path) -> None:
+    """Windows checkouts (CRLF) must not invalidate LF-computed manifest hashes."""
+    lf_text = "# T\n\n## Alpha Section\n\nChecked out with CRLF.\n"
+    digest = _sha(lf_text.encode("utf-8"))
+    ref_dir = tmp_path / "reference"
+    ref_dir.mkdir(parents=True, exist_ok=True)
+    (ref_dir / "doc.md").write_bytes(lf_text.replace("\n", "\r\n").encode("utf-8"))
+    manifest = _write_manifest(tmp_path, [_entry("ref-doc", "doc.md", "T", ["alpha-section"], digest)])
+    corpus = load_corpus(manifest_path=manifest)
+    assert len(corpus.documents) == 1
+    assert corpus.quarantined == ()

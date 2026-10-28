@@ -1,0 +1,4 @@
+# Keep FORGE reference corpus bytes stable: manifest sha256 values are
+# computed over LF. Normalization in reference_index.py also tolerates CRLF.
+backend/app/knowledge/reference/*.md text eol=lf
+backend/app/knowledge/reference_manifest.json text eol=lf

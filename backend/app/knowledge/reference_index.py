@@ -426,7 +426,9 @@ def load_corpus(
         except OSError as exc:
             _quarantine(f"unreadable file: {exc}")
             continue
-        digest = hashlib.sha256(raw_bytes).hexdigest()
+        # Hash LF-normalized bytes: manifest hashes are computed over LF, and
+        # git autocrlf / Windows editors must not invalidate the corpus.
+        digest = hashlib.sha256(raw_bytes.replace(b"\r\n", b"\n")).hexdigest()
         if digest != entry.sha256:
             _quarantine("sha256 mismatch")
             continue
