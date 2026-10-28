@@ -58,7 +58,9 @@ def triage_prompt(problem: str, evidence_digest: str, target: str) -> str:
         "\"why\": \"<why the answer changes the diagnosis>\", \"hypotheses\": "
         "[{\"title\": \"<possible cause>\", \"why\": \"<one line>\"}], \"next_check\": "
         "\"<one safe read-only check>\", \"unknowns\": [\"<what is still unknown>\"]}. "
-        "At most 2 hypotheses and 2 unknowns. "
+        "At most 2 hypotheses and 2 unknowns. The question must name something "
+        "concrete (a symptom, timing, scope, or error text); never ask for "
+        "\"more details\" in general. "
         f"{scope} Problem: {problem.strip()[:800]} Evidence: {evidence[:1500]}"
     )
 
@@ -79,14 +81,25 @@ def plan_prompt(problem: str, context: str, target: str) -> str:
     )
 
 
-def reassess_prompt(hypothesis_titles: list[str], observation: str) -> str:
+def reassess_prompt(
+    hypothesis_titles: list[str],
+    observation: str,
+    asked_questions: list[str] | None = None,
+) -> str:
     titles = "; ".join(t for t in hypothesis_titles if t)[:600] or "none tracked yet"
+    asked = "; ".join(q[:80] for q in (asked_questions or []) if q)[:400]
+    no_repeat = (
+        f" Already-asked questions (do not repeat or paraphrase): [{asked}]."
+        if asked
+        else ""
+    )
     return (
         "You are FieldRook, a Windows troubleshooting assistant. Reply with ONLY "
         "this JSON object, no other text: {\"verdict\": \"<one sentence: what the new "
         "observation means>\", \"weakened\": [\"<hypothesis titles now less likely>\"], "
         "\"next_step\": \"<the single most useful next check or question>\"}. "
         f"Open hypotheses: [{titles}]. New technician observation: {observation.strip()[:800]}"
+        f"{no_repeat}"
     )
 
 
@@ -251,8 +264,11 @@ def assemble_assessment(
             warnings.append("Triage produced no usable output; hypotheses come from deterministic fallback.")
             causes.append(
                 RootCause(
-                    title="No verified cause: local triage did not answer",
-                    description="The local model call failed or returned unusable output.",
+                    # Technician-meaningful: cause titles surface as hypotheses
+                    # (M018: the internal note leaked into the hypothesis list).
+                    title="No verified cause: affected-machine observations are missing",
+                    description="No usable assessment yet. Supply screenshots, error "
+                    "codes, or manual test results to open testable hypotheses.",
                     likelihood="low",
                     evidence_ids=[],
                 )
@@ -319,7 +335,13 @@ def assemble_assessment(
 
     missing = [q.question for q in suggested_questions]
     if not missing and reassess is None:
-        missing = ["A usable local-model question (triage did not answer)."]
+        # Technician-meaningful fallback asks. These render as questions and
+        # plan steps when the model says nothing usable, so they must never
+        # be internal notes (M018: placeholder text leaked to technicians).
+        missing = [
+            "Which computer is affected (this host or another machine).",
+            "Exact error text or code from the affected computer.",
+        ]
     summary = (
         f"Local {model_label} triage of '{_short(problem, 100)}': "
         f"{len(causes)} tentative cause(s), {len(suggested_questions)} open question(s). "

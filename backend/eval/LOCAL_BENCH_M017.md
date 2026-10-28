@@ -1,7 +1,17 @@
 # M017 local-inference benchmark report
 
+> ERRATUM (M018, 2026-10-28): this report claims "CPU-only" throughout.
+> That was wrong. Fury has an NVIDIA RTX 3500 Ada (12GB) and Ollama used
+> it for every M017 measurement (`ollama ps` shows 100% GPU). All tok/s,
+> latency, and memory numbers below are GPU-flavored. True CPU-only
+> numbers (qwen3:4b triage ~25-33s at ~7 tok/s) plus the corrected
+> laptop verdict are in `backend/eval/challenge/REPORT_M018.md`. The
+> relative findings (think-off effect, context-cap effect, blind vision,
+> budget scales) still hold; every absolute speed claim does not.
+
 Date: 2026-10-28. Host: Fury workstation (i7-13850HX, 68.4GB RAM,
-28 logical CPUs, CPU-only Ollama). All inference went to loopback
+28 logical CPUs, RTX 3500 Ada 12GB — used by Ollama despite the
+"CPU-only" label). All inference went to loopback
 Ollama; zero cloud calls. 35 local-model requests across 9 bench runs.
 
 Harness: `backend/eval/local_bench.py`. Tasks use the production

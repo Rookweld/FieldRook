@@ -351,6 +351,9 @@ class LocalEndpointProvider(ModelProvider):
         options: dict[str, Any] = {"temperature": 0.2, "num_ctx": 8192}
         if num_predict:
             options["num_predict"] = num_predict
+        num_gpu = getattr(self._settings, "local_num_gpu", None)
+        if num_gpu is not None:
+            options["num_gpu"] = num_gpu
         payload["options"] = options
         timeout = timeout_s or self._settings.model_timeout_s
         started = _time.monotonic()

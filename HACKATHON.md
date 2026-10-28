@@ -36,6 +36,7 @@ timestamps preserved; history has not been rewritten):
 | `252677e` | 2026-10-27 | feat(fieldrook): milestone 014 cinematic atmosphere |
 | `1261815` | 2026-10-28 | feat(fieldrook): milestone 015 living investigation |
 | `acb334c` | 2026-10-28 | feat(fieldrook): milestone 016 the real technician |
+| `f8636ca` | 2026-10-28 | feat(fieldrook): milestone 017 lightweight local intelligence |
 
 Milestone 001 (first diagnosis slice), Milestone 002 (natural-language
 intake, screenshot understanding, tool-calling investigations, follow-ups),

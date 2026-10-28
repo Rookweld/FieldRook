@@ -48,8 +48,10 @@ class LocalModelProfile:
     task_budget_scale: float = 1.0
 
 
-# Curated from Ollama /api/show metadata + CPU measurements on Fury
-# (i7-13850HX, 64GB RAM). Context lengths are the server-reported values.
+# Curated from Ollama /api/show metadata + measurements on Fury
+# (i7-13850HX, 68GB RAM, RTX 3500 Ada 12GB). M018 correction: all M017
+# speed numbers were GPU-flavored (Ollama used the RTX silently); true
+# CPU-only numbers are labeled CPU. Context lengths are server-reported.
 CURATED_PROFILES: dict[str, LocalModelProfile] = {
     "qwen3:4b": LocalModelProfile(
         model="qwen3:4b",
@@ -60,9 +62,11 @@ CURATED_PROFILES: dict[str, LocalModelProfile] = {
         storage_gb=2.5,
         params_b=4.0,
         thinking=True,
-        notes="Primary laptop candidate. Thinking MUST be disabled via the Ollama "
-        "think parameter (140s+ per call otherwise); /v1 ignores it. Best with the "
-        "task pipeline and tight token caps.",
+        notes="Default local text model. Thinking MUST be disabled via the Ollama "
+        "think parameter (140s+ per call otherwise); /v1 ignores it. M018 "
+        "challenge: 132/142 checks, quality 2.1/5 — revises hypotheses for "
+        "real but fixates and rarely scopes. GPU triage ~2.5s; TRUE CPU "
+        "triage ~25-33s at ~7 tok/s: too slow for the 10s laptop target.",
     ),
     "qwen3-vl:8b": LocalModelProfile(
         model="qwen3-vl:8b",
@@ -73,7 +77,7 @@ CURATED_PROFILES: dict[str, LocalModelProfile] = {
         storage_gb=6.1,
         params_b=8.8,
         thinking=True,
-        notes="Vision role: reads dialogs exactly (measured 10.2s, exact code/title). "
+        notes="Vision role: reads dialogs exactly (10.2s on GPU, exact code/title). "
         "Text tasks are unreliable even at 8x budget — thinking length varies and "
         "often exhausts the cap, and synth overclaims likelihood. Ignores the "
         "think-off switch. Configure for screenshot cases, not as the default.",
@@ -89,8 +93,8 @@ CURATED_PROFILES: dict[str, LocalModelProfile] = {
         params_b=30.5,
         thinking=False,
         notes="Workstation-only reference. Measured 19.2GB resident and ~26 tok/s "
-        "on CPU — valid structured text but far outside laptop budgets. Rejects "
-        "multimodal input (HTTP 400), so it stays text-only here.",
+        "(GPU-flavored) — valid structured text but far outside laptop "
+        "budgets. Rejects multimodal input (HTTP 400), so it stays text-only.",
     ),
     "gemma4:e4b": LocalModelProfile(
         model="gemma4:e4b",
@@ -101,11 +105,12 @@ CURATED_PROFILES: dict[str, LocalModelProfile] = {
         storage_gb=9.6,
         params_b=8.0,
         thinking=True,
-        notes="MoE: 9.6GB on disk but only ~3.2GB resident during tasks. Measured "
-        "~70 tok/s CPU with valid JSON after repair; triage questions are sharp. "
-        "Caution: returned all-null vision on the known-readable dialog fixture "
-        "(blind_vision) — screenshot reading is unreliable despite the server "
-        "advertising vision.",
+        notes="MoE: 9.6GB on disk but only ~3.2GB resident during tasks. M018 "
+        "challenge leader: 135/142 checks, quality 3.45/5 — precise scoping "
+        "questions, real revision, uses evidence readings. Costs ~2x wall "
+        "time vs qwen3:4b. Caution: all-null vision on the readable dialog "
+        "fixture (blind_vision) — screenshot reading unreliable despite the "
+        "server advertising vision.",
     ),
     "llama3.2:1b": LocalModelProfile(
         model="llama3.2:1b",
@@ -116,8 +121,10 @@ CURATED_PROFILES: dict[str, LocalModelProfile] = {
         storage_gb=1.3,
         params_b=1.2,
         thinking=False,
-        notes="Meta open-weight candidate (not installed here). Smallest footprint; "
-        "triage quality must be measured before any recommendation.",
+        notes="Meta open-weight, measured M018: NOT RECOMMENDED. Quality 1.1/5 — "
+        "echoes the problem as questions, invents readings, advised creating "
+        "an admin account; 34/140 task calls unusable. Fast on CPU "
+        "(triage ~8s) but unusable. Do not select for investigations.",
         install_hint="ollama pull llama3.2:1b  (~1.3GB)",
     ),
     "llama3.2:3b": LocalModelProfile(
@@ -129,8 +136,10 @@ CURATED_PROFILES: dict[str, LocalModelProfile] = {
         storage_gb=2.0,
         params_b=3.2,
         thinking=False,
-        notes="Meta open-weight candidate (not installed here). Best size/quality "
-        "bet on paper; needs measured triage/plan benchmarks.",
+        notes="Meta open-weight, measured M018: 132/142 checks, quality 2.5/5 — "
+        "matches qwen3:4b structurally but leans on generic Event Viewer "
+        "questions, repeats itself, and failed the disk-disproof behaviorally. "
+        "CPU triage ~16-32s at ~9 tok/s. Viable alternative, not better.",
         install_hint="ollama pull llama3.2:3b  (~2.0GB)",
     ),
 }

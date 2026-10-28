@@ -108,6 +108,11 @@ def test_task_prompts_are_compact_and_scoped() -> None:
     assert "AUTOMATED_READ_ONLY" not in plan
     reassess = reassess_prompt(["H1"], "obs")
     assert "H1" in reassess and "obs" in reassess
+    assert "do not repeat" not in reassess.lower()
+    repeated = reassess_prompt(["H1"], "obs", ["Is it plugged in?"])
+    assert "Is it plugged in?" in repeated
+    assert "do not repeat" in repeated.lower()
+    assert "more details" in triage_prompt("p", "", "local")
 
 
 def test_extract_json_finds_balanced_span() -> None:
@@ -193,7 +198,9 @@ def test_assemble_total_failure_is_labeled() -> None:
     result, warnings, parts = assemble_assessment("p", [], None, None, None, "local/m", "local")
     assert parts == []
     assert len(warnings) == 2
-    assert "did not answer" in result.causes[0].title
+    assert "no usable output" in " ".join(warnings).lower()
+    assert result.causes[0].likelihood == "low"
+    assert "observations are missing" in result.causes[0].title
 
 
 # ---------------------------------------------------------------------------
@@ -359,6 +366,29 @@ def test_pipeline_followup_reassesses() -> None:
     assert state.assessment.suggested_hypotheses[0].status == "weakened"
 
 
+def test_local_path_collects_host_evidence_for_local_target() -> None:
+    """M018: a local model on the local host must see host measurements."""
+    state = _pipeline_state(target="local")
+    provider = _TaskProvider({"triage": _triage(), "plan": _plan()})
+    asyncio.run(_run_local_tasks(state, provider, _settings(), False, True))
+    assert state.tool_calls_made > 0
+    host_items = [e for e in state.evidence if (e.source or "").startswith("tool:")]
+    assert host_items, "local target must yield host-sourced evidence"
+    assert provider.calls == ["triage", "plan"]
+    assert state.assessment is not None
+
+
+def test_local_path_collects_nothing_for_remote_target() -> None:
+    """M018: remote targets still collect zero host evidence on local path."""
+    state = _pipeline_state(target="remote")
+    provider = _TaskProvider({"triage": _triage(), "plan": _plan()})
+    asyncio.run(_run_local_tasks(state, provider, _settings(), False, True))
+    assert state.tool_calls_made == 0
+    host_items = [e for e in state.evidence if (e.source or "").startswith("tool:")]
+    assert not host_items
+    assert provider.calls == ["triage", "plan"]
+
+
 def test_pipeline_total_failure_substitutes() -> None:
     state = _pipeline_state()
     provider = _TaskProvider({})
@@ -366,6 +396,25 @@ def test_pipeline_total_failure_substitutes() -> None:
     assert state.assessment is not None
     assert state.assessment.mode == "simulated"
     assert any("no usable output" in w for w in state.warnings)
+
+
+def test_fallback_missing_evidence_is_technician_meaningful() -> None:
+    """M018: fallback asks render as questions; internal notes must not leak."""
+    from app.analysis.local_tasks import assemble_assessment
+
+    result, _warnings, _parts = assemble_assessment(
+        "Excel fails.", [], None, None, None, "local/mocked", "remote"
+    )
+    assert result.missing_evidence, "fallback must still ask something"
+    surfaced = list(result.missing_evidence)
+    surfaced.extend(c.title for c in result.causes)
+    surfaced.extend(c.description for c in result.causes)
+    for item in surfaced:
+        lowered = item.lower()
+        assert "triage did not answer" not in lowered
+        assert "usable local-model" not in lowered
+        assert "local model call failed" not in lowered
+        assert "deterministic" not in lowered
 
 
 def test_cancel_flag_honored_between_tasks() -> None:

@@ -69,6 +69,7 @@ class Settings:
     # M017: local API style + thinking control. auto probes for Ollama.
     local_api: str = "auto"  # "auto" | "openai" | "ollama"
     local_think: str = "auto"  # "auto" | "on" | "off" (auto disables thinking for task calls)
+    local_num_gpu: int | None = None  # None = server decides; 0 forces CPU-only
 
 
 def load_settings() -> Settings:
@@ -90,6 +91,13 @@ def load_settings() -> Settings:
     local_think = os.environ.get("FIELDROOK_LOCAL_THINK", "auto").strip().lower()
     if local_think not in ("auto", "on", "off"):
         local_think = "auto"
+    local_num_gpu: int | None = None
+    _num_gpu_raw = os.environ.get("FIELDROOK_LOCAL_NUM_GPU", "").strip()
+    if _num_gpu_raw:
+        try:
+            local_num_gpu = max(0, int(_num_gpu_raw))
+        except ValueError:
+            local_num_gpu = None
     return Settings(
         model_api_key=raw_key or None,
         model_base_url=os.environ.get("MODEL_BASE_URL", DEFAULT_MODEL_BASE_URL).strip()
@@ -107,4 +115,5 @@ def load_settings() -> Settings:
         local_model_tools=_as_flag("FIELDROOK_LOCAL_MODEL_TOOLS"),
         local_api=local_api,
         local_think=local_think,
+        local_num_gpu=local_num_gpu,
     )

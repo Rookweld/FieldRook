@@ -150,6 +150,23 @@ def loaded_model_size(model: str) -> int | None:
     return None
 
 
+def loaded_model_processor(model: str) -> str:
+    """GPU vs CPU placement from /api/ps (M018: never assume CPU-only)."""
+    try:
+        for entry in _get("/api/ps").get("models", []):
+            if entry.get("name") == model or entry.get("model") == model:
+                size = entry.get("size") or 0
+                vram = entry.get("size_vram") or 0
+                if size and vram >= size:
+                    return "gpu"
+                if vram:
+                    return "split"
+                return "cpu"
+    except Exception:  # noqa: BLE001 - best effort
+        pass
+    return "unknown"
+
+
 def host_info() -> dict:
     info: dict = {"platform": sys.platform}
     try:
@@ -166,13 +183,28 @@ def host_info() -> dict:
         info["logical_cpus"] = parts[2].strip() if len(parts) > 2 else "?"
     except Exception:  # noqa: BLE001 - best effort
         pass
+    try:
+        out = subprocess.run(
+            ["nvidia-smi", "--query-gpu=name,memory.total", "--format=csv,noheader"],
+            capture_output=True, text=True, timeout=30,
+        )
+        info["gpu"] = out.stdout.strip().splitlines() or None
+    except Exception:  # noqa: BLE001 - best effort
+        info["gpu"] = None
     return info
 
 
 VISION_IMAGE = Path("C:/Users/pontu/.fieldrook-tmp/m17dialog.png")
+VISION_OVERRIDE: Path | None = None
 
 
-def run_model(model: str, tasks: list[str], cold: bool, timeout_scale: float = 1.0) -> dict:
+def run_model(
+    model: str,
+    tasks: list[str],
+    cold: bool,
+    timeout_scale: float = 1.0,
+    num_gpu: int | None = None,
+) -> dict:
     """Benchmark one model through the production task path."""
     import asyncio
     import threading
@@ -194,6 +226,7 @@ def run_model(model: str, tasks: list[str], cold: bool, timeout_scale: float = 1
         local_model_name=model,
         local_api="auto",
         local_think="auto",
+        local_num_gpu=num_gpu,
     )
     provider = LocalEndpointProvider(settings)
     if cold:
@@ -214,10 +247,11 @@ def run_model(model: str, tasks: list[str], cold: bool, timeout_scale: float = 1
             spec = TASKS[task]
         timeout = spec["timeout"] * timeout_scale
         images = None
-        if spec.get("image") and VISION_IMAGE.exists():
+        vision_file = VISION_OVERRIDE or VISION_IMAGE
+        if spec.get("image") and vision_file.exists():
             import base64 as _b64
 
-            images = [_b64.b64encode(VISION_IMAGE.read_bytes()).decode("ascii")]
+            images = [_b64.b64encode(vision_file.read_bytes()).decode("ascii")]
         cpu_samples: list[float] = []
         stop = threading.Event()
 
@@ -289,6 +323,8 @@ def run_model(model: str, tasks: list[str], cold: bool, timeout_scale: float = 1
             {"model": model, "task": task, "timeout_s": timeout,
              "wall_s": wall_s, "ok": parsed is not None and not gaps and not blind}
         )
+    results["processor"] = loaded_model_processor(model)
+    results["num_gpu"] = num_gpu
     return results
 
 
@@ -323,6 +359,8 @@ def main() -> int:
     parser.add_argument("--out", default=str(Path(__file__).resolve().parent / "results" / "local-bench"))
     parser.add_argument("--timeout-scale", type=float, default=1.0)
     parser.add_argument("--repeat", type=int, default=1, help="run the task list N times per model (variance)")
+    parser.add_argument("--num-gpu", type=int, default=None, help="force GPU layer count (0 = CPU-only)")
+    parser.add_argument("--vision-image", default=None, help="override the vision fixture image")
     args = parser.parse_args()
     models = list(args.models)
     if args.all:
@@ -333,6 +371,8 @@ def main() -> int:
     if not tasks:
         print("no valid tasks selected")
         return 2
+    if args.vision_image:
+        globals()["VISION_OVERRIDE"] = Path(args.vision_image)
     host = host_info()
     print(f"host: {host.get('cpu')} | RAM {host.get('ram_gb')}GB | {host.get('logical_cpus')} logical CPUs")
     all_results: list[dict] = []
@@ -341,7 +381,7 @@ def main() -> int:
         reps = max(1, args.repeat)
         for rep in range(reps):
             # Only the first pass can be cold; repeats measure warm variance.
-            result = run_model(model, tasks, args.cold and rep == 0, args.timeout_scale)
+            result = run_model(model, tasks, args.cold and rep == 0, args.timeout_scale, args.num_gpu)
             result["rep"] = rep + 1
             all_results.append(result)
             if reps > 1:

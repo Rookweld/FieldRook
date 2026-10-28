@@ -473,6 +473,7 @@ async def _run_local_tasks(
     provider: ModelProvider,
     settings: Settings,
     is_followup: bool,
+    use_fixtures: bool | None = None,
 ) -> None:
     """M017 local task pipeline: triage/reassess then plan, then assemble.
 
@@ -481,6 +482,11 @@ async def _run_local_tasks(
     into one assessment; every warning says which part failed so the UI can
     label deterministic remainder honestly. Cancellation is honored between
     task calls.
+
+    M018: when the diagnostic target is the FieldRook host, bounded
+    read-only host diagnostics run first (same symptom triage as simulated
+    mode), so the model reasons over measurements instead of nothing.
+    Remote targets still collect zero host evidence.
     """
     from .local_tasks import (
         assemble_assessment,
@@ -504,6 +510,25 @@ async def _run_local_tasks(
             "for a better assessment."
         )
         state.add_activity("note", "Screenshot withheld (no vision)", "Continuing text-only.")
+    if (state.target or "local").strip().lower() == "local":
+        already_ran = {record.tool_name for record in state.activity if record.tool_name}
+        if is_followup and state.messages:
+            last_user = next(
+                (m.get("content", "") for m in reversed(state.messages) if m.get("role") == "user"),
+                state.problem,
+            )
+        else:
+            last_user = state.problem
+        plan = _simulated_plan(last_user, state.service_name, already_ran)
+        if plan:
+            state.add_activity(
+                "plan", "Local evidence sweep",
+                f"Running {len(plan)} read-only tools for local-target reasoning: "
+                + ", ".join(name for name, _ in plan),
+            )
+            await _run_tool_plan(
+                state, ToolContext(settings=settings, use_fixtures=use_fixtures), plan, "Local sweep"
+            )
     if _cancel_requested(state):
         _clear_cancel(state)
         state.warnings.append("Round cancelled by the technician before any model call.")
@@ -521,8 +546,9 @@ async def _run_local_tasks(
                 observation = str(message["content"])
                 break
         titles = [h.title for h in state.hypotheses if h.status == "active"]
+        asked = [q.question for q in state.questions[-6:]]
         reassess, task_warnings = await run_task(
-            "reassess", reassess_prompt(titles, observation)
+            "reassess", reassess_prompt(titles, observation, asked)
         )
         state.warnings.extend(task_warnings)
         state.add_activity(
@@ -970,6 +996,41 @@ def _simulated_branch(lowered: str, service_name: str | None, already_ran: set[s
     return plan[:3]
 
 
+async def _run_tool_plan(
+    state: InvestigationState,
+    ctx: ToolContext,
+    plan: list[tuple[str, dict]],
+    label: str,
+) -> None:
+    """Execute a bounded read-only tool plan, recording evidence + activity.
+
+    Shared by the simulated path and the local-model path (M018): a local
+    model reasoning about the FieldRook host must see host measurements,
+    not an empty evidence list. Budgets and already-ran reuse are enforced
+    by the caller-supplied plan plus the global tool-call cap.
+    """
+    for name, args_dict in plan:
+        if state.tool_calls_made >= MAX_TOOL_CALLS:
+            break
+        spec, args = prepare_call(name, args_dict)
+        state.add_activity("tool_request", f"{label}: {name}", "", tool_name=name)
+        output, duration_ms = await execute_prepared(spec, args, ctx)
+        state.tool_calls_made += 1
+        item = state.add_evidence(
+            category=spec.category,
+            source=f"tool:{name}:{output.source}",
+            data={"summary": output.summary, "warnings": output.warnings, **output.data} if output.error is None else {"summary": output.summary, "warnings": output.warnings},
+            error=output.error,
+            tool_name=name,
+            tool_args=args.model_dump(mode="json"),
+        )
+        state.add_activity(
+            "tool_result", f"{name} completed in {duration_ms}ms", output.summary,
+            tool_name=name, duration_ms=duration_ms, evidence_ids=[item.id],
+        )
+        state.add_activity("evidence", f"Evidence {item.id} collected", output.summary, tool_name=name, evidence_ids=[item.id])
+
+
 async def _run_simulated(
     state: InvestigationState,
     settings: Settings,
@@ -995,26 +1056,7 @@ async def _run_simulated(
         state.add_activity("note", "Reused existing evidence", f"No new diagnostics needed; {len(state.evidence)} evidence items already collected.")
     else:
         state.add_activity("plan", "Simulated investigation plan", f"Running {len(plan)} fixture tools: " + ", ".join(name for name, _ in plan))
-    for name, args_dict in plan:
-        if state.tool_calls_made >= MAX_TOOL_CALLS:
-            break
-        spec, args = prepare_call(name, args_dict)
-        state.add_activity("tool_request", f"Simulated run: {name}", "", tool_name=name)
-        output, duration_ms = await execute_prepared(spec, args, ctx)
-        state.tool_calls_made += 1
-        item = state.add_evidence(
-            category=spec.category,
-            source=f"tool:{name}:{output.source}",
-            data={"summary": output.summary, "warnings": output.warnings, **output.data} if output.error is None else {"summary": output.summary, "warnings": output.warnings},
-            error=output.error,
-            tool_name=name,
-            tool_args=args.model_dump(mode="json"),
-        )
-        state.add_activity(
-            "tool_result", f"{name} completed in {duration_ms}ms", output.summary,
-            tool_name=name, duration_ms=duration_ms, evidence_ids=[item.id],
-        )
-        state.add_activity("evidence", f"Evidence {item.id} collected", output.summary, tool_name=name, evidence_ids=[item.id])
+    await _run_tool_plan(state, ctx, plan, "Simulated run")
     state.assessment = fx.build_simulated_investigation_analysis(
         state.problem, state.evidence, state.target
     )
@@ -1095,7 +1137,7 @@ async def run_rounds(
         await _run_simulated(state, settings, use_fixtures, is_followup)
         maybe_create_proposal(state, live_check=False)
     elif getattr(provider, "name", "") == "local":
-        await _run_local_tasks(state, provider, settings, is_followup)
+        await _run_local_tasks(state, provider, settings, is_followup, use_fixtures)
         maybe_create_proposal(state, live_check=True)
     else:
         await _run_live(state, provider, settings, use_fixtures, max_new_calls)
