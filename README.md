@@ -66,8 +66,11 @@ Constrained execution -> fresh independent health check -> incident report
 - **Evidence:** inspect category-specific visual diagnostics (services, network, crashes, event logs, tasks) with provenance and warnings; raw JSON stays one click away; re-check any reading without losing history.
 - **Resolve:** prepare measurable repair plans, require explicit technician approval for registered actions, then independently check the outcome. Only the application-owned demo worker has an implemented corrective action.
 - **Remember:** reopen investigations, add technician notes, and compare them with previously saved resolutions (no automatic reuse of old fixes).
+- **Collect (FORGE):** run the portable collector on the affected computer and import its versioned, hash-verified package as cited evidence — no host measurements are ever substituted for another machine.
+- **Consult (FORGE):** matched technical references appear as quoted, display-only excerpts beside the evidence; turns receive the same excerpts as quoted context, never as instructions.
+- **Workstation (FORGE):** one workspace above the Guide/Findings/Evidence/Resolve views — what is happening, what was discovered, what is next, and one contextual respond dock.
 
-**Current stage:** M019 technician loop. One technician interaction now costs one model decision (~4.7x fewer calls than M018 with no quality regression on the blind challenge or 6 unseen held-out cases): better scoping questions with a real lifecycle, a current-focus Guide, a 6-tier manual-guidance safety filter, mid-flight cancel, and placement-verified CPU profiles that honestly report the interactivity gap — see the [M019 report](backend/eval/challenge/REPORT_M019.md), the [technician-loop demo](docs/assets/fieldrook-m019-tour.webm), the [provider guide](docs/PROVIDERS.md), and the [M018 challenge report](backend/eval/challenge/REPORT_M018.md). Backend behavior is unchanged since the M011 live pilot except the M018 evidence sweep for local targets: nine genuine Windows/live-model operations with valid evidence references, plus the fixture-based [gauntlet report](backend/eval/REPORT.md). See the [first-run guide](docs/FIRST_RUN.md), [manual acceptance checklist](docs/ACCEPTANCE.md), and [full milestone log](HACKATHON.md).
+**Current stage:** FORGE checkpoints M020–M023 on `forge/integration` (collector foundation, diagnostic expansion, knowledge-backed turns, unified workstation), built on the M019 technician loop. One technician interaction now costs one model decision (~4.7x fewer calls than M018 with no quality regression on the blind challenge or 6 unseen held-out cases): better scoping questions with a real lifecycle, a current-focus Guide, a 6-tier manual-guidance safety filter, mid-flight cancel, and placement-verified CPU profiles that honestly report the interactivity gap — see the [M019 report](backend/eval/challenge/REPORT_M019.md), the [technician-loop demo](docs/assets/fieldrook-m019-tour.webm), the [provider guide](docs/PROVIDERS.md), and the [M018 challenge report](backend/eval/challenge/REPORT_M018.md). Backend behavior is unchanged since the M011 live pilot except the M018 evidence sweep for local targets: nine genuine Windows/live-model operations with valid evidence references, plus the fixture-based [gauntlet report](backend/eval/REPORT.md). See the [first-run guide](docs/FIRST_RUN.md), [manual acceptance checklist](docs/ACCEPTANCE.md), and [full milestone log](HACKATHON.md).
 
 ![FieldRook Guide leading with one current question](docs/assets/fieldrook-m019-guide-focus.png)
 
@@ -79,6 +82,10 @@ Constrained execution -> fresh independent health check -> incident report
 ![FieldRook evidence view](docs/assets/fieldrook-m015-evidence-service.png)
 
 ![FieldRook resolve view](docs/assets/fieldrook-m015-resolve.png)
+
+![FORGE workstation with reference citations](docs/assets/fieldrook-forge-citations.png)
+
+![FORGE collector import joining the evidence](docs/assets/fieldrook-forge-import.png)
 
 </details>
 

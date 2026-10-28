@@ -135,3 +135,21 @@ Cut from `forge/integration`; no push (awaiting authorization).
 - Spec: contextual twin test + 390px no-overflow test (9 forge E2E).
 - Intake collector card verified coherent (no change needed).
 - Gates: E2E 41/41, tsc + build clean (backend 578 unchanged).
+
+## M024 checkpoint (product validation & distribution)
+
+- `start-fieldrook.bat`: one-command Windows starter (backend :8000 +
+  frontend :5173, localhost only, preflight checks). Mechanics
+  execution-validated via a test-port copy (:8123/:4173 both HTTP
+  200, PID-verified stopped); the shipping file itself was NOT run
+  because the operator's live stack holds :8000/:5173.
+- `docs/FORGE_PRIVACY.md`: evidence-based review (binds, consent,
+  redaction, untrusted-import handling, quoted-only excerpts,
+  citation validation, secrets hygiene) + residual risks.
+- README: FORGE capabilities, checkpoint stage line, 2 screenshots.
+- Final gates: backend 578, E2E 41/41, gauntlet 37/37 exit 0,
+  tsc + build clean, secret scan clean.
+- Program total: 84 files, +11098/-42 vs master. No push.
+- NOT re-run: full blind challenge on FORGE turns (budget); M019
+  challenge numbers stand; knowledge context is additive quoted
+  text with byte-identical defaults when absent.
