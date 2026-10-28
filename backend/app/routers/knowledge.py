@@ -8,6 +8,7 @@ follow-up, which carries a short templated prompt, never the library.
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
@@ -216,6 +217,12 @@ def knowledge_references(
         terms.append(ev.category)
         if ev.tool_name:
             terms.append(ev.tool_name)
+    # Same split as loop.reference_excerpts_for: corpus prose holds
+    # 'dns', not 'dns_config'.
+    split_terms: list[str] = []
+    for term in terms:
+        split_terms.extend(part for part in re.split(r"[^a-z0-9]+", term.lower()) if len(part) >= 3)
+    terms = sorted(set(terms + split_terms))[:40]
     passages = refsvc.match_references(state.problem, state.service_name, terms, limit)
     return {
         "passages": [p.model_dump() for p in passages],

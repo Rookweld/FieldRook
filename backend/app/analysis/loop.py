@@ -141,6 +141,56 @@ HOST_MEASUREMENT_TOOLS = frozenset(
 )
 
 
+def reference_excerpts_for(
+    problem: str,
+    service_name: str | None = None,
+    evidence: list[Any] | None = None,
+    limit: int = 3,
+) -> list[dict[str, Any]]:
+    """M022: fresh reference excerpts for one turn; fail-closed [].
+
+    Retrieval is deterministic and cheap (gated local corpus), so turns
+    compute it fresh instead of persisting excerpts on the state. Spans
+    arrive pre-redacted from match_references; callers must still quote
+    them (build_knowledge_context), never promote them to instructions.
+    """
+    try:
+        # Local import: app.knowledge.__init__ -> service -> loop is a
+        # module-level cycle; deferred to call time it is always safe.
+        from ..knowledge.reference_service import match_references
+
+        terms: list[str] = []
+        for item in evidence or []:
+            if isinstance(item, dict):
+                category = item.get("category")
+                tool = item.get("tool_name")
+            else:
+                category = getattr(item, "category", None)
+                tool = getattr(item, "tool_name", None)
+            if isinstance(category, str) and category.strip():
+                terms.append(category.strip())
+            if isinstance(tool, str) and tool.strip():
+                terms.append(tool.strip())
+        # Corpus prose holds 'dns', not 'dns_config': split snake_case
+        # so evidence terms can actually match (deduped, bounded).
+        split_terms: list[str] = []
+        for term in terms:
+            split_terms.extend(part for part in re.split(r"[^a-z0-9]+", term.lower()) if len(part) >= 3)
+        terms = sorted(set(terms + split_terms))[:40]
+        passages = match_references(problem or "", service_name, terms or None, limit)
+        return [
+            {
+                "doc_id": passage.doc_id,
+                "title": passage.title,
+                "path": passage.path,
+                "anchor": passage.anchor,
+                "span": passage.span,
+            }
+            for passage in passages
+        ]
+    except Exception:
+        return []
+
 def build_investigation_messages(
     problem: str,
     service_name: str | None,
@@ -569,6 +619,14 @@ async def _run_local_tasks(
     plan: dict[str, Any] | None = None
     reassess: dict[str, Any] | None = None
     digest = evidence_digest([item.model_dump() for item in state.evidence])
+    # M022: one fresh retrieval per local round; quoted context only.
+    try:
+        _excerpts = reference_excerpts_for(
+            state.problem, getattr(state, "service_name", None), state.evidence
+        )
+        _k_context = build_knowledge_context(_excerpts, max_chars=MAX_HISTORY_CHARS)
+    except Exception:
+        _k_context = ""
     if is_followup and state.hypotheses:
         observation = ""
         for message in reversed(state.messages):
@@ -596,7 +654,7 @@ async def _run_local_tasks(
             _forge_kq = []
         reassess, task_warnings = await run_task(
             "reassess",
-            reassess_prompt(titles, observation, asked, thin_streak=thin, collector_capabilities=_forge_caps or None, knowledge_questions=_forge_kq or None),
+            reassess_prompt(titles, observation, asked, thin_streak=thin, collector_capabilities=_forge_caps or None, knowledge_questions=_forge_kq or None, knowledge_context=_k_context or None),
             cancel_scope=_scope_of(state),
         )
         state.warnings.extend(task_warnings)
@@ -607,7 +665,7 @@ async def _run_local_tasks(
     else:
         triage, task_warnings = await run_task(
             "triage",
-            triage_prompt(state.problem, digest, state.target)
+            triage_prompt(state.problem, digest, state.target, knowledge_context=_k_context or None)
             + (" A screenshot is attached; say what it shows." if images else ""),
             images=images or None,
             cancel_scope=_scope_of(state),
@@ -1217,6 +1275,20 @@ async def run_rounds(
             )
             if _re_block:
                 _re_note += f"\n{_re_block}"
+            # M022: fresh reference excerpts ride the same arrival note,
+            # once per conversation (skip when an earlier turn sent them).
+            try:
+                _k_terms = reference_excerpts_for(
+                    state.problem, getattr(state, "service_name", None), state.evidence
+                )
+                _k_block = build_knowledge_context(_k_terms, max_chars=MAX_HISTORY_CHARS)
+            except Exception:
+                _k_block = ""
+            if _k_block and not any(
+                m.get("role") == "user" and "Reference excerpts" in str(m.get("content", ""))
+                for m in state.messages
+            ):
+                _re_note += f"\n{_k_block}"
             state.messages.append({"role": "user", "content": _re_note})
             state.add_activity(
                 "note",

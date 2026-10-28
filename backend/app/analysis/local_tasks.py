@@ -50,7 +50,12 @@ VISION_PROMPT = (
 )
 
 
-def triage_prompt(problem: str, evidence_digest: str, target: str) -> str:
+def triage_prompt(
+    problem: str,
+    evidence_digest: str,
+    target: str,
+    knowledge_context: str | None = None,
+) -> str:
     evidence = evidence_digest.strip() or "No diagnostic evidence collected yet."
     scope = (
         "The affected machine is a different computer: host measurements do not "
@@ -58,7 +63,7 @@ def triage_prompt(problem: str, evidence_digest: str, target: str) -> str:
         if target != "local"
         else "Reason from the report and evidence below."
     )
-    return (
+    prompt = (
         "You are FieldRook, a Windows troubleshooting assistant. Reply with ONLY "
         "this JSON object, no other text: {\"question\": \"<one clarifying question>\", "
         "\"why\": \"<why the answer changes the diagnosis>\", \"hypotheses\": "
@@ -75,6 +80,9 @@ def triage_prompt(problem: str, evidence_digest: str, target: str) -> str:
         "safe read-only check could settle belongs in next_check instead. "
         f"{scope} Problem: {problem.strip()[:800]} Evidence: {evidence[:1500]}"
     )
+    if knowledge_context and knowledge_context.strip():
+        prompt = prompt + "\n\n" + knowledge_context.strip()[:6000]
+    return prompt
 
 
 def plan_prompt(problem: str, context: str, target: str) -> str:
@@ -100,6 +108,7 @@ def reassess_prompt(
     thin_streak: int = 0,
     collector_capabilities: list[str] | None = None,
     knowledge_questions: list[str] | None = None,
+    knowledge_context: str | None = None,
 ) -> str:
     titles = "; ".join(t for t in hypothesis_titles if t)[:600] or "none tracked yet"
     # FORGE DELTA (c): collector capabilities + open knowledge questions ride
@@ -117,7 +126,7 @@ def reassess_prompt(
         if asked
         else ""
     )
-    return (
+    prompt = (
         "You are FieldRook, a Windows troubleshooting assistant. Reply with ONLY "
         "this JSON object, no other text: {\"verdict\": \"<one sentence: what the new "
         "observation means>\", \"weakened\": [\"<hypothesis titles now less likely>\"], "
@@ -136,6 +145,9 @@ def reassess_prompt(
         + f"Open hypotheses: [{titles}]. New technician observation: {observation.strip()[:800]}"
         f"{no_repeat}{_forge_extra}"
     )
+    if knowledge_context and knowledge_context.strip():
+        prompt = prompt + "\n\n" + knowledge_context.strip()[:6000]
+    return prompt
 
 
 def synthesize_prompt(problem: str, evidence_digest: str, target: str) -> str:

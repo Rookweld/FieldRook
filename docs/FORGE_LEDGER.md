@@ -97,3 +97,26 @@ Cut from `forge/integration`; no push (awaiting authorization).
 - Closed Phase A read gaps: windows_net.py:1-129,
   windows_tasks.py:130-319 (allowlisted scripts, sanitized shaping).
 - Gates: backend 571, E2E 39/39, gauntlet 37/37, build clean.
+
+## M022 checkpoint (knowledge-backed investigation)
+
+- Found the DELTA seam half-dead: build_investigation_messages took
+  knowledge_excerpts but no caller passed any; state had no excerpt
+  fields. Collector arrival notes worked; reference context never did.
+- Fix: reference_excerpts_for() fresh per turn (fail-closed), wired
+  into initial cloud turn, collector-arrival re-injection (once per
+  conversation), and local triage/reassess prompts (optional param,
+  byte-identical default). Quoted user-message blocks only; system
+  prompt never sees excerpt text (pinned by test).
+- Retrieval gap fixed: evidence terms kept snake_case whole
+  ('dns_config' vs corpus 'dns'), so terms never matched. Split to
+  sub-tokens in helper + references endpoint; printer case 0->3.
+- Cycle dodge: module-level knowledge import in loop.py cycles via
+  knowledge/__init__ -> service -> loop; deferred to call time.
+- Live proof: 1 production-path triage call to qwen3:4b (loopback,
+  think off) with 3 excerpts -> valid JSON, zero warnings,
+  discriminating DNS-server question. Citation integrity enforced by
+  existing validator (_known_only drops fabricated ids).
+- Note: evidence terms (W_EVIDENCE=2) can outrank problem match;
+  GAMMA owns weight tuning, unchanged here.
+- Gates: backend 578, E2E 39/39, gauntlet 37/37, build clean.

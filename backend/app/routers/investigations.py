@@ -13,6 +13,7 @@ from ..analysis.loop import (
     MAX_TOOL_CALLS,
     affected_cause_titles,
     build_investigation_messages,
+    reference_excerpts_for,
     run_rounds,
 )
 from ..analysis.refresh import compare_readings
@@ -175,9 +176,12 @@ async def start_investigation(
         screenshot_evidence_id = shot.id
         state.add_activity("note", "Screenshot attached", f"Recorded as {shot.id}; processed {location} with consent, not stored.", evidence_ids=[shot.id])
         state.warnings.append(f"Screenshot shared with your consent ({location}); FieldRook does not store it.")
+    # M022: initial turn carries fresh reference excerpts (quoted context).
     state.messages = build_investigation_messages(
         problem.strip(), validated_service, image_b64, image_mime,
         screenshot_evidence_id, normalized_target,
+        evidence=[shot] if screenshot_evidence_id else None,
+        knowledge_excerpts=reference_excerpts_for(problem.strip(), validated_service) or None,
     )
     await run_rounds(state, settings, use_fixtures)
     uses_fixtures = settings.fixtures_mode == "always" or use_fixtures is True or state.mode == "simulated"
