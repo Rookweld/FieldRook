@@ -14,6 +14,7 @@ import type {
   ToolInfo,
   TurnKind,
 } from "./types";
+import type { ReferenceCitation, ReferencePassage } from "./forge/types";
 
 export class ApiError extends Error {
   status: number;
@@ -408,6 +409,31 @@ export function fetchKnowledgeMatches(
 ): Promise<{ matches: KnowledgeMatch[] }> {
   return request<{ matches: KnowledgeMatch[] }>(
     `/api/investigations/${encodeURIComponent(investigationId)}/knowledge/matches?limit=${limit}`,
+  );
+}
+
+export interface ReferenceBundle {
+  passages: ReferencePassage[];
+  citations: ReferenceCitation[];
+  message: string;
+}
+
+export function fetchReferencePassages(
+  investigationId: string,
+  limit = 5,
+): Promise<ReferenceBundle> {
+  return request<ReferenceBundle>(
+    `/api/investigations/${encodeURIComponent(investigationId)}/knowledge/references?limit=${limit}`,
+  );
+}
+
+export function uploadCollectorPackage(
+  id: string,
+  form: FormData,
+): Promise<InvestigationResponse> {
+  return requestInvestigation(
+    `/api/investigations/${encodeURIComponent(id)}/import-collector`,
+    { method: "POST", body: form },
   );
 }
 

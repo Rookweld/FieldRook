@@ -30,7 +30,7 @@ test("guided remote investigation answers questions and works the plan", async (
 
   // Report an observation through the turn composer.
   await page.locator("#turn-input").fill("Local files open fine; only Teams files fail.");
-  await page.getByRole("button", { name: "Send to FieldRook" }).click();
+  await page.locator(".view-panel").getByRole("button", { name: "Send to FieldRook" }).click();
   await expect(page.getByText("Recommended next step")).toBeVisible({ timeout: 30000 });
 
   // Record an outcome on the current plan step.
@@ -122,10 +122,10 @@ test("turn shows elapsed time and offers cancellation", async ({ page }) => {
     await route.continue();
   });
   await page.locator("#turn-input").fill("Still failing after a reboot.");
-  await page.getByRole("button", { name: "Send to FieldRook" }).click();
-  await expect(page.getByRole("button", { name: "Cancel this round" })).toBeVisible();
-  await expect(page.getByText(/elapsed \ds/i)).toBeVisible();
-  await page.getByRole("button", { name: "Cancel this round" }).click();
+  await page.locator(".view-panel").getByRole("button", { name: "Send to FieldRook" }).click();
+  await expect(page.locator(".view-panel").getByRole("button", { name: "Cancel this round" })).toBeVisible();
+  await expect(page.locator(".view-panel").getByText(/elapsed \ds/i)).toBeVisible();
+  await page.locator(".view-panel").getByRole("button", { name: "Cancel this round" }).click();
   // The button flips only after the cancel endpoint accepts the request.
   await expect(page.getByRole("button", { name: "Cancellation requested" })).toBeVisible();
   await expect(page.getByText("Recommended next step")).toBeVisible({ timeout: 30000 });

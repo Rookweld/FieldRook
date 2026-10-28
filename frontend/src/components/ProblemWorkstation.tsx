@@ -3,10 +3,12 @@ import {
   ApiError,
   addInvestigationNote,
   followUpInvestigation,
+  fetchReferencePassages,
   listProviders,
   listServices,
   reverifyEvidence,
   startInvestigation,
+  uploadCollectorPackage,
 } from "../api";
 import type {
   DiagnosisTarget,
@@ -31,6 +33,18 @@ import {
 import { ProgressPanel } from "./ProgressPanel";
 import { RefreshPanel } from "./RefreshPanel";
 import { Timeline } from "./Timeline";
+import {
+  CollectorImportCard,
+  IntakeCollectorCard,
+  WorkspaceShell,
+} from "../forge";
+import type {
+  ForgeActionHandler,
+  ForgeActionName,
+  ForgeNavigateTarget,
+  ReferenceCitation,
+  ReferencePassage,
+} from "../forge";
 
 const MAX_FILE_BYTES = 5 * 1024 * 1024;
 
@@ -145,6 +159,9 @@ export function ProblemWorkstation({
     initial ?? null,
   );
   const [view, setView] = useState<InvestigationView>("findings");
+  const [pendingPackage, setPendingPackage] = useState<FormData | null>(null);
+  const [references, setReferences] = useState<ReferencePassage[]>([]);
+  const [citations, setCitations] = useState<ReferenceCitation[]>([]);
 
   // Drives the per-view ambient tint on the environment. Purely
   // decorative; App.tsx owns the attribute for non-problem tabs.
@@ -163,6 +180,7 @@ export function ProblemWorkstation({
       setSelectedEvidence(null);
       setError(null);
       setView("findings");
+      setPendingPackage(null);
     }
   }, [initial]);
   const [followup, setFollowup] = useState<string>("");
@@ -220,6 +238,30 @@ export function ProblemWorkstation({
     return () => clearTimeout(timer);
   }, [pendingScroll, view]);
 
+  // Advisory reference strip: quoted excerpts, never a diagnosis.
+  useEffect(() => {
+    if (!investigation) {
+      setReferences([]);
+      setCitations([]);
+      return;
+    }
+    let cancelled = false;
+    fetchReferencePassages(investigation.investigation_id).then(
+      (bundle) => {
+        if (!cancelled) {
+          setReferences(bundle.passages);
+          setCitations(bundle.citations);
+        }
+      },
+      () => {
+        /* references are advisory; the workspace works without them */
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [investigation?.investigation_id, investigation?.evidence.length]);
+
   const clearFile = useCallback(() => {
     if (previewUrl) URL.revokeObjectURL(previewUrl);
     setFile(null);
@@ -268,7 +310,24 @@ export function ProblemWorkstation({
         target,
         provider,
       });
-      setInvestigation(result);
+      let current = result;
+      if (pendingPackage) {
+        try {
+          current = await uploadCollectorPackage(
+            result.investigation_id,
+            pendingPackage,
+          );
+        } catch (e) {
+          if (e instanceof ApiError) {
+            setError(`Collector import failed (HTTP ${e.status}): ${e.message}`);
+          } else {
+            setError(e instanceof Error ? e.message : String(e));
+          }
+        } finally {
+          setPendingPackage(null);
+        }
+      }
+      setInvestigation(current);
       setView("findings");
     } catch (e) {
       if (e instanceof ApiError) {
@@ -279,7 +338,7 @@ export function ProblemWorkstation({
     } finally {
       setBusy(null);
     }
-  }, [problem, serviceName, file, consent, useFixtures, target, provider, busy]);
+  }, [problem, serviceName, file, consent, useFixtures, target, provider, busy, pendingPackage]);
 
   const sendFollowup = useCallback(async (): Promise<void> => {
     if (!investigation || !followup.trim() || busy) return;
@@ -361,11 +420,34 @@ export function ProblemWorkstation({
     if (action.focusId) setPendingFocus(action.focusId);
   }, []);
 
+  const forgeAction: ForgeActionHandler = useCallback(
+    (name: ForgeActionName, payload: ForgeNavigateTarget | FormData) => {
+      if (name === "navigate") {
+        const target = payload as ForgeNavigateTarget;
+        runNextAction({ label: target.label, view: target.view, focusId: target.focusId });
+        return;
+      }
+      if (!investigation) return;
+      const form = payload as FormData;
+      const id = investigation.investigation_id;
+      setError(null);
+      uploadCollectorPackage(id, form).then(setInvestigation, (e: unknown) => {
+        if (e instanceof ApiError) {
+          setError(`Import failed (HTTP ${e.status}): ${e.message}`);
+        } else {
+          setError(e instanceof Error ? e.message : String(e));
+        }
+      });
+    },
+    [investigation, runNextAction],
+  );
+
   const startNew = useCallback(() => {
     setInvestigation(null);
     setSelectedEvidence(null);
     setError(null);
     setView("findings");
+    setPendingPackage(null);
   }, []);
 
   return (
@@ -471,6 +553,14 @@ export function ProblemWorkstation({
               </div>
             )}
           </div>
+          <IntakeCollectorCard
+            onImport={(form) => setPendingPackage(form)}
+            onError={setError}
+            disabled={busy !== null}
+          />
+          {pendingPackage && !file && (
+            <p className="muted">Package attached — it joins the evidence once analysis starts.</p>
+          )}
           {file && (
             <>
               <label className="check">
@@ -610,6 +700,24 @@ export function ProblemWorkstation({
               })()}
             </button>
           </nav>
+
+          <WorkspaceShell
+            investigation={investigation}
+            onUpdate={setInvestigation}
+            onEvidenceClick={setSelectedEvidence}
+            onAction={forgeAction}
+            onView={(v) => setView(v)}
+            onError={setError}
+            disabled={busy !== null}
+            references={references}
+            citations={citations}
+          />
+          <CollectorImportCard
+            investigationId={investigation.investigation_id}
+            onAction={forgeAction}
+            onError={setError}
+            disabled={busy !== null}
+          />
 
           {view === "guide" && (
             <div className="view-panel">

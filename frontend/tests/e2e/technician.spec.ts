@@ -50,16 +50,16 @@ test("technician note saves and survives reopen", async ({ page }) => {
 
   const noteText = `E2E note ${Date.now()}: user confirmed the dialog text.`;
   await page.getByPlaceholder(/user showed the error dialog/i).fill(noteText);
-  await page.getByRole("button", { name: "Save note" }).click();
-  const savedNote = page.locator("ul.notes").getByText(noteText);
+  await page.locator(".view-panel section.card", { has: page.locator("ul.notes") }).getByRole("button", { name: "Save note" }).click();
+  const savedNote = page.locator(".view-panel ul.notes").getByText(noteText);
   await expect(savedNote).toBeVisible({ timeout: 15000 });
 
   // Reopen from history: the note persisted server-side.
-  await page.getByRole("button", { name: "History" }).click();
+  await page.getByRole("button", { name: "History", exact: true }).click();
   await expect(page.getByText(probe).first()).toBeVisible({ timeout: 15000 });
   await page.getByText(probe).first().click();
   await page.getByRole("tab", { name: /Evidence/ }).click();
   await expect(page.getByText("Diagnostic activity")).toBeVisible({ timeout: 15000 });
   await page.getByRole("tab", { name: "Findings" }).click();
-  await expect(page.locator("ul.notes").getByText(noteText)).toBeVisible({ timeout: 15000 });
+  await expect(page.locator(".view-panel ul.notes").getByText(noteText)).toBeVisible({ timeout: 15000 });
 });

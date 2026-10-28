@@ -10,7 +10,7 @@ test("history lists investigations with export links", async ({ page }) => {
   await page.getByRole("tab", { name: /Evidence/ }).click();
   await expect(page.getByText("Diagnostic activity")).toBeVisible({ timeout: 30000 });
 
-  await page.getByRole("button", { name: "History" }).click();
+  await page.getByRole("button", { name: "History", exact: true }).click();
   await expect(page.getByText(probe).first()).toBeVisible({ timeout: 15000 });
   const markdown = page.getByRole("link", { name: "Markdown" }).first();
   const json = page.getByRole("link", { name: "JSON" }).first();

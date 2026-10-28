@@ -12,14 +12,14 @@ test("guided resolution runs to an honest measured outcome", async ({ page }) =>
 
   await page.getByRole("tab", { name: "Resolve" }).click();
   await expect(page.getByRole("heading", { name: /Resolution workspace/ })).toBeVisible();
-  await page.getByRole("button", { name: "New resolution plan" }).click();
-  await page.getByRole("button", { name: "Use demo-worker recovery template" }).click();
+  await page.locator(".view-panel").getByRole("button", { name: "New resolution plan" }).click();
+  await page.locator(".view-panel").getByRole("button", { name: "Use demo-worker recovery template" }).click();
   // Template prefilled two measurable criteria.
   await expect(page.getByText("Criterion 2")).toBeVisible();
-  await page.getByRole("button", { name: "Create resolution plan" }).click();
+  await page.locator(".view-panel").getByRole("button", { name: "Create resolution plan" }).click();
   await expect(page.getByText("DRAFT", { exact: true }).first()).toBeVisible({ timeout: 15000 });
 
-  await page.getByRole("button", { name: "Capture pre-fix baseline" }).click();
+  await page.locator(".view-panel").getByRole("button", { name: "Capture pre-fix baseline" }).click();
   await expect(page.getByText("BASELINED", { exact: true }).first()).toBeVisible({ timeout: 15000 });
   // M010-7: the pre-fix baseline run is its own timeline round.
   await page.getByRole("tab", { name: /Evidence/ }).click();
@@ -28,12 +28,12 @@ test("guided resolution runs to an honest measured outcome", async ({ page }) =>
 
   // A manual claim alone proves nothing: no outcome yet.
   await page.getByPlaceholder(/What did you do by hand/).fill("Restarted the worker by hand.");
-  await page.getByRole("button", { name: "Record manual fix" }).click();
+  await page.locator(".view-panel").getByRole("button", { name: "Record manual fix" }).click();
   await expect(page.getByText("INTERVENED", { exact: true }).first()).toBeVisible({ timeout: 15000 });
   await expect(page.getByText("MANUAL CLAIM")).toBeVisible();
 
   // Fixtures still report failing: the honest outcome is NOT_RESOLVED.
-  await page.getByRole("button", { name: "Confirm Fix" }).click();
+  await page.locator(".view-panel").getByRole("button", { name: "Confirm Fix" }).click();
   await expect(page.getByText("NOT_RESOLVED", { exact: true }).first()).toBeVisible({ timeout: 15000 });
   // M010-2/3: the Findings header follows the plan outcome.
   await page.getByRole("tab", { name: "Findings" }).click();
@@ -56,12 +56,12 @@ test("resolution plan survives reopen from history", async ({ page }) => {
   await page.getByRole("tab", { name: "Resolve" }).click();
   await expect(page.getByRole("heading", { name: /Resolution workspace/ })).toBeVisible({ timeout: 30000 });
 
-  await page.getByRole("button", { name: "New resolution plan" }).click();
-  await page.getByRole("button", { name: "Use demo-worker recovery template" }).click();
-  await page.getByRole("button", { name: "Create resolution plan" }).click();
+  await page.locator(".view-panel").getByRole("button", { name: "New resolution plan" }).click();
+  await page.locator(".view-panel").getByRole("button", { name: "Use demo-worker recovery template" }).click();
+  await page.locator(".view-panel").getByRole("button", { name: "Create resolution plan" }).click();
   await expect(page.getByText("DRAFT", { exact: true }).first()).toBeVisible({ timeout: 15000 });
 
-  await page.getByRole("button", { name: "History" }).click();
+  await page.getByRole("button", { name: "History", exact: true }).click();
   await expect(page.getByText(probe).first()).toBeVisible({ timeout: 15000 });
   await page.getByText(probe).first().click();
   await page.getByRole("tab", { name: "Resolve" }).click();

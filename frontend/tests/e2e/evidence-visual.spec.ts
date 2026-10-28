@@ -60,12 +60,17 @@ test("crash evidence renders newest-first incident cards", async ({ page }) => {
 test("findings tell the story: observations, unknowns, coverage", async ({ page }) => {
   await investigate(page, "Is the Windows Update service healthy? It shows as stopped in services.msc.");
   await page.getByRole("tab", { name: "Findings" }).click();
-  await expect(page.getByText("Key observations")).toBeVisible();
-  await expect(page.getByText("Still unknown")).toBeVisible();
+  const story = page.locator(".view-panel");
+  await expect(story.getByText("Key observations")).toBeVisible();
+  await expect(story.getByText("Still unknown")).toBeVisible();
   await expect(page.getByText("Checked —")).toBeVisible();
-  // Observation chips open previews without losing context.
+  // Observation chips open previews without losing context. Settle the
+  // scroll position first: the workspace shell above the panel can leave
+  // the chip below the fold, and the click's own scroll is not the point.
+  const chip = page.locator(".view-panel .story-obs button.chip-button").first();
+  await chip.scrollIntoViewIfNeeded();
   const y0 = await page.evaluate(() => window.scrollY);
-  await page.locator(".story-obs button.chip-button").first().click();
+  await chip.click();
   await expect(page.getByText("Go to full evidence")).toBeVisible();
   const y1 = await page.evaluate(() => window.scrollY);
   expect(Math.abs(y1 - y0)).toBe(0);

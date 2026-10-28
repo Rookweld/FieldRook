@@ -16,7 +16,7 @@ from pydantic import BaseModel, Field
 from ..config import load_settings
 from ..investigations import persistence
 from ..investigations.store import store
-from ..knowledge import service as memory
+from ..knowledge import reference_service as refsvc, service as memory
 from ..knowledge.service import KnowledgeBudgetError, KnowledgeError
 from ..schemas import InvestigationResponse, KnowledgeEntry, KnowledgeMatch
 from .actions import require_local_origin
@@ -195,3 +195,30 @@ async def recheck_knowledge(investigation_id: str, entry_id: str) -> Investigati
     store.save(state)
     uses_fixtures = state.mode == "simulated"
     return state.to_response(uses_fixtures=uses_fixtures)
+
+@router.get(
+    "/api/investigations/{investigation_id}/knowledge/references",
+)
+def knowledge_references(
+    investigation_id: str, limit: int = Query(default=5, ge=1, le=20)
+) -> dict[str, Any]:
+    """Ranked reference excerpts for an investigation (FORGE 1D, read-only).
+
+    Case memory and reference docs never merge: this returns background
+    reading with citations, never KnowledgeMatch entries and never a
+    diagnosis. Text reaches the model only as quoted excerpts.
+    """
+    state = store.get(investigation_id)
+    if state is None:
+        raise HTTPException(status_code=404, detail=f"Unknown investigation {investigation_id!r}.")
+    terms: list[str] = []
+    for ev in state.evidence:
+        terms.append(ev.category)
+        if ev.tool_name:
+            terms.append(ev.tool_name)
+    passages = refsvc.match_references(state.problem, state.service_name, terms, limit)
+    return {
+        "passages": [p.model_dump() for p in passages],
+        "citations": [c.model_dump() for c in refsvc.build_citations(passages)],
+        "message": refsvc.build_technician_message(passages, state.problem),
+    }

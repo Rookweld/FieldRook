@@ -149,10 +149,11 @@ test("collector import validates, then posts FormData to the lead endpoint", asy
   expect(request.headers()["content-type"]).toMatch(/multipart\/form-data/);
 });
 
-test.fixme("reference citations render beside evidence when the corpus lands", async ({ page }) => {
-  // Requires lead ref endpoints + GAMMA corpus. Intended contract:
-  // citations passed to WorkspaceShell render KnowledgeCiteChips with
-  // quoted excerpts, display-only, beside the evidence chips.
-  await investigateFixture(page, "E2E forge probe: my VPN disconnects every 10 minutes.");
-  await expect(page.getByTestId("forge-citations")).toBeVisible();
+test("reference citations render beside evidence when the corpus matches", async ({ page }) => {
+  // Lead ref endpoints + GAMMA corpus landed: the DNS probe matches
+  // ref-dns-triage, so citations render KnowledgeCiteChips with quoted
+  // excerpts, display-only, beside the evidence chips.
+  await investigateFixture(page, "E2E forge probe: DNS does not resolve on this workstation.");
+  await expect(page.getByTestId("forge-citations")).toBeVisible({ timeout: 30000 });
+  await page.screenshot({ path: "test-results/shot-forge-citations.png" });
 });

@@ -262,3 +262,23 @@ def test_import_rejects_oversize_unchunked_entry(tmp_path: Path) -> None:
     assert response.status_code == 422
     assert "chunk" in response.json()["detail"].lower()
     assert client.get(f"/api/investigations/{inv_id}").json()["collector_packages"] == []
+
+
+def test_references_returns_passages_citations_message() -> None:
+    inv_id = _new_investigation("DNS resolution fails on workstation")
+    response = client.get(f"/api/investigations/{inv_id}/knowledge/references")
+    assert response.status_code == 200
+    body = response.json()
+    assert sorted(body.keys()) == ["citations", "message", "passages"]
+    assert len(body["passages"]) >= 1
+    assert body["passages"][0]["doc_id"] == "ref-dns-triage"
+    assert {c["doc_id"] for c in body["citations"]} <= {
+        p["doc_id"] for p in body["passages"]
+    }
+    assert all(c["kind"] == "reference" for c in body["citations"])
+    assert "not a diagnosis" in body["message"]
+
+
+def test_references_unknown_investigation_404() -> None:
+    response = client.get("/api/investigations/no-such-id/knowledge/references")
+    assert response.status_code == 404
