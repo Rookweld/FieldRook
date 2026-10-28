@@ -253,6 +253,23 @@ def _downgrade_for_target(step: SuggestedPlanStep, target: str) -> SuggestedPlan
     )
 
 
+def _forge_collector_rerequest(missing: str) -> tuple[str, str]:
+    """FORGE DELTA (d): TECHNICIAN_CHECK text naming the collector capability.
+
+    Generic (no scenario branches); merge_plan guidance-classifies the step.
+    """
+    try:
+        from .evidence_digest import format_collector_rerequest
+
+        return format_collector_rerequest(missing)
+    except Exception:
+        need = " ".join((missing or "").split())[:300] or "the missing observation"
+        return (
+            f"On the affected computer, use the FieldRook collector capability to collect '{need}' and re-import the package.",
+            "FieldRook cannot measure another computer itself; a fresh collector package is the only measured reading.",
+        )
+
+
 def _deterministic_steps(state: InvestigationState) -> list[SuggestedPlanStep]:
     """Simulated-mode plan from rechecks, contradictions, and open questions."""
     from ..analysis.contradictions import detect_contradictions
@@ -324,11 +341,14 @@ def _deterministic_steps(state: InvestigationState) -> list[SuggestedPlanStep]:
             )
         )
     if state.assessment is not None and not steps:
+        # FORGE DELTA (d): a missing observation for a remote target becomes
+        # a collector re-request (TECHNICIAN_CHECK, guidance-classified).
+        _forge_remote = (state.target or "local").strip().lower() != "local"
         for missing in state.assessment.missing_evidence[:2]:
             steps.append(
                 SuggestedPlanStep(
-                    instruction=f"Collect or describe: {missing}",
-                    why="This evidence would distinguish between the open hypotheses.",
+                    instruction=(_forge_collector_rerequest(str(missing))[0] if _forge_remote else f"Collect or describe: {missing}"),
+                    why=(_forge_collector_rerequest(str(missing))[1] if _forge_remote else "This evidence would distinguish between the open hypotheses."),
                     kind="TECHNICIAN_CHECK",
                 )
             )
