@@ -1,0 +1,70 @@
+{
+  "documents": [
+    {
+      "anchors": [
+        "launch-stages",
+        "next-evidence-to-collect",
+        "permission-and-path-checks",
+        "silent-exit-clues"
+      ],
+      "doc_id": "ref-app-launch",
+      "license": "forge-original",
+      "path": "reference/app-launch.md",
+      "sha256": "afbec146b8942c471b60d73b523459f3ee4cffcaf70c41ef7eced284de5cd5f8",
+      "title": "Application Launch Failures"
+    },
+    {
+      "anchors": [
+        "correlation-tips",
+        "event-log-fields",
+        "exception-codes",
+        "faulting-module-reading"
+      ],
+      "doc_id": "ref-crash-anatomy",
+      "license": "forge-original",
+      "path": "reference/crash-anatomy.md",
+      "sha256": "1b547aa080c912c023bc3fb1793cc0d357be36298e1df10a921a4bd4cd2d893e",
+      "title": "Crash Event Anatomy"
+    },
+    {
+      "anchors": [
+        "cache-and-server-checks",
+        "common-failure-patterns",
+        "isolation-steps",
+        "resolution-chain"
+      ],
+      "doc_id": "ref-dns-triage",
+      "license": "forge-original",
+      "path": "reference/dns-triage.md",
+      "sha256": "d6c8992e3018ace4d4fb8a69ae4cb805389800ffee95ce4fd825e3b382dfdf6e",
+      "title": "DNS Triage for Workstations"
+    },
+    {
+      "anchors": [
+        "common-misreadings",
+        "facility-and-severity-bits",
+        "hex-and-decimal-forms",
+        "lookup-workflow"
+      ],
+      "doc_id": "ref-error-codes",
+      "license": "forge-original",
+      "path": "reference/error-codes.md",
+      "sha256": "ce110c86319805b0ac89fd08ce9d0853e3412366283f55cb45ad07df815afb13",
+      "title": "Reading Windows Error Codes"
+    },
+    {
+      "anchors": [
+        "dependency-review",
+        "recovery-actions",
+        "safe-restart-sequence",
+        "service-states-and-startup-types"
+      ],
+      "doc_id": "ref-service-recovery",
+      "license": "forge-original",
+      "path": "reference/service-recovery.md",
+      "sha256": "11d5448d2b494cda7bf4dac36d44114b2cfc3bebb2326d1c6e4d6ebf8a4b5d0b",
+      "title": "Windows Service Recovery Checks"
+    }
+  ],
+  "schema_version": "1.0"
+}
