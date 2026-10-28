@@ -1,0 +1,293 @@
+/* =====================================================================
+   FORGE workstation skin — ROOKWELD cinematic language for the unified
+   technician workspace. Reuses the App.css tokens and primitives
+   (.card, .button, .badge, .chip, .muted, .warn); everything below is
+   additive under .forge-* so lead mounting cannot restyle existing views.
+   Keyboard: all interaction is native buttons/inputs; kind tabs add
+   arrow-key travel with a roving tabindex. Reduced motion honored.
+   ===================================================================== */
+
+.forge-shell {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.forge-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+}
+
+@media (max-width: 860px) {
+  .forge-cols {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Eyebrow-led headers with a forge-gold rule. */
+.forge-shell .card-head h2 {
+  border-left: 3px solid var(--gold);
+  padding-left: 0.6rem;
+}
+
+/* ---------- Happening now ---------- */
+
+.forge-context {
+  margin: 0.2rem 0 0.8rem;
+  font-size: 1.02rem;
+}
+
+.forge-now-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+}
+
+@media (max-width: 860px) {
+  .forge-now-cols {
+    grid-template-columns: 1fr;
+  }
+}
+
+.forge-now-cols .story-head {
+  margin-top: 0;
+}
+
+/* ---------- Discovered rail ---------- */
+
+.forge-coverage {
+  list-style: none;
+  margin: 0.4rem 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  align-items: center;
+}
+
+.forge-contra-list {
+  list-style: none;
+  margin: 0.4rem 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.forge-contra-list p {
+  margin: 0 0 0.3rem;
+}
+
+.forge-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: center;
+}
+
+/* ---------- Next-up queue ---------- */
+
+.forge-head {
+  border: 1px solid #2c4a5c;
+  border-radius: var(--radius-sm);
+  padding: 0.6rem 0.8rem;
+  background: rgba(111, 195, 232, 0.06);
+}
+
+.forge-head-label {
+  margin: 0.15rem 0 0.3rem;
+  font-weight: 650;
+  font-size: 1.05rem;
+}
+
+.forge-head .controls {
+  margin-bottom: 0;
+}
+
+.forge-queue-list {
+  list-style: none;
+  margin: 0.7rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  counter-reset: forge-q;
+}
+
+.forge-queue-list > li {
+  counter-increment: forge-q;
+}
+
+.forge-queue-row {
+  font: inherit;
+  color: var(--ink);
+  background: var(--panel-2);
+  border: 1px solid var(--panel-edge);
+  border-radius: var(--radius-sm);
+  padding: 0.45rem 0.7rem 0.45rem 2.4rem;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  position: relative;
+}
+
+.forge-queue-row::before {
+  content: counter(forge-q, decimal-leading-zero);
+  position: absolute;
+  left: 0.7rem;
+  top: 0.55rem;
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  color: var(--faint);
+}
+
+.forge-queue-row:hover {
+  border-color: var(--faint);
+}
+
+.forge-queue-kind {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+
+.forge-queue-detail {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---------- Respond dock ---------- */
+
+.forge-mode {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.forge-mode-active {
+  border-color: var(--gold);
+  color: var(--gold);
+}
+
+.forge-kindtabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0.2rem 0 0.4rem;
+}
+
+.forge-kindtab {
+  font: inherit;
+  font-size: 0.85rem;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid var(--panel-edge);
+  border-radius: var(--radius-sm);
+  padding: 0.35rem 0.8rem;
+  cursor: pointer;
+}
+
+.forge-kindtab:hover:not(:disabled) {
+  color: var(--ink);
+  border-color: var(--faint);
+}
+
+.forge-kindtab-active {
+  color: var(--cyan);
+  border-color: #2c4a5c;
+  background: rgba(111, 195, 232, 0.08);
+  font-weight: 600;
+}
+
+.forge-kindtab:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.forge-notes {
+  border-top: 1px solid var(--panel-edge);
+  margin-top: 0.8rem;
+  padding-top: 0.4rem;
+}
+
+/* ---------- Collector cards ---------- */
+
+.forge-collector .mono {
+  overflow-wrap: anywhere;
+}
+
+/* ---------- Reference citations ---------- */
+
+.forge-cite {
+  border-color: #4a3d22;
+  color: var(--amber);
+  max-width: 22rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+button.forge-cite:hover {
+  background: rgba(217, 164, 65, 0.12);
+}
+
+.forge-cite-tag {
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--faint);
+}
+
+.forge-cite-wrap {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  max-width: 100%;
+}
+
+.forge-cite-details > summary {
+  cursor: pointer;
+  color: var(--faint);
+  font-size: 0.8rem;
+}
+
+.forge-cite-details .quote {
+  margin: 0.3rem 0;
+  font-size: 0.85rem;
+}
+
+/* ---------- Focus + motion ---------- */
+
+.forge-shell a:focus-visible,
+.forge-shell button:focus-visible,
+.forge-shell input:focus-visible,
+.forge-shell select:focus-visible,
+.forge-shell textarea:focus-visible,
+.forge-shell summary:focus-visible,
+.forge-collector a:focus-visible,
+.forge-collector button:focus-visible,
+.forge-collector input:focus-visible,
+.forge-collector select:focus-visible,
+.forge-collector textarea:focus-visible,
+.forge-collector summary:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .forge-shell *,
+  .forge-shell *::before,
+  .forge-shell *::after,
+  .forge-collector *,
+  .forge-collector *::before,
+  .forge-collector *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
