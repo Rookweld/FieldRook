@@ -23,8 +23,12 @@ router = APIRouter(tags=["incidents"])
 @router.get("/api/status", response_model=StatusResponse)
 def get_status() -> StatusResponse:
     settings = load_settings()
-    _, mode = select_provider(settings)
-    model_name = settings.model_name if mode == "live" else SIMULATED_MODEL_NAME
+    try:
+        provider, mode = select_provider(settings)
+        model_name = provider.model_label()
+    except Exception:  # noqa: BLE001 - status must never fail
+        mode = "simulated"
+        model_name = SIMULATED_MODEL_NAME
     return StatusResponse(
         platform=sys.platform,
         live_diagnostics_available=powershell_available(),

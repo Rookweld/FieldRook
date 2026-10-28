@@ -14,14 +14,18 @@ from ..schemas import (
     ActionProposal,
     ActivityRecord,
     AnalysisResult,
+    ClarifyingQuestion,
     DiagnosticBundle,  # noqa: F401  (re-exported for convenience)
     EvidenceItem,
     EvidenceRefresh,
+    Hypothesis,
     InvestigationResponse,
     InvestigationSummary,
+    ProviderInfo,
     RegressionCheck,
     ResolutionPlan,
     TechnicianNote,
+    TroubleshootPlan,
 )
 
 
@@ -54,6 +58,16 @@ class InvestigationState:
     refreshes: list[EvidenceRefresh] = field(default_factory=list)
     plans: list[ResolutionPlan] = field(default_factory=list)
     regression_checks: list[RegressionCheck] = field(default_factory=list)
+    # M016 adaptive layer (persisted in the `assist` table, V6).
+    target: str = "local"
+    provider_override: str | None = None
+    hypotheses: list[Hypothesis] = field(default_factory=list)
+    plan: TroubleshootPlan | None = None
+    questions: list[ClarifyingQuestion] = field(default_factory=list)
+    understanding: str = ""
+    rounds_used: int = 0
+    blocked_reason: str | None = None
+    assist_counters: dict = field(default_factory=dict)
 
     def add_activity(
         self,
@@ -145,7 +159,35 @@ class InvestigationState:
         self.updated_at = _now()
         return note
 
+    def provider_info(self) -> ProviderInfo:
+        """Describe the effective inference provider (never fails)."""
+        try:
+            from ..analysis.provider import select_provider
+            from ..config import load_settings
+
+            provider, _ = select_provider(load_settings(), self.provider_override)
+            caps = provider.capabilities()
+            return ProviderInfo(
+                name=provider.name,
+                model=self.model or provider.model_label(),
+                processing_location=caps.processing_location,
+                vision=caps.vision,
+                tool_calling=caps.tool_calling,
+            )
+        except Exception:  # noqa: BLE001 - response shaping must not fail
+            # The selected provider is unusable (no key, offline, bad local
+            # URL): report the selection, not the fallback, so the UI shows
+            # what the technician chose. The round itself warns on fallback.
+            if self.provider_override:
+                name = self.provider_override
+                location = "local" if name == "local" else "cloud"
+                return ProviderInfo(name=name, model=self.model, processing_location=location)
+            if self.mode == "live":
+                return ProviderInfo(name="meta", model=self.model, processing_location="cloud")
+            return ProviderInfo(name="simulated", model=self.model, processing_location="none")
+
     def to_response(self, uses_fixtures: bool) -> InvestigationResponse:
+        from ..analysis.assist import compute_stage, latest_assistant_message
         from ..analysis.contradictions import detect_contradictions
         from ..analysis.loop import MAX_TOOL_CALLS
         from ..analysis.rechecks import suggest_rechecks
@@ -156,6 +198,14 @@ class InvestigationState:
             ttl_s = load_settings().evidence_ttl_s
         except Exception:  # noqa: BLE001 - response shaping must not fail
             ttl_s = 900.0
+        try:
+            stage = compute_stage(self)
+        except Exception:  # noqa: BLE001 - response shaping must not fail
+            stage = "INVESTIGATING"
+        try:
+            assistant_message = latest_assistant_message(self)
+        except Exception:  # noqa: BLE001 - response shaping must not fail
+            assistant_message = ""
         return InvestigationResponse(
             investigation_id=self.id,
             problem=self.problem,
@@ -180,6 +230,16 @@ class InvestigationState:
             suggested_rechecks=suggest_rechecks(self, ttl_s, MAX_TOOL_CALLS),
             tool_calls_used=self.tool_calls_made,
             tool_calls_max=MAX_TOOL_CALLS,
+            stage=stage,  # type: ignore[arg-type]
+            target=self.target if self.target in ("local", "remote", "unknown") else "local",  # type: ignore[arg-type]
+            understanding=self.understanding,
+            hypotheses=list(self.hypotheses),
+            plan=self.plan,
+            questions=list(self.questions),
+            provider_info=self.provider_info(),
+            rounds_used=self.rounds_used,
+            blocked_reason=self.blocked_reason,
+            assistant_message=assistant_message,
         )
 
 

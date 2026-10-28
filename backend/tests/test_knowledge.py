@@ -206,18 +206,19 @@ def test_restart_persistence_and_migration() -> None:
     db = persistence.db_path()
     conn = sqlite3.connect(db)
     try:
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == 5
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == persistence.DB_VERSION
         conn.execute("DROP TABLE knowledge")
         conn.execute("DROP TABLE regression_checks")
+        conn.execute("DROP TABLE assist")
         conn.execute("PRAGMA user_version = 4")
         conn.commit()
     finally:
         conn.close()
-    # Next touch migrates v4 -> v5 without losing investigation rows.
+    # Next touch migrates v4 -> current without losing investigation rows.
     assert client.get(f"/api/investigations/{first['investigation_id']}").status_code == 200
     conn = sqlite3.connect(db)
     try:
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == 5
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == persistence.DB_VERSION
         tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
         assert {"knowledge", "regression_checks"} <= tables
     finally:

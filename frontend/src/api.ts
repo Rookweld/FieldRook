@@ -1,14 +1,17 @@
 import type {
   DiagnosticBundle,
+  DiagnosisTarget,
   IncidentAssessment,
   InvestigationResponse,
   InvestigationSummary,
   KnowledgeEntry,
   KnowledgeMatch,
   PlanTemplate,
+  ProviderOption,
   ServiceListResponse,
   StatusResponse,
   ToolInfo,
+  TurnKind,
 } from "./types";
 
 export class ApiError extends Error {
@@ -49,6 +52,7 @@ function requestInvestigation(path: string, init?: RequestInit): Promise<Investi
       "evidence", "activity", "warnings", "proposals", "executions",
       "notes", "refreshes", "plans", "regression_checks",
       "contradictions", "suggested_rechecks",
+      "hypotheses", "questions",
     ];
     if (!inv || arrays.some((field) => !Array.isArray(inv[field]))) {
       throw new ApiError(
@@ -99,6 +103,8 @@ export interface StartInvestigationArgs {
   useFixtures?: boolean;
   shareConsent: boolean;
   screenshot?: File | null;
+  target?: DiagnosisTarget;
+  provider?: string;
 }
 
 export function startInvestigation(args: StartInvestigationArgs): Promise<InvestigationResponse> {
@@ -108,10 +114,112 @@ export function startInvestigation(args: StartInvestigationArgs): Promise<Invest
   if (args.useFixtures !== undefined) form.append("use_fixtures", args.useFixtures ? "true" : "false");
   form.append("share_consent", args.shareConsent ? "true" : "false");
   if (args.screenshot) form.append("screenshot", args.screenshot, args.screenshot.name);
+  if (args.target) form.append("target", args.target);
+  if (args.provider) form.append("provider", args.provider);
   return requestInvestigation("/api/investigations", {
     method: "POST",
     body: form,
   });
+}
+
+export interface TurnArgs {
+  kind: TurnKind;
+  text: string;
+  questionId?: string | null;
+  shareConsent: boolean;
+  screenshot?: File | null;
+}
+
+export function sendTurn(id: string, args: TurnArgs): Promise<InvestigationResponse> {
+  const form = new FormData();
+  form.append("kind", args.kind);
+  form.append("text", args.text);
+  if (args.questionId) form.append("question_id", args.questionId);
+  form.append("share_consent", args.shareConsent ? "true" : "false");
+  if (args.screenshot) form.append("screenshot", args.screenshot, args.screenshot.name);
+  return requestInvestigation(
+    `/api/investigations/${encodeURIComponent(id)}/turn`,
+    { method: "POST", body: form },
+  );
+}
+
+export function completePlanStep(
+  id: string,
+  stepId: string,
+  outcome: string,
+): Promise<InvestigationResponse> {
+  return requestInvestigation(
+    `/api/investigations/${encodeURIComponent(id)}/plan/steps/${encodeURIComponent(stepId)}/complete`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ outcome }),
+    },
+  );
+}
+
+export function impossiblePlanStep(
+  id: string,
+  stepId: string,
+  reason: string,
+): Promise<InvestigationResponse> {
+  return requestInvestigation(
+    `/api/investigations/${encodeURIComponent(id)}/plan/steps/${encodeURIComponent(stepId)}/impossible`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ reason }),
+    },
+  );
+}
+
+export function setHypothesisStatus(
+  id: string,
+  hypothesisId: string,
+  status: string,
+  reason: string,
+): Promise<InvestigationResponse> {
+  return requestInvestigation(
+    `/api/investigations/${encodeURIComponent(id)}/hypotheses/${encodeURIComponent(hypothesisId)}/status`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status, reason }),
+    },
+  );
+}
+
+export function switchProvider(
+  id: string,
+  provider: string,
+  confirmCloud: boolean,
+): Promise<InvestigationResponse> {
+  return requestInvestigation(
+    `/api/investigations/${encodeURIComponent(id)}/provider`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ provider, confirm_cloud: confirmCloud }),
+    },
+  );
+}
+
+export function setTarget(
+  id: string,
+  target: DiagnosisTarget,
+): Promise<InvestigationResponse> {
+  return requestInvestigation(
+    `/api/investigations/${encodeURIComponent(id)}/target`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ target }),
+    },
+  );
+}
+
+export function listProviders(): Promise<ProviderOption[]> {
+  return request<ProviderOption[]>("/api/providers");
 }
 
 export function followUpInvestigation(

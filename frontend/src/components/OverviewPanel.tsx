@@ -3,7 +3,7 @@ import { EvidenceChip } from "./EvidenceChip";
 import { headlineEvidence } from "./evidence/EvidenceVisual";
 import { resolutionOf } from "./WorkflowStage";
 
-export type InvestigationView = "findings" | "evidence" | "resolve";
+export type InvestigationView = "guide" | "findings" | "evidence" | "resolve";
 
 export interface NextAction {
   label: string;
@@ -29,6 +29,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   demo_worker: "Demo worker",
   error_code: "Error codes",
   screenshot: "Screenshot",
+  technician_report: "Technician reports",
 };
 
 /** One obvious next action, derived from the real lifecycle state. */
@@ -37,6 +38,7 @@ export function nextActionFor(inv: InvestigationResponse): NextAction {
     return { label: "Review proposed correction", view: "resolve" };
   }
   const plan = inv.plans.length > 0 ? inv.plans[inv.plans.length - 1] : null;
+  // An in-flight resolution keeps priority: the technician is mid-repair.
   if (plan?.status === "DRAFT") {
     return { label: "Capture pre-fix baseline", view: "resolve" };
   }
@@ -46,8 +48,14 @@ export function nextActionFor(inv: InvestigationResponse): NextAction {
   if (plan?.status === "INTERVENED") {
     return { label: "Confirm Fix", view: "resolve" };
   }
+  if ((inv.questions ?? []).some((q) => q.status === "open")) {
+    return { label: "Answer clarifying question", view: "guide" };
+  }
   if (plan?.status === "NOT_RESOLVED" || plan?.status === "INCONCLUSIVE") {
     return { label: "Continue investigation", view: "findings", focusId: "followup-input" };
+  }
+  if (inv.plan?.current_step_id) {
+    return { label: "Work the next step", view: "guide" };
   }
   const budgetLeft = inv.tool_calls_max - inv.tool_calls_used;
   if (inv.suggested_rechecks.length > 0 && budgetLeft > 0) {

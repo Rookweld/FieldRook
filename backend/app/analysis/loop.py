@@ -13,7 +13,8 @@ import json
 import re
 from typing import Any
 
-from ..analysis.provider import MetaModelProvider, select_provider
+from ..analysis.assist import refresh_assist
+from ..analysis.provider import ModelProvider, select_provider
 from ..analysis.refresh import compare_readings
 from ..analysis.validate import ModelAnalysisError, validate_assessment_output
 from ..config import SIMULATED_MODEL_NAME, Settings
@@ -21,6 +22,7 @@ from ..diagnostics import fixtures as fx
 from ..investigations.store import InvestigationState
 from ..schemas import AnalysisResult
 from ..tools.registry import (
+    REGISTRY,
     ToolCallError,
     ToolContext,
     execute_prepared,
@@ -75,6 +77,18 @@ tools; each result returns as a tool message with structured evidence. Rules:
 - When you have enough evidence (or the budget runs out), reply with ONLY a JSON
   object using keys: summary, facts, causes, uncertainties, missing_evidence,
   next_steps, explanation, and optionally proposed_action.
+- You may add adaptive keys the application merges into the live workflow:
+  understanding (one or two sentences: what was reported vs what was
+  observed); hypotheses ([{title, description, status (active|weakened|
+  ruled_out|confirmed), supporting_evidence_ids, contradicting_evidence_ids}]
+  — mark ruled_out only when observations genuinely contradict it, and say
+  which); plan ({steps: [{instruction, why, kind, tool_name?,
+  expected_observations, admin_maybe}]} — kind is AUTOMATED_READ_ONLY (a
+  registered tool you name), TECHNICIAN_CHECK, CLARIFYING_QUESTION,
+  EXTERNAL_SYSTEM_CHECK, PROPOSED_INTERVENTION (guidance only, never
+  executed by you), or VERIFICATION); questions (at most 2
+  [{question, why}] that would most change the diagnosis — ask only what
+  affects the next step, never repeat an answered question).
 - proposed_action is null unless evidence shows the FieldRook demo worker
   failed AND its health was actually read with get_demo_worker_health. Then it
   must be exactly {"action_id": "recover_demo_worker", "target": "demo-worker",
@@ -94,6 +108,37 @@ tools; each result returns as a tool message with structured evidence. Rules:
   commands; anything that changes system state stays manual technician
   guidance, never an executed action."""
 
+TARGET_PROMPTS = {
+    "remote": (
+        "DIAGNOSTIC TARGET: ANOTHER COMPUTER. The problem is on a different "
+        "machine than this FieldRook host. Local service, network, process, "
+        "event-log, and task readings describe the WRONG computer — do not "
+        "request them and do not treat host state as evidence about the "
+        "affected machine. Work from the technician's descriptions, "
+        "screenshots, error codes, and pasted output instead: ask the "
+        "clarifying question that most changes the diagnosis, propose safe "
+        "manual checks the technician can run on the affected computer, and "
+        "say plainly when you need an observation you cannot collect "
+        "yourself. interpret_error_code (a knowledge lookup, not a host "
+        "measurement) remains available."
+    ),
+    "unknown": (
+        "DIAGNOSTIC TARGET: UNKNOWN. It is not established whether the "
+        "problem is on this FieldRook host or another computer. Do not "
+        "assume host readings describe the affected machine. Your first "
+        "priority is to establish the target: ask which computer is "
+        "affected before requesting host measurements, and qualify any "
+        "host reading as host-only until the target is known."
+    ),
+}
+
+# Tools that measure the FieldRook host. When the diagnostic target is not
+# the local host, these are withheld from the model and refused at the
+# backstop; interpret_error_code is a knowledge lookup and stays available.
+HOST_MEASUREMENT_TOOLS = frozenset(
+    name for name in REGISTRY if name != "interpret_error_code"
+)
+
 
 def build_investigation_messages(
     problem: str,
@@ -101,6 +146,7 @@ def build_investigation_messages(
     image_b64: str | None,
     image_mime: str | None,
     screenshot_evidence_id: str | None = None,
+    target: str = "local",
 ) -> list[dict[str, Any]]:
     context = f"Technician's problem description:\n{problem}"
     if service_name:
@@ -124,9 +170,35 @@ def build_investigation_messages(
         ]
     else:
         user_content = context + "\n\nNo screenshot was provided."
+    system_prompt = INVESTIGATION_SYSTEM_PROMPT
+    target_block = TARGET_PROMPTS.get((target or "local").strip().lower())
+    if target_block:
+        system_prompt = system_prompt + "\n\n" + target_block
     return [
-        {"role": "system", "content": INVESTIGATION_SYSTEM_PROMPT},
+        {"role": "system", "content": system_prompt},
         {"role": "user", "content": user_content},
+    ]
+
+
+def _has_image_parts(messages: list[dict[str, Any]]) -> bool:
+    for message in messages:
+        content = message.get("content")
+        if isinstance(content, list) and any(
+            isinstance(part, dict) and part.get("type") == "image_url" for part in content
+        ):
+            return True
+    return False
+
+
+def tools_for_target(target: str) -> list[dict[str, Any]]:
+    """Tool definitions offered to the model, scoped by diagnostic target."""
+    schemas = tool_schemas()
+    if (target or "local").strip().lower() == "local":
+        return schemas
+    return [
+        schema
+        for schema in schemas
+        if (schema.get("function") or {}).get("name") not in HOST_MEASUREMENT_TOOLS
     ]
 
 
@@ -228,7 +300,9 @@ def _record_recheck(
 
 
 def _substitute_simulated(state: InvestigationState, reason: str) -> None:
-    state.assessment = fx.build_simulated_investigation_analysis(state.problem, state.evidence)
+    state.assessment = fx.build_simulated_investigation_analysis(
+        state.problem, state.evidence, state.target
+    )
     state.mode = "simulated"
     state.model = SIMULATED_MODEL_NAME
     state.status = "partial"
@@ -249,7 +323,7 @@ def _accept_assessment(
 async def _finalize_from_content(
     state: InvestigationState,
     content: str,
-    provider: MetaModelProvider,
+    provider: ModelProvider,
     model_name: str,
 ) -> None:
     try:
@@ -318,14 +392,74 @@ async def _finalize_from_content(
     _accept_assessment(state, second, model_name)
 
 
+async def _run_live_no_tools(
+    state: InvestigationState,
+    provider: ModelProvider,
+    model_name: str,
+) -> None:
+    """Plan-only live path for providers without tool calling.
+
+    The model reasons over reported observations and collected evidence and
+    returns the JSON assessment (with hypotheses, plan, and questions); it
+    never receives tool definitions it cannot use.
+    """
+    state.add_activity(
+        "note", "Plan-only model round",
+        "This provider does not support tool calling, so no diagnostics were "
+        "offered; the model reasons from reported observations instead.",
+    )
+    state.messages.append(
+        {
+            "role": "user",
+            "content": (
+                "You cannot call diagnostic tools in this investigation. Reason "
+                "from the reported observations and collected evidence, then reply "
+                "with ONLY the JSON assessment (summary, facts, causes, "
+                "uncertainties, missing_evidence, next_steps, explanation, plus "
+                "understanding, hypotheses, plan, and questions where useful). "
+                "Propose safe manual checks for anything you cannot measure."
+            ),
+        }
+    )
+    try:
+        message = await provider.chat(state.messages, json_only=True)
+    except ModelAnalysisError as exc:
+        _substitute_simulated(state, f"Live model call failed ({exc}).")
+        return
+    state.messages.append(message)
+    if message.get("content"):
+        state.add_activity("note", "Model reasoning", str(message["content"])[:500])
+    await _finalize_from_content(state, str(message.get("content") or ""), provider, model_name)
+
+
 async def _run_live(
     state: InvestigationState,
-    provider: MetaModelProvider,
+    provider: ModelProvider,
     settings: Settings,
     use_fixtures: bool | None,
     max_new_calls: int,
 ) -> None:
-    tools = tool_schemas()
+    caps = provider.capabilities()
+    model_name = provider.model_label()
+    if state.has_image and not caps.vision and _has_image_parts(state.messages):
+        _strip_images(state.messages)
+        state.warnings.append(
+            "This provider cannot process images; the screenshot was withheld "
+            "and the investigation continued text-only. Describe what the "
+            "screenshot shows for a better assessment."
+        )
+        state.add_activity("note", "Screenshot withheld (no vision)", "Continuing text-only.")
+    if not caps.tool_calling:
+        await _run_live_no_tools(state, provider, model_name)
+        return
+    non_local = (state.target or "local").strip().lower() != "local"
+    tools = tools_for_target(state.target)
+    if non_local:
+        state.add_activity(
+            "note", "Host tools withheld",
+            f"Diagnostic target is {state.target}; host measurements were not "
+            "offered because they would describe the wrong computer.",
+        )
     ctx = ToolContext(settings=settings, use_fixtures=use_fixtures)
     text_only_retried = False
     stopped_early = False
@@ -358,7 +492,7 @@ async def _run_live(
         if message.get("content"):
             state.add_activity("note", "Model reasoning", str(message["content"])[:500])
         if not tool_calls:
-            await _finalize_from_content(state, str(message.get("content") or ""), provider, settings.model_name)
+            await _finalize_from_content(state, str(message.get("content") or ""), provider, model_name)
             return
         invalid = 0
         answered: set[str] = set()
@@ -392,6 +526,37 @@ async def _run_live(
                     budget_note_added = True
                 continue
             state.add_activity("tool_request", f"Model requested {name}", str(raw_args)[:500], tool_name=str(name))
+            if non_local and str(name) in HOST_MEASUREMENT_TOOLS:
+                # Backstop: host measurements must never run for another
+                # computer, even if the model requests one unprompted. The
+                # call is refused without executing or spending budget.
+                state.messages.append(
+                    {
+                        "role": "tool",
+                        "tool_call_id": call_id,
+                        "content": json.dumps(
+                            {
+                                "ok": False,
+                                "error": (
+                                    f"{name} measures the FieldRook host, but the diagnostic "
+                                    f"target is {state.target}. Ask the technician for this "
+                                    "observation instead."
+                                ),
+                            }
+                        ),
+                    }
+                )
+                answered.add(call_id)
+                state.add_activity(
+                    "error", f"Refused host tool {name}",
+                    f"Diagnostic target is {state.target}; host measurements do not apply.",
+                    tool_name=str(name),
+                )
+                invalid += 1
+                if invalid >= MAX_INVALID_PER_ROUND:
+                    state.add_activity("note", "Too many invalid calls", "Asking the model to continue with valid tools.")
+                    break
+                continue
             try:
                 spec, args = prepare_call(name, raw_args)
             except ToolCallError as exc:
@@ -518,7 +683,7 @@ async def _run_live(
         _substitute_simulated(state, f"Live final assessment failed ({exc}).")
         return
     state.messages.append(message)
-    await _finalize_from_content(state, str(message.get("content") or ""), provider, settings.model_name)
+    await _finalize_from_content(state, str(message.get("content") or ""), provider, model_name)
 
 
 NETWORK_KEYWORDS = ("network", "vpn", "wi-fi", "wifi", "internet", "adapter", "ethernet", "disconnect", "ip address")
@@ -532,6 +697,12 @@ SCHEDULED_KEYWORDS = ("powershell", "console window", "cmd window", "popup", "po
 PERFORMANCE_KEYWORDS = ("freeze", "freezes", "frozen", "hang", "hangs", "slow", "sluggish", "stutter", "blue screen", "bsod", "unresponsive")
 
 
+ERROR_CODE_PATTERNS = (
+    re.compile(r"0x[0-9a-fA-F]{4,8}"),
+    re.compile(r"\berror\s+code\s+(\d[\w-]*)", re.IGNORECASE),
+)
+
+
 def _simulated_plan(problem: str, service_name: str | None, already_ran: set[str]) -> list[tuple[str, dict]]:
     """Symptom triage for simulated mode: smallest relevant tool set, no sweeps.
 
@@ -540,8 +711,27 @@ def _simulated_plan(problem: str, service_name: str | None, already_ran: set[str
     follow-ups reuse evidence instead of re-collecting it.
     """
     lowered = problem.lower()
+    prefix: list[tuple[str, dict]] = []
+    if "interpret_error_code" not in already_ran:
+        for pattern in ERROR_CODE_PATTERNS:
+            match = pattern.search(problem)
+            if match:
+                code = match.group(1) if pattern.groups else match.group(0)
+                prefix = [("interpret_error_code", {"value": code[:32]})]
+                break
     if "demo worker" in lowered and "get_demo_worker_health" not in already_ran:
         return [("get_demo_worker_health", {})]
+    if prefix:
+        # An explicit error code is decoded first, then the normal symptom
+        # branch still runs so the code lands in context (crash records,
+        # service state) instead of replacing the diagnosis.
+        branch = _simulated_branch(lowered, service_name, already_ran)
+        return (prefix + branch)[:3]
+    return _simulated_branch(lowered, service_name, already_ran)
+
+
+def _simulated_branch(lowered: str, service_name: str | None, already_ran: set[str]) -> list[tuple[str, dict]]:
+    """Symptom branch of simulated triage (shared by plain and error-code plans)."""
     if any(keyword in lowered for keyword in CRASH_KEYWORDS):
         plan = []
         if "search_application_crashes" not in already_ran:
@@ -615,9 +805,21 @@ async def _run_simulated(
     is_followup: bool,
 ) -> None:
     ctx = ToolContext(settings=settings, use_fixtures=True)
+    non_local = (state.target or "local").strip().lower() != "local"
     already_ran = {record.tool_name for record in state.activity if record.tool_name}
-    plan = _simulated_plan(state.problem if not is_followup else state.messages[-1].get("content", ""), state.service_name, already_ran)
-    if is_followup and not plan:
+    if non_local:
+        plan: list[tuple[str, dict]] = []
+        state.add_activity(
+            "plan", "Host diagnostics withheld",
+            f"Diagnostic target is {state.target}; simulated fixtures describe the "
+            "FieldRook host, so no local measurements were taken. Proceeding "
+            "question-first from reported observations.",
+        )
+    else:
+        plan = _simulated_plan(state.problem if not is_followup else state.messages[-1].get("content", ""), state.service_name, already_ran)
+    if non_local:
+        pass  # "Host diagnostics withheld" above already explains the empty plan.
+    elif is_followup and not plan:
         state.add_activity("note", "Reused existing evidence", f"No new diagnostics needed; {len(state.evidence)} evidence items already collected.")
     else:
         state.add_activity("plan", "Simulated investigation plan", f"Running {len(plan)} fixture tools: " + ", ".join(name for name, _ in plan))
@@ -641,7 +843,9 @@ async def _run_simulated(
             tool_name=name, duration_ms=duration_ms, evidence_ids=[item.id],
         )
         state.add_activity("evidence", f"Evidence {item.id} collected", output.summary, tool_name=name, evidence_ids=[item.id])
-    state.assessment = fx.build_simulated_investigation_analysis(state.problem, state.evidence)
+    state.assessment = fx.build_simulated_investigation_analysis(
+        state.problem, state.evidence, state.target
+    )
     state.mode = "simulated"
     state.model = SIMULATED_MODEL_NAME
     state.status = "complete"
@@ -706,11 +910,23 @@ async def run_rounds(
 ) -> None:
     if max_new_calls is None:
         max_new_calls = MAX_FOLLOWUP_CALLS if is_followup else MAX_INITIAL_CALLS
-    provider, mode = select_provider(settings)
+    try:
+        provider, mode = select_provider(settings, state.provider_override)
+    except ModelAnalysisError as exc:
+        state.warnings.append(
+            f"Selected provider {state.provider_override!r} is unusable ({exc}); "
+            "fell back to simulated analysis."
+        )
+        state.add_activity("note", "Provider fallback", f"{state.provider_override} unusable; using simulated.")
+        provider, mode = select_provider(settings, "simulated")
     if mode == "simulated":
         await _run_simulated(state, settings, use_fixtures, is_followup)
         maybe_create_proposal(state, live_check=False)
-        return
-    assert isinstance(provider, MetaModelProvider)
-    await _run_live(state, provider, settings, use_fixtures, max_new_calls)
-    maybe_create_proposal(state, live_check=True)
+    else:
+        await _run_live(state, provider, settings, use_fixtures, max_new_calls)
+        maybe_create_proposal(state, live_check=True)
+    state.rounds_used += 1
+    try:
+        refresh_assist(state, state.rounds_used)
+    except Exception as exc:  # noqa: BLE001 - assist must never sink a round
+        state.warnings.append(f"Assistance layer skipped this round ({exc}).")

@@ -16,7 +16,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-DB_VERSION = 5
+DB_VERSION = 6
 
 _SCHEMA_V2 = """
 CREATE TABLE IF NOT EXISTS notes (
@@ -148,6 +148,14 @@ CREATE TABLE IF NOT EXISTS regression_checks (
 """
 
 
+_SCHEMA_V6 = """
+CREATE TABLE IF NOT EXISTS assist (
+    inv_id TEXT PRIMARY KEY,
+    doc_json TEXT NOT NULL
+);
+"""
+
+
 def db_path() -> Path:
     override = os.environ.get("FIELDROOK_DB_PATH")
     if override:
@@ -188,6 +196,9 @@ def _migrate(conn: sqlite3.Connection) -> None:
     if version < 5:
         conn.executescript(_SCHEMA_V5)
         conn.execute("PRAGMA user_version = 5")
+    if version < 6:
+        conn.executescript(_SCHEMA_V6)
+        conn.execute("PRAGMA user_version = 6")
     conn.commit()
 
 
@@ -362,6 +373,23 @@ def save_state(state: Any) -> None:
                 "INSERT INTO notes (note_id, inv_id, text, created_at) VALUES (?, ?, ?, ?)",
                 (note.note_id, state.id, note.text, _iso(note.created_at)),
             )
+        plan = getattr(state, "plan", None)
+        assist_doc = {
+            "target": getattr(state, "target", "local"),
+            "provider_override": getattr(state, "provider_override", None),
+            "hypotheses": [h.model_dump(mode="json") for h in getattr(state, "hypotheses", []) or []],
+            "plan": plan.model_dump(mode="json") if plan is not None else None,
+            "questions": [q.model_dump(mode="json") for q in getattr(state, "questions", []) or []],
+            "understanding": getattr(state, "understanding", ""),
+            "rounds_used": getattr(state, "rounds_used", 0),
+            "blocked_reason": getattr(state, "blocked_reason", None),
+            "assist_counters": dict(getattr(state, "assist_counters", {}) or {}),
+        }
+        conn.execute(
+            "INSERT INTO assist (inv_id, doc_json) VALUES (?, ?)"
+            " ON CONFLICT(inv_id) DO UPDATE SET doc_json=excluded.doc_json",
+            (state.id, json.dumps(assist_doc, default=str)),
+        )
         for execution in state.executions:
             conn.execute(
                 "INSERT INTO executions (execution_id, proposal_id, before_json, after_json, outcome,"
@@ -403,11 +431,14 @@ def load_state(investigation_id: str) -> Any | None:
         ActionProposal,
         ActivityRecord,
         AnalysisResult,
+        ClarifyingQuestion,
         EvidenceItem,
         EvidenceRefresh,
+        Hypothesis,
         RegressionCheck,
         ResolutionPlan,
         TechnicianNote,
+        TroubleshootPlan,
     )
     from .store import InvestigationState
 
@@ -544,7 +575,20 @@ def load_state(investigation_id: str) -> Any | None:
                 "SELECT * FROM notes WHERE inv_id = ? ORDER BY rowid", (investigation_id,)
             ).fetchall()
         ]
-        return InvestigationState(
+        assist_row = conn.execute(
+            "SELECT doc_json FROM assist WHERE inv_id = ?", (investigation_id,)
+        ).fetchone()
+        assist_doc: dict[str, Any] = {}
+        if assist_row:
+            try:
+                loaded = json.loads(assist_row["doc_json"] or "{}")
+                if isinstance(loaded, dict):
+                    assist_doc = loaded
+            except ValueError:
+                assist_doc = {}
+        assist_plan = assist_doc.get("plan")
+        assist_missing = assist_row is None
+        state = InvestigationState(
             id=row["id"],
             problem=row["problem"],
             service_name=row["service_name"],
@@ -570,7 +614,40 @@ def load_state(investigation_id: str) -> Any | None:
             refreshes=refreshes,
             plans=plans,
             regression_checks=regression_checks,
+            target=assist_doc.get("target") or "local",
+            provider_override=assist_doc.get("provider_override"),
+            hypotheses=[
+                Hypothesis.model_validate(h)
+                for h in assist_doc.get("hypotheses") or []
+                if isinstance(h, dict)
+            ],
+            plan=TroubleshootPlan.model_validate(assist_plan)
+            if isinstance(assist_plan, dict)
+            else None,
+            questions=[
+                ClarifyingQuestion.model_validate(q)
+                for q in assist_doc.get("questions") or []
+                if isinstance(q, dict)
+            ],
+            understanding=str(assist_doc.get("understanding") or ""),
+            rounds_used=int(assist_doc.get("rounds_used") or 0),
+            blocked_reason=assist_doc.get("blocked_reason"),
+            assist_counters=dict(assist_doc.get("assist_counters") or {}),
         )
+        if assist_missing and state.assessment is not None:
+            # Pre-V6 row: rebuild the assist layer in memory from the stored
+            # assessment so reopened investigations gain hypotheses, plans,
+            # and questions. The next save persists the rebuilt layer, so
+            # this recovery runs exactly once per investigation.
+            try:
+                from ..analysis.assist import refresh_assist
+
+                if state.rounds_used <= 0:
+                    state.rounds_used = 1
+                refresh_assist(state, state.rounds_used)
+            except Exception:  # noqa: BLE001 - recovery must never break loads
+                pass
+        return state
     finally:
         conn.close()
 

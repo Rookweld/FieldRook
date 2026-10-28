@@ -67,12 +67,14 @@ Constrained execution -> fresh independent health check -> incident report
 - **Resolve:** prepare measurable repair plans, require explicit technician approval for registered actions, then independently check the outcome. Only the application-owned demo worker has an implemented corrective action.
 - **Remember:** reopen investigations, add technician notes, and compare them with previously saved resolutions (no automatic reuse of old fixes).
 
-**Current stage:** M015 living investigation. Findings became a visual story (key observations, open uncertainties, checked categories), evidence gained category-specific diagnostic components, the timeline became a round-grouped rail, Resolve grew a guided stepper with criterion cards, and motion now follows the data — see the [visual audit](docs/audit/M015_VISUAL.md) and the [product tour video](docs/assets/fieldrook-m015-tour.webm). Backend behavior is unchanged since the M011 live pilot: nine genuine Windows/live-model operations with valid evidence references, plus the fixture-based [gauntlet report](backend/eval/REPORT.md). See the [first-run guide](docs/FIRST_RUN.md), [manual acceptance checklist](docs/ACCEPTANCE.md), and [full milestone log](HACKATHON.md).
+**Current stage:** M016 the real technician. Investigations became guided conversations: clarifying questions, a living troubleshooting plan, versioned hypotheses, technician turns with labeled evidence, explicit local/remote diagnostic targets, and a provider abstraction (Meta cloud, simulated, optional local endpoint) — see the [product tour video](docs/assets/fieldrook-m016-tour.webm), the [provider guide](docs/PROVIDERS.md), and the [unknown-problem evaluation](backend/eval/UNKNOWN.md). Backend behavior is unchanged since the M011 live pilot: nine genuine Windows/live-model operations with valid evidence references, plus the fixture-based [gauntlet report](backend/eval/REPORT.md). See the [first-run guide](docs/FIRST_RUN.md), [manual acceptance checklist](docs/ACCEPTANCE.md), and [full milestone log](HACKATHON.md).
 
-![FieldRook findings view](docs/assets/fieldrook-m015-findings.png)
+![FieldRook guided investigation](docs/assets/fieldrook-m016-guide.png)
 
 <details>
-<summary>View Evidence and Resolve screenshots</summary>
+<summary>View Findings, Evidence and Resolve screenshots</summary>
+
+![FieldRook findings view](docs/assets/fieldrook-m016-findings.png)
 
 ![FieldRook evidence view](docs/assets/fieldrook-m015-evidence-service.png)
 
@@ -166,7 +168,9 @@ pnpm run test:e2e   # Playwright: real backend (fixtures, no key) + real UI
   when unavailable, or forced with `FIELDROOK_FIXTURES=always`.
 - **Analysis:** live Meta Model API (`muse-spark-1.3`, tool calling + vision)
   when `MODEL_API_KEY` is set; otherwise clearly labeled simulated analysis.
-  Simulated output is never presented as a live model call.
+  Simulated output is never presented as a live model call. An optional
+  loopback-only local endpoint (Ollama / llama.cpp) can be selected per
+  investigation; see [docs/PROVIDERS.md](docs/PROVIDERS.md).
 
 ## API
 
@@ -177,11 +181,18 @@ pnpm run test:e2e   # Playwright: real backend (fixtures, no key) + real UI
 | GET | `/api/services` | List Windows services (live or fixture) |
 | GET | `/api/services/{name}/diagnostics` | Evidence bundle for one service |
 | POST | `/api/incidents/analyze` | M001 assessment: `{"service_name": "...", "use_fixtures": null}` |
-| POST | `/api/investigations` | Start NL investigation (multipart: `problem`, optional `service_name`, `screenshot` + `share_consent`, `use_fixtures`) |
+| POST | `/api/investigations` | Start NL investigation (multipart: `problem`, optional `service_name`, `screenshot` + `share_consent`, `use_fixtures`, `target`, `provider`) |
 | GET | `/api/investigations` | Incident history (persisted, `?limit=`) |
 | GET | `/api/investigations/{id}` | Current investigation state |
 | POST | `/api/investigations/{id}/followup` | Continue: `{"message": "..."}` |
 | POST | `/api/investigations/{id}/notes` | Technician note: `{"text": "..."}` (max 2000 chars, persisted, exported) |
+| POST | `/api/investigations/{id}/turn` | Conversation turn (multipart: `kind`, `text`, optional `question_id`, `screenshot` + `share_consent`) → labeled evidence + reassessment round |
+| POST | `/api/investigations/{id}/plan/steps/{step}/complete` | Record a step outcome: `{"outcome": "..."}`; plan advances, history kept |
+| POST | `/api/investigations/{id}/plan/steps/{step}/impossible` | Mark a step impossible: `{"reason": "..."}`; replans or records BLOCKED |
+| POST | `/api/investigations/{id}/hypotheses/{hyp}/status` | Technician judgment: `{"status": "ruled_out", "reason": "..."}` (never model-overridden) |
+| POST | `/api/investigations/{id}/provider` | Switch inference provider: `{"provider": "local", "confirm_cloud": false}` (cloud switches need confirmation) |
+| POST | `/api/investigations/{id}/target` | Set diagnostic target: `{"target": "remote"}` (local/remote/unknown) |
+| GET | `/api/providers` | Inference providers with capabilities and availability |
 | POST | `/api/investigations/{id}/reverify` | Re-run one observation: `{"evidence_id": "ev-2"}` → new item + `changed/unchanged/unavailable` comparison; history preserved |
 | GET | `/api/plans/template?action_id=...` | Suggested measurable criteria for a registered action |
 | POST | `/api/investigations/{id}/plans` | Draft a resolution plan (evidence, intended state, criteria, remediation) |

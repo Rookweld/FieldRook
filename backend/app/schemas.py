@@ -26,6 +26,11 @@ ActivityKind = Literal[
     "executed",
     "verification_started",
     "verified",
+    "hypothesis",
+    "troubleshoot_plan",
+    "turn",
+    "question",
+    "provider",
 ]
 InvestigationStatus = Literal["complete", "partial", "error"]
 ActionProposalStatus = Literal[
@@ -162,6 +167,12 @@ class AnalysisResult(BaseModel):
     model: str
     validation_warnings: list[str] = Field(default_factory=list)
     proposed_action: ProposedAction | None = None
+    # M016 adaptive layer (all optional; parsed leniently, never required).
+    understanding: str = ""
+    provider: str = ""
+    suggested_hypotheses: list["SuggestedHypothesis"] = Field(default_factory=list)
+    suggested_plan: "SuggestedPlan | None" = None
+    suggested_questions: list["SuggestedQuestion"] = Field(default_factory=list)
 
 
 class IncidentAssessment(BaseModel):
@@ -222,6 +233,17 @@ class InvestigationResponse(BaseModel):
     suggested_rechecks: list[RecheckSuggestion] = Field(default_factory=list)
     tool_calls_used: int = 0
     tool_calls_max: int = 12
+    # M016 adaptive layer (all defaulted for backward compatibility).
+    stage: InvestigationStage = "INVESTIGATING"
+    target: DiagnosisTarget = "local"
+    understanding: str = ""
+    hypotheses: list[Hypothesis] = Field(default_factory=list)
+    plan: TroubleshootPlan | None = None
+    questions: list[ClarifyingQuestion] = Field(default_factory=list)
+    provider_info: ProviderInfo | None = None
+    rounds_used: int = 0
+    blocked_reason: str | None = None
+    assistant_message: str = ""
 
 
 class TechnicianNote(BaseModel):
@@ -380,6 +402,160 @@ class RegressionCheck(BaseModel):
     evidence_ids: list[str] = Field(default_factory=list)
 
 
+# ---------------------------------------------------------------------------
+# M016 adaptive investigation layer: lifecycle stage, diagnostic target,
+# versioned hypotheses, dynamic troubleshooting plans, clarifying questions,
+# technician turns, and provider selection. All model-suggested content is
+# untrusted input: validated, evidence-checked, and merged by the assist
+# engine, never applied blindly.
+# ---------------------------------------------------------------------------
+
+DiagnosisTarget = Literal["local", "remote", "unknown"]
+InvestigationStage = Literal[
+    "INTAKE",
+    "CLARIFYING",
+    "PLANNING",
+    "INVESTIGATING",
+    "REASSESSING",
+    "READY_TO_RESOLVE",
+    "VERIFYING",
+    "RESOLVED",
+    "BLOCKED",
+]
+HypothesisStatus = Literal["active", "weakened", "ruled_out", "confirmed"]
+PlanStepKind = Literal[
+    "AUTOMATED_READ_ONLY",
+    "TECHNICIAN_CHECK",
+    "CLARIFYING_QUESTION",
+    "EXTERNAL_SYSTEM_CHECK",
+    "PROPOSED_INTERVENTION",
+    "VERIFICATION",
+]
+PlanStepStatus = Literal["suggested", "current", "done", "blocked", "skipped"]
+QuestionStatus = Literal["open", "answered"]
+TurnKind = Literal["answer", "observation", "test_result", "correction", "question"]
+ProviderName = Literal["auto", "meta", "simulated", "local"]
+
+
+class SuggestedHypothesis(BaseModel):
+    """One model-proposed hypothesis (untrusted until merged by assist)."""
+
+    title: str
+    description: str = ""
+    status: HypothesisStatus = "active"
+    supporting_evidence_ids: list[str] = Field(default_factory=list)
+    contradicting_evidence_ids: list[str] = Field(default_factory=list)
+
+
+class SuggestedPlanStep(BaseModel):
+    """One model-proposed troubleshooting step (untrusted until merged)."""
+
+    instruction: str
+    why: str = ""
+    kind: PlanStepKind = "TECHNICIAN_CHECK"
+    tool_name: str | None = None
+    expected_observations: list[str] = Field(default_factory=list)
+    admin_maybe: bool = False
+
+
+class SuggestedPlan(BaseModel):
+    steps: list[SuggestedPlanStep] = Field(default_factory=list)
+
+
+class SuggestedQuestion(BaseModel):
+    """One model-proposed clarifying question (untrusted until merged)."""
+
+    question: str
+    why: str = ""
+
+
+class HypothesisEvent(BaseModel):
+    """One status transition. History is append-only; nothing is rewritten."""
+
+    round: int = 0
+    status: HypothesisStatus = "active"
+    reason: str = ""
+
+
+class Hypothesis(BaseModel):
+    hypothesis_id: str
+    title: str
+    description: str = ""
+    status: HypothesisStatus = "active"
+    supporting_evidence_ids: list[str] = Field(default_factory=list)
+    contradicting_evidence_ids: list[str] = Field(default_factory=list)
+    created_round: int = 0
+    updated_round: int = 0
+    history: list[HypothesisEvent] = Field(default_factory=list)
+
+
+class TroubleshootStep(BaseModel):
+    step_id: str
+    instruction: str
+    why: str = ""
+    kind: PlanStepKind = "TECHNICIAN_CHECK"
+    status: PlanStepStatus = "suggested"
+    tool_name: str | None = None
+    expected_observations: list[str] = Field(default_factory=list)
+    outcome: str = ""
+    evidence_ids: list[str] = Field(default_factory=list)
+    admin_maybe: bool = False
+
+
+class TroubleshootPlan(BaseModel):
+    plan_id: str
+    updated_round: int = 0
+    steps: list[TroubleshootStep] = Field(default_factory=list)
+    current_step_id: str | None = None
+
+
+class ClarifyingQuestion(BaseModel):
+    question_id: str
+    question: str
+    why: str = ""
+    status: QuestionStatus = "open"
+    answer: str = ""
+
+
+class ProviderInfo(BaseModel):
+    name: str = "simulated"
+    model: str = ""
+    processing_location: str = "none"  # "cloud" | "local" | "none"
+    vision: bool = False
+    tool_calling: bool = False
+
+
+class TurnRequest(BaseModel):
+    kind: TurnKind = "observation"
+    text: str = Field(min_length=1, max_length=2000)
+    question_id: str | None = None
+
+
+class PlanStepOutcomeRequest(BaseModel):
+    outcome: str = Field(min_length=1, max_length=2000)
+
+
+class PlanStepImpossibleRequest(BaseModel):
+    reason: str = Field(min_length=1, max_length=2000)
+
+
+class HypothesisStatusRequest(BaseModel):
+    status: HypothesisStatus
+    reason: str = Field(min_length=1, max_length=1000)
+
+
+class ProviderSwitchRequest(BaseModel):
+    provider: Literal["auto", "meta", "simulated", "local"] = "simulated"
+    # Required when switching TO a cloud provider while the investigation
+    # holds screenshots, evidence, or notes: that content would be sent to
+    # the cloud model on the next round.
+    confirm_cloud: bool = False
+
+
+class TargetRequest(BaseModel):
+    target: DiagnosisTarget = "local"
+
+
 # (Forward references resolved at the end of this module.)
 
 
@@ -439,3 +615,4 @@ class ToolInfo(BaseModel):
 # ResolutionPlan and ActionProposal are defined after InvestigationResponse;
 # resolve those forward references now that the module is complete.
 InvestigationResponse.model_rebuild()
+AnalysisResult.model_rebuild()

@@ -192,6 +192,40 @@ def build_markdown(state: Any) -> str:
     if not data.get("regression_checks"):
         add("(no knowledge rechecks)")
     add("")
+    add("## 17. Troubleshooting conversation")
+    add(f"Stage: {data.get('stage', '-')} — Target: {data.get('target', '-')} — Rounds: {data.get('rounds_used', 0)}")
+    provider = data.get("provider_info") or {}
+    if provider:
+        add(f"Inference: {provider.get('name', '-')} ({provider.get('model', '-')}); processed {provider.get('processing_location', '-')}.")
+    if data.get("understanding"):
+        add(f"Current understanding: {data['understanding']}")
+    if data.get("blocked_reason"):
+        add(f"Blocked: {data['blocked_reason']}")
+    add("### Hypotheses")
+    for hyp in data.get("hypotheses", []):
+        add(f"- {hyp['hypothesis_id']} [{hyp['status']}] {hyp['title']}")
+        for event in hyp.get("history", [])[1:]:
+            add(f"  round {event.get('round')}: {event.get('status')} — {event.get('reason', '')}")
+    if not data.get("hypotheses"):
+        add("(none tracked)")
+    add("### Troubleshooting plan")
+    plan = data.get("plan") or {}
+    for step in plan.get("steps", []):
+        add(f"- {step['step_id']} [{step['status']}/{step['kind']}] {step['instruction']}")
+        if step.get("outcome"):
+            add(f"  Outcome: {step['outcome']}")
+    if not plan.get("steps"):
+        add("(no plan steps)")
+    add("### Clarifying questions")
+    for question in data.get("questions", []):
+        add(f"- {question['question_id']} [{question['status']}] {question['question']}")
+        if question.get("answer"):
+            add(f"  Answer: {question['answer']}")
+    if not data.get("questions"):
+        add("(none asked)")
+    if data.get("assistant_message"):
+        add(f"Latest assistant message: {data['assistant_message']}")
+    add("")
     add("---")
     add(f"Exported {data['exported_at']} by FieldRook. OBSERVED facts are measured; INFERRED causes are hypotheses.")
     return "\n".join(lines) + "\n"

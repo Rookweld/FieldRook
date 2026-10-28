@@ -23,10 +23,16 @@ from ..investigations import export as exporters
 from ..investigations.store import store
 from ..schemas import (
     FollowupRequest,
+    HypothesisStatusRequest,
     InvestigationResponse,
     InvestigationSummary,
     NoteRequest,
+    PlanStepImpossibleRequest,
+    PlanStepOutcomeRequest,
+    ProviderInfo,
+    ProviderSwitchRequest,
     ReverifyRequest,
+    TargetRequest,
     ToolInfo,
 )
 from ..tools.registry import (
@@ -73,6 +79,22 @@ def validate_image_upload(
     )
 
 
+def _processing_location(settings: object, override: str | None) -> str:
+    """Human-readable processing location for consent wording (never fails)."""
+    try:
+        from ..analysis.provider import select_provider
+
+        provider, _ = select_provider(settings, override)  # type: ignore[arg-type]
+        location = provider.capabilities().processing_location
+    except Exception:  # noqa: BLE001 - consent wording must not fail
+        return "provider unresolved"
+    if location == "cloud":
+        return "in the Meta cloud"
+    if location == "local":
+        return "on this computer by the local model"
+    return "nowhere (withheld; simulated analysis cannot view images)"
+
+
 @router.get("/api/tools")
 def list_tools() -> list[ToolInfo]:
     return [
@@ -88,6 +110,8 @@ async def start_investigation(
     use_fixtures: bool | None = Form(default=None),
     share_consent: bool = Form(default=False),
     screenshot: UploadFile | None = File(default=None),
+    target: str = Form(default="local"),
+    provider: str = Form(default="auto"),
 ) -> InvestigationResponse:
     settings = load_settings()
     validated_service: str | None = None
@@ -96,6 +120,18 @@ async def start_investigation(
             validated_service = validate_service_name(service_name)
         except InvalidServiceNameError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
+    normalized_target = (target or "local").strip().lower()
+    if normalized_target not in ("local", "remote", "unknown"):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unknown diagnostic target {target!r}; use local, remote, or unknown.",
+        )
+    normalized_provider = (provider or "auto").strip().lower()
+    if normalized_provider not in ("auto", "meta", "simulated", "local"):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unknown provider {provider!r}; use auto, meta, simulated, or local.",
+        )
 
     image_b64: str | None = None
     image_mime: str | None = None
@@ -104,7 +140,7 @@ async def start_investigation(
             raise HTTPException(
                 status_code=400,
                 detail="A screenshot was attached but sharing consent was not given. "
-                "Confirm authorization before the image is sent to the Meta API, or remove it.",
+                "Confirm authorization before the image is processed, or remove it.",
             )
         content = await screenshot.read(MAX_IMAGE_BYTES + 1)
         try:
@@ -114,8 +150,11 @@ async def start_investigation(
         image_b64 = base64.b64encode(content).decode("ascii")
 
     state = store.create(problem=problem.strip(), service_name=validated_service, has_image=image_b64 is not None)
+    state.target = normalized_target
+    state.provider_override = None if normalized_provider == "auto" else normalized_provider
     screenshot_evidence_id: str | None = None
     if image_b64 is not None and image_mime is not None:
+        location = _processing_location(settings, state.provider_override)
         shot = state.add_evidence(
             category="screenshot",
             source="upload:screenshot",
@@ -123,13 +162,16 @@ async def start_investigation(
                 "filename": screenshot.filename if screenshot else None,
                 "mime": image_mime,
                 "bytes": len(content),
-                "note": "Image bytes sent to the model with consent; FieldRook keeps only this metadata.",
+                "note": f"Image bytes sent for processing ({location}) with consent; FieldRook keeps only this metadata.",
             },
         )
         screenshot_evidence_id = shot.id
-        state.add_activity("note", "Screenshot attached", f"Recorded as {shot.id}; image sent to the model with consent, not stored.", evidence_ids=[shot.id])
-        state.warnings.append("Screenshot shared with the Meta API with your consent; FieldRook does not store it.")
-    state.messages = build_investigation_messages(problem.strip(), validated_service, image_b64, image_mime, screenshot_evidence_id)
+        state.add_activity("note", "Screenshot attached", f"Recorded as {shot.id}; processed {location} with consent, not stored.", evidence_ids=[shot.id])
+        state.warnings.append(f"Screenshot shared with your consent ({location}); FieldRook does not store it.")
+    state.messages = build_investigation_messages(
+        problem.strip(), validated_service, image_b64, image_mime,
+        screenshot_evidence_id, normalized_target,
+    )
     await run_rounds(state, settings, use_fixtures)
     uses_fixtures = settings.fixtures_mode == "always" or use_fixtures is True or state.mode == "simulated"
     store.save(state)
@@ -269,11 +311,20 @@ async def reverify_evidence(
         evidence_ids=[old.id, item.id],
     )
     if state.mode == "simulated":
-        state.assessment = fx.build_simulated_investigation_analysis(state.problem, state.evidence)
+        state.assessment = fx.build_simulated_investigation_analysis(
+            state.problem, state.evidence, state.target
+        )
         state.add_activity(
             "note", "Assessment rebuilt after re-check",
             f"Simulated hypotheses recomputed over {len(state.evidence)} evidence items.",
         )
+    if state.assessment is not None:
+        from ..analysis.assist import refresh_assist
+
+        try:
+            refresh_assist(state, state.rounds_used)
+        except Exception as exc:  # noqa: BLE001 - assist must never sink a re-check
+            state.warnings.append(f"Assistance layer skipped after re-check ({exc}).")
     if verdict == "changed":
         state.warnings.append(
             f"Re-check {item.id} differs from historical {old.id} ({spec.name}). "
@@ -294,6 +345,394 @@ async def reverify_evidence(
         )
     uses_fixtures = settings.fixtures_mode == "always" or state.mode == "simulated"
     store.save(state)
+    return state.to_response(uses_fixtures=uses_fixtures)
+
+
+@router.get("/api/providers")
+def list_providers() -> list[dict]:
+    """Available inference providers with capabilities (no network probing)."""
+    from ..analysis.provider import (
+        LocalEndpointProvider,
+        MetaModelProvider,
+        SimulatedProvider,
+    )
+
+    settings = load_settings()
+    entries: list[dict] = []
+    meta = MetaModelProvider(settings)
+    meta_caps = meta.capabilities()
+    meta_available = bool(settings.model_api_key) and not settings.offline_mode
+    entries.append(
+        {
+            "name": "meta",
+            "model": settings.model_name,
+            "processing_location": meta_caps.processing_location,
+            "vision": meta_caps.vision,
+            "tool_calling": meta_caps.tool_calling,
+            "available": meta_available,
+            "reason": (
+                "ready"
+                if meta_available
+                else (
+                    "FIELDROOK_OFFLINE is enabled"
+                    if settings.offline_mode
+                    else "MODEL_API_KEY is not set"
+                )
+            ),
+        }
+    )
+    simulated = SimulatedProvider(settings)
+    sim_caps = simulated.capabilities()
+    entries.append(
+        {
+            "name": "simulated",
+            "model": simulated.model_label(),
+            "processing_location": sim_caps.processing_location,
+            "vision": sim_caps.vision,
+            "tool_calling": sim_caps.tool_calling,
+            "available": True,
+            "reason": "ready (deterministic offline analysis)",
+        }
+    )
+    local = LocalEndpointProvider(settings)
+    local_caps = local.capabilities()
+    local_available = bool(settings.local_model_url.strip()) and bool(
+        settings.local_model_name.strip()
+    )
+    entries.append(
+        {
+            "name": "local",
+            "model": settings.local_model_name or "unconfigured",
+            "processing_location": local_caps.processing_location,
+            "vision": local_caps.vision,
+            "tool_calling": local_caps.tool_calling,
+            "available": local_available,
+            "reason": (
+                f"endpoint {settings.local_model_url}"
+                if local_available
+                else "FIELDROOK_LOCAL_MODEL_URL / FIELDROOK_LOCAL_MODEL_NAME not set"
+            ),
+        }
+    )
+    return entries
+
+
+TURN_LABELS = {
+    "answer": "Technician answer",
+    "observation": "Technician observation",
+    "test_result": "Technician test result",
+    "correction": "Technician correction",
+    "question": "Technician question",
+}
+
+
+@router.post("/api/investigations/{investigation_id}/turn", response_model=InvestigationResponse)
+async def technician_turn(
+    investigation_id: str,
+    kind: str = Form(default="observation"),
+    text: str = Form(min_length=1, max_length=2000),
+    question_id: str | None = Form(default=None),
+    share_consent: bool = Form(default=False),
+    screenshot: UploadFile | None = File(default=None),
+) -> InvestigationResponse:
+    """One technician conversation turn: answer, observation, test result,
+    correction, or question, optionally with a follow-up screenshot.
+
+    Technician-supplied content becomes labeled evidence
+    (source `technician:<kind>`) that hypotheses and plans can cite, but it
+    is never confused with independently measured facts. Answering a
+    clarifying question closes it so it is never asked again.
+    """
+    from ..knowledge.redact import redact_text
+
+    state = store.get(investigation_id)
+    if state is None:
+        raise HTTPException(status_code=404, detail=f"Unknown investigation {investigation_id!r}.")
+    settings = load_settings()
+    normalized_kind = (kind or "observation").strip().lower()
+    if normalized_kind not in TURN_LABELS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unknown turn kind {kind!r}; use answer, observation, test_result, correction, or question.",
+        )
+    cleaned = redact_text(text.strip())
+    if not cleaned:
+        raise HTTPException(status_code=400, detail="Turn text is empty after redaction.")
+
+    question = None
+    if question_id:
+        question = next((q for q in state.questions if q.question_id == question_id), None)
+        if question is None:
+            raise HTTPException(status_code=422, detail=f"Unknown question {question_id!r}.")
+        if question.status != "open":
+            raise HTTPException(status_code=409, detail=f"Question {question_id!r} is already answered.")
+
+    image_b64: str | None = None
+    image_mime: str | None = None
+    if screenshot is not None:
+        if not share_consent:
+            raise HTTPException(
+                status_code=400,
+                detail="A screenshot was attached but sharing consent was not given. "
+                "Confirm authorization before the image is processed, or remove it.",
+            )
+        content = await screenshot.read(MAX_IMAGE_BYTES + 1)
+        try:
+            image_mime = validate_image_upload(screenshot.filename, screenshot.content_type, content)
+        except ImageValidationError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        image_b64 = base64.b64encode(content).decode("ascii")
+
+    label = TURN_LABELS[normalized_kind]
+    state.messages.append({"role": "user", "content": f"{label}: {cleaned}"})
+    if image_b64 is not None and image_mime is not None:
+        location = _processing_location(settings, state.provider_override)
+        state.messages.append(
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": f"{label} includes a follow-up screenshot ({location})."},
+                    {"type": "image_url", "image_url": {"url": f"data:{image_mime};base64,{image_b64}"}},
+                ],
+            }
+        )
+        state.has_image = True
+        shot = state.add_evidence(
+            category="screenshot",
+            source="upload:screenshot",
+            data={
+                "filename": screenshot.filename if screenshot else None,
+                "mime": image_mime,
+                "bytes": len(content),
+                "note": f"Follow-up image sent for processing ({location}) with consent; FieldRook keeps only this metadata.",
+            },
+        )
+        state.add_activity(
+            "note", "Follow-up screenshot attached",
+            f"Recorded as {shot.id}; processed {location} with consent, not stored.",
+            evidence_ids=[shot.id],
+        )
+        state.warnings.append(f"Follow-up screenshot shared with your consent ({location}); FieldRook does not store it.")
+
+    evidence_ids: list[str] = []
+    if normalized_kind in ("observation", "test_result"):
+        item = state.add_evidence(
+            category="technician_report",
+            source=f"technician:{normalized_kind}",
+            data={
+                "kind": normalized_kind,
+                "text": cleaned,
+                "question_id": question_id,
+                "note": "Technician-supplied; cited as reported, not independently measured.",
+            },
+        )
+        evidence_ids.append(item.id)
+    remaining = MAX_TOOL_CALLS - state.tool_calls_made
+    grant = max(0, min(MAX_FOLLOWUP_CALLS, remaining))
+    if grant <= 0:
+        state.warnings.append("Tool budget exhausted; turn answered from existing evidence only.")
+    await run_rounds(state, settings, None, max_new_calls=grant, is_followup=True)
+    if question is not None:
+        question.status = "answered"
+        question.answer = cleaned[:1000]
+        state.add_activity(
+            "question", f"Question {question.question_id} answered", cleaned[:300],
+            evidence_ids=evidence_ids,
+        )
+    state.add_activity("turn", f"{label} processed", cleaned[:500], evidence_ids=evidence_ids)
+    uses_fixtures = settings.fixtures_mode == "always" or state.mode == "simulated"
+    store.save(state)
+    return state.to_response(uses_fixtures=uses_fixtures)
+
+
+@router.post(
+    "/api/investigations/{investigation_id}/plan/steps/{step_id}/complete",
+    response_model=InvestigationResponse,
+)
+async def complete_plan_step(
+    investigation_id: str, step_id: str, request: PlanStepOutcomeRequest
+) -> InvestigationResponse:
+    """Record a technician-reported step outcome and advance the plan."""
+    from ..analysis.assist import refresh_assist
+    from ..knowledge.redact import redact_text
+
+    state = store.get(investigation_id)
+    if state is None:
+        raise HTTPException(status_code=404, detail=f"Unknown investigation {investigation_id!r}.")
+    if state.plan is None:
+        raise HTTPException(status_code=404, detail="This investigation has no troubleshooting plan yet.")
+    step = next((s for s in state.plan.steps if s.step_id == step_id), None)
+    if step is None:
+        raise HTTPException(status_code=404, detail=f"Unknown plan step {step_id!r}.")
+    if step.status in ("done", "blocked", "skipped"):
+        raise HTTPException(status_code=409, detail=f"Step {step_id!r} is already {step.status}.")
+    step.status = "done"
+    step.outcome = redact_text(request.outcome.strip())[:2000]
+    state.add_activity(
+        "troubleshoot_plan", f"Step {step_id} completed", step.outcome[:500],
+        evidence_ids=list(step.evidence_ids),
+    )
+    refresh_assist(state, state.rounds_used)
+    store.save(state)
+    settings = load_settings()
+    uses_fixtures = settings.fixtures_mode == "always" or state.mode == "simulated"
+    return state.to_response(uses_fixtures=uses_fixtures)
+
+
+@router.post(
+    "/api/investigations/{investigation_id}/plan/steps/{step_id}/impossible",
+    response_model=InvestigationResponse,
+)
+async def impossible_plan_step(
+    investigation_id: str, step_id: str, request: PlanStepImpossibleRequest
+) -> InvestigationResponse:
+    """Mark a step impossible; replan around it or record why blocked."""
+    from ..analysis.assist import refresh_assist
+    from ..knowledge.redact import redact_text
+
+    state = store.get(investigation_id)
+    if state is None:
+        raise HTTPException(status_code=404, detail=f"Unknown investigation {investigation_id!r}.")
+    if state.plan is None:
+        raise HTTPException(status_code=404, detail="This investigation has no troubleshooting plan yet.")
+    step = next((s for s in state.plan.steps if s.step_id == step_id), None)
+    if step is None:
+        raise HTTPException(status_code=404, detail=f"Unknown plan step {step_id!r}.")
+    if step.status in ("done", "blocked", "skipped"):
+        raise HTTPException(status_code=409, detail=f"Step {step_id!r} is already {step.status}.")
+    reason = redact_text(request.reason.strip())[:2000]
+    step.status = "blocked"
+    step.outcome = reason
+    state.add_activity(
+        "troubleshoot_plan", f"Step {step_id} impossible", reason[:500],
+        evidence_ids=list(step.evidence_ids),
+    )
+    refresh_assist(state, state.rounds_used)
+    open_steps = (
+        [s for s in state.plan.steps if s.status in ("suggested", "current")]
+        if state.plan is not None
+        else []
+    )
+    if not open_steps:
+        state.blocked_reason = (
+            f"Step {step_id} cannot be performed ({reason}) and no alternative "
+            "step is available from current evidence."
+        )
+        state.warnings.append(f"Investigation blocked: {state.blocked_reason}")
+        state.add_activity("note", "Investigation blocked", state.blocked_reason)
+    store.save(state)
+    settings = load_settings()
+    uses_fixtures = settings.fixtures_mode == "always" or state.mode == "simulated"
+    return state.to_response(uses_fixtures=uses_fixtures)
+
+
+@router.post(
+    "/api/investigations/{investigation_id}/hypotheses/{hypothesis_id}/status",
+    response_model=InvestigationResponse,
+)
+async def set_hypothesis_status(
+    investigation_id: str, hypothesis_id: str, request: HypothesisStatusRequest
+) -> InvestigationResponse:
+    """Record an explicit technician judgment on one hypothesis.
+
+    The judgment and its reason enter the hypothesis history and are never
+    overridden by later model reassessments.
+    """
+    from ..analysis.assist import mark_hypothesis
+    from ..knowledge.redact import redact_text
+
+    state = store.get(investigation_id)
+    if state is None:
+        raise HTTPException(status_code=404, detail=f"Unknown investigation {investigation_id!r}.")
+    reason = f"Technician judgment: {redact_text(request.reason.strip())}"[:1000]
+    if not mark_hypothesis(state, hypothesis_id, request.status, reason, state.rounds_used):
+        raise HTTPException(
+            status_code=404,
+            detail=f"Unknown hypothesis {hypothesis_id!r} (or invalid status).",
+        )
+    hyp = next(h for h in state.hypotheses if h.hypothesis_id == hypothesis_id)
+    state.add_activity(
+        "hypothesis", f"Hypothesis {hypothesis_id} {request.status}",
+        f"{hyp.title}: {reason}"[:500],
+        evidence_ids=list(hyp.supporting_evidence_ids),
+    )
+    store.save(state)
+    settings = load_settings()
+    uses_fixtures = settings.fixtures_mode == "always" or state.mode == "simulated"
+    return state.to_response(uses_fixtures=uses_fixtures)
+
+
+@router.post("/api/investigations/{investigation_id}/provider", response_model=InvestigationResponse)
+async def switch_provider(
+    investigation_id: str, request: ProviderSwitchRequest
+) -> InvestigationResponse:
+    """Switch the inference provider for future rounds (evidence preserved).
+
+    Switching TO a cloud provider while the investigation holds screenshots,
+    evidence, or notes requires explicit `confirm_cloud`: that content would
+    be transmitted on the next model round.
+    """
+    state = store.get(investigation_id)
+    if state is None:
+        raise HTTPException(status_code=404, detail=f"Unknown investigation {investigation_id!r}.")
+    settings = load_settings()
+    wanted = request.provider
+    if wanted == "meta":
+        sensitive = bool(state.has_image or state.evidence or state.notes)
+        if sensitive and not request.confirm_cloud:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "Switching to the Meta cloud provider would transmit this "
+                    "investigation's screenshots, evidence, and notes. Resend with "
+                    "confirm_cloud=true to authorize that transmission."
+                ),
+            )
+    state.provider_override = None if wanted == "auto" else wanted
+    location = _processing_location(settings, state.provider_override)
+    state.warnings.append(
+        f"Inference provider switched to {wanted} ({location}); applies to the "
+        "next round. Past assessments keep their original labels."
+    )
+    state.add_activity("provider", f"Provider switched to {wanted}", location)
+    store.save(state)
+    uses_fixtures = settings.fixtures_mode == "always" or state.mode == "simulated"
+    return state.to_response(uses_fixtures=uses_fixtures)
+
+
+@router.post("/api/investigations/{investigation_id}/target", response_model=InvestigationResponse)
+async def set_target(investigation_id: str, request: TargetRequest) -> InvestigationResponse:
+    """Set the diagnostic target (which computer the evidence describes)."""
+    from ..analysis.assist import refresh_assist
+
+    state = store.get(investigation_id)
+    if state is None:
+        raise HTTPException(status_code=404, detail=f"Unknown investigation {investigation_id!r}.")
+    if state.target == request.target:
+        settings = load_settings()
+        uses_fixtures = settings.fixtures_mode == "always" or state.mode == "simulated"
+        return state.to_response(uses_fixtures=uses_fixtures)
+    previous = state.target
+    state.target = request.target
+    host_measured = [
+        item.id for item in state.evidence
+        if (item.source or "").startswith("tool:") and (item.tool_name or "") != "interpret_error_code"
+    ]
+    if previous == "local" and request.target != "local" and host_measured:
+        state.warnings.append(
+            "Diagnostic target changed to "
+            f"{request.target}: existing host evidence ({', '.join(host_measured[:5])}"
+            f"{', …' if len(host_measured) > 5 else ''}) may describe the wrong "
+            "computer. Treat it as host-only until confirmed."
+        )
+    state.add_activity(
+        "note", f"Diagnostic target: {previous} -> {request.target}",
+        "Host measurements apply only when the target is the local host.",
+    )
+    refresh_assist(state, state.rounds_used)
+    store.save(state)
+    settings = load_settings()
+    uses_fixtures = settings.fixtures_mode == "always" or state.mode == "simulated"
     return state.to_response(uses_fixtures=uses_fixtures)
 
 

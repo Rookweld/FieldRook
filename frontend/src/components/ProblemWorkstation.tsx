@@ -3,15 +3,22 @@ import {
   ApiError,
   addInvestigationNote,
   followUpInvestigation,
+  listProviders,
   listServices,
   reverifyEvidence,
   startInvestigation,
 } from "../api";
-import type { InvestigationResponse, ServiceSummary } from "../types";
+import type {
+  DiagnosisTarget,
+  InvestigationResponse,
+  ProviderOption,
+  ServiceSummary,
+} from "../types";
 import { ActionCenter } from "./ActionCenter";
 import { ResolutionWorkspace } from "./ResolutionWorkspace";
 import { WorkedBefore } from "./WorkedBefore";
 import { DiagnosisPanel } from "./DiagnosisPanel";
+import { GuidePanel } from "./GuidePanel";
 import { resolutionOf } from "./WorkflowStage";
 import { EvidenceCards } from "./EvidenceCards";
 import { EvidencePeek } from "./EvidencePeek";
@@ -77,14 +84,56 @@ function PendingPanel({ what }: { what: string }) {
   );
 }
 
+/** Compact assistant summary above the Findings: stage, next step, open questions. */
+function GuideStrip({
+  investigation,
+  onOpen,
+}: {
+  investigation: InvestigationResponse;
+  onOpen: () => void;
+}) {
+  const openQuestions = investigation.questions.filter((q) => q.status === "open");
+  const currentStep =
+    investigation.plan?.steps.find((s) => s.step_id === investigation.plan?.current_step_id) ??
+    null;
+  if (!currentStep && openQuestions.length === 0 && !investigation.blocked_reason) return null;
+  return (
+    <section className="card guide-strip" aria-label="Assistant summary">
+      <div className="guide-strip-main">
+        <span className="badge">{investigation.stage.replace(/_/g, " ")}</span>
+        {investigation.blocked_reason ? (
+          <span className="guide-strip-text">{investigation.blocked_reason}</span>
+        ) : currentStep ? (
+          <span className="guide-strip-text">
+            <span className="runbook-label">Next — </span>
+            {currentStep.instruction}
+          </span>
+        ) : null}
+        {openQuestions.length > 0 && (
+          <span className="guide-strip-text">
+            <span className="runbook-label">Question — </span>
+            {openQuestions[0].question}
+          </span>
+        )}
+      </div>
+      <button type="button" className="button button-ghost button-small" onClick={onOpen}>
+        Open Guide
+      </button>
+    </section>
+  );
+}
+
 export function ProblemWorkstation({
   initial,
 }: {
   initial?: InvestigationResponse | null;
 }) {
   const [services, setServices] = useState<ServiceSummary[]>([]);
+  const [providers, setProviders] = useState<ProviderOption[]>([]);
   const [problem, setProblem] = useState<string>("");
   const [serviceName, setServiceName] = useState<string>("");
+  const [target, setTargetChoice] = useState<DiagnosisTarget>("local");
+  const [provider, setProviderChoice] = useState<string>("auto");
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [consent, setConsent] = useState<boolean>(false);
@@ -129,6 +178,14 @@ export function ProblemWorkstation({
       },
       () => {
         /* service list is optional; the investigation works without it */
+      },
+    );
+    listProviders().then(
+      (options) => {
+        if (!cancelled) setProviders(options);
+      },
+      () => {
+        /* provider list is advisory; auto selection works without it */
       },
     );
     return () => {
@@ -193,7 +250,7 @@ export function ProblemWorkstation({
     if (!problem.trim() || busy) return;
     if (file && !consent) {
       setError(
-        "Sharing consent is required to send the screenshot to the Meta API — check the consent box or remove the image.",
+        "Sharing consent is required to send the screenshot for analysis — check the consent box or remove the image.",
       );
       return;
     }
@@ -208,6 +265,8 @@ export function ProblemWorkstation({
         useFixtures: useFixtures ? true : undefined,
         shareConsent: consent,
         screenshot: file,
+        target,
+        provider,
       });
       setInvestigation(result);
       setView("findings");
@@ -220,7 +279,7 @@ export function ProblemWorkstation({
     } finally {
       setBusy(null);
     }
-  }, [problem, serviceName, file, consent, useFixtures, busy]);
+  }, [problem, serviceName, file, consent, useFixtures, target, provider, busy]);
 
   const sendFollowup = useCallback(async (): Promise<void> => {
     if (!investigation || !followup.trim() || busy) return;
@@ -371,6 +430,19 @@ export function ProblemWorkstation({
                 ))}
               </select>
             </label>
+            <label className="field">
+              <span>Affected computer</span>
+              <select
+                value={target}
+                onChange={(e) => setTargetChoice(e.target.value as DiagnosisTarget)}
+                disabled={busy !== null}
+                aria-label="Affected computer"
+              >
+                <option value="local">This computer</option>
+                <option value="remote">Another computer</option>
+                <option value="unknown">Not sure yet</option>
+              </select>
+            </label>
             <button
               className="button"
               onClick={() => void investigate()}
@@ -408,7 +480,7 @@ export function ProblemWorkstation({
                   onChange={(e) => setConsent(e.target.checked)}
                   disabled={busy !== null}
                 />
-                <span>I am authorized to share this screenshot with the Meta AI API for analysis.</span>
+                <span>I am authorized to share this screenshot for analysis with the selected provider.</span>
               </label>
               <p className="warn">
                 Screenshots may contain sensitive information. Only attach images you are
@@ -417,7 +489,7 @@ export function ProblemWorkstation({
             </>
           )}
           <details className="advanced">
-            <summary>Advanced: fixture mode (development and demos)</summary>
+            <summary>Advanced: fixture mode, provider (development and demos)</summary>
             <label className="check">
               <input
                 type="checkbox"
@@ -426,6 +498,22 @@ export function ProblemWorkstation({
                 disabled={busy !== null}
               />
               <span>Force fixture data</span>
+            </label>
+            <label className="field">
+              <span>Inference provider</span>
+              <select
+                value={provider}
+                onChange={(e) => setProviderChoice(e.target.value)}
+                disabled={busy !== null}
+                aria-label="Inference provider"
+              >
+                <option value="auto">auto (Meta cloud when a key is set, else simulated)</option>
+                {providers.map((p) => (
+                  <option key={p.name} value={p.name} disabled={!p.available}>
+                    {p.name} — {p.reason}
+                  </option>
+                ))}
+              </select>
             </label>
           </details>
           {busy === "investigating" && (
@@ -452,6 +540,13 @@ export function ProblemWorkstation({
               {investigation.investigation_id} ·{" "}
               {new Date(investigation.created_at).toLocaleString()} · {investigation.status}
             </span>
+            <span className="badge" title="Diagnostic target: which computer the evidence describes">
+              {investigation.target === "local"
+                ? "THIS PC"
+                : investigation.target === "remote"
+                  ? "OTHER PC"
+                  : "TARGET?"}
+            </span>
             <span className="contextbar-spacer" />
             <button type="button" className="button button-ghost button-small" onClick={startNew}>
               New investigation
@@ -466,6 +561,18 @@ export function ProblemWorkstation({
           />
 
           <nav className="views" aria-label="Investigation views">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={view === "guide"}
+              className="view-tab"
+              onClick={() => setView("guide")}
+            >
+              Guide
+              {investigation.questions.some((q) => q.status === "open") && (
+                <span className="view-dot view-dot-warn" aria-label="open questions" />
+              )}
+            </button>
             <button
               type="button"
               role="tab"
@@ -504,8 +611,20 @@ export function ProblemWorkstation({
             </button>
           </nav>
 
+          {view === "guide" && (
+            <div className="view-panel">
+              <GuidePanel
+                investigation={investigation}
+                onUpdate={setInvestigation}
+                onEvidenceClick={setSelectedEvidence}
+                onError={setError}
+              />
+            </div>
+          )}
+
           {view === "findings" && (
             <div className="view-panel">
+              <GuideStrip investigation={investigation} onOpen={() => setView("guide")} />
               <OverviewPanel
                 investigation={investigation}
                 onEvidenceClick={setSelectedEvidence}

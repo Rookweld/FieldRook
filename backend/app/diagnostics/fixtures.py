@@ -902,12 +902,91 @@ def _summarize_investigation_item(item: EvidenceItem) -> str:
     return f"Collected {category} evidence."
 
 
+def _build_simulated_remote_analysis(problem: str, target: str) -> AnalysisResult:
+    """Honest simulated assessment when no local measurement applies.
+
+    Used for remote/unknown targets with no usable evidence: no causes are
+    invented from thin air, and the missing evidence names what the
+    technician must supply before any diagnosis is possible.
+    """
+    from ..schemas import AnalysisResult, ObservedFact, RootCause, RunbookStep
+
+    short_problem = problem.strip().replace("\n", " ")[:120]
+    where = "a different computer" if target == "remote" else "a computer whose identity is not established"
+    steps = [
+        RunbookStep(
+            step="Establish which computer is affected and work from its observations.",
+            why="Host measurements describe the FieldRook machine, not the affected one.",
+            inspect="Whether the symptoms reproduce on this host or only on the other machine.",
+            confirms="A confirmed target lets FieldRook choose applicable checks.",
+            impact="read-only",
+        ),
+        RunbookStep(
+            step="Collect the exact error text, code, and timing from the affected computer.",
+            why="Exact messages decode deterministically; paraphrases do not.",
+            inspect="Dialog text, event IDs, and numeric codes from the symptom report.",
+            confirms="A decoded code corroborates one hypothesis over the others.",
+            impact="read-only",
+        ),
+    ]
+    return AnalysisResult(
+        summary=(
+            f"Simulated investigation of '{short_problem}': the affected computer is "
+            f"{where}, so no host measurements were taken. No diagnosis is possible "
+            "until technician-supplied observations arrive."
+        ),
+        facts=[
+            ObservedFact(
+                statement=(
+                    f"No host diagnostics apply: the diagnostic target is {target}, "
+                    "and host readings would describe the wrong computer."
+                ),
+                evidence_ids=[],
+            )
+        ],
+        causes=[
+            RootCause(
+                title="No verified cause: affected-machine observations are missing",
+                description=(
+                    "FieldRook has no measurements from the affected computer and "
+                    "refuses to guess. Supply screenshots, error codes, or manual "
+                    "test results to open testable hypotheses."
+                ),
+                likelihood="low",
+                evidence_ids=[],
+            )
+        ],
+        uncertainties=[
+            "Simulated mode: no model reasoning was applied.",
+            f"Every reading so far describes the FieldRook host or nothing at all; none describes {where}.",
+        ],
+        missing_evidence=[
+            "Which computer is affected (this host or another machine).",
+            "Exact error text or code from the affected computer.",
+            "Whether the symptom reproduces and when it started.",
+        ],
+        next_actions=[step.step for step in steps],
+        next_steps=steps,
+        explanation=(
+            "FieldRook withheld host diagnostics because the diagnostic target is "
+            f"{target}. OBSERVED facts record that decision. No INFERRED cause is "
+            "offered without affected-machine evidence. The next move belongs to "
+            "the technician: identify the machine and report what it shows."
+        ),
+        mode="simulated",
+        model=SIMULATED_MODEL_NAME,
+    )
+
+
 def build_simulated_investigation_analysis(
-    problem: str, evidence: list[EvidenceItem]
+    problem: str, evidence: list[EvidenceItem], target: str = "local"
 ) -> AnalysisResult:
     """Deterministic simulated assessment over multi-tool investigation evidence."""
     usable = [item for item in evidence if item.error is None]
     failed = [item for item in evidence if item.error is not None]
+    non_local = (target or "local").strip().lower() != "local"
+    if non_local and not usable:
+        return _build_simulated_remote_analysis(problem, target)
     facts = [
         ObservedFact(
             statement=_summarize_investigation_item(item),
@@ -1005,6 +1084,13 @@ def build_simulated_investigation_analysis(
         "Simulated mode: the causes above are generic hypotheses, not Meta model conclusions.",
         "Bounded samples cannot prove absence of failure; zero matches only mean zero matches in the examined window.",
     ]
+    if non_local:
+        uncertainties.insert(
+            1,
+            f"Diagnostic target is {target}: host measurements were withheld, so "
+            "these hypotheses rest on technician-supplied observations, not "
+            "independent readings from the affected computer.",
+        )
     for item in task_items:
         tasks = item.data.get("tasks", [])
         if not isinstance(tasks, list):

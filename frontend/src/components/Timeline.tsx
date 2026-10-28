@@ -17,6 +17,11 @@ const KIND_MARK: Record<ActivityRecord["kind"], string> = {
   verified: "\u25C9",
   done: "\u2714",
   error: "\u2716",
+  hypothesis: "\u25C7",
+  troubleshoot_plan: "\u2630",
+  turn: "\u21C4",
+  question: "?",
+  provider: "\u2699",
 };
 
 /** Visual family per activity kind: tool / evidence / human / verdict. */
@@ -36,6 +41,11 @@ const KIND_FAMILY: Record<ActivityRecord["kind"], string> = {
   verified: "tl-fam-verdict",
   done: "tl-fam-verdict",
   error: "tl-fam-error",
+  hypothesis: "tl-fam-evidence",
+  troubleshoot_plan: "tl-fam-tool",
+  turn: "tl-fam-human",
+  question: "tl-fam-human",
+  provider: "tl-fam-tool",
 };
 
 interface Round {

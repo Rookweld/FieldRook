@@ -4,6 +4,7 @@ import asyncio
 import json
 
 from app.analysis.loop import _run_live
+from app.analysis.provider import ProviderCapabilities
 from app.config import Settings
 from app.investigations.store import InvestigationState
 
@@ -39,6 +40,15 @@ class _ScriptedProvider:
     def __init__(self, script: list[dict]) -> None:
         self._script = script
         self.turns = 0
+
+    def capabilities(self) -> ProviderCapabilities:
+        return ProviderCapabilities(
+            text=True, vision=True, tool_calling=True,
+            structured_output=True, processing_location="cloud",
+        )
+
+    def model_label(self) -> str:
+        return "test-model"
 
     async def chat(self, messages, tools=None, json_only=False):  # noqa: ANN001, ANN002, ANN003
         called: set[str] = set()

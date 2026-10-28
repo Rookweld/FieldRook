@@ -3438,3 +3438,191 @@ li.tl {
     animation: none !important;
   }
 }
+
+/* ------------------------------------------------------------------
+   M016 — THE REAL TECHNICIAN. Guided investigation layer: status tones,
+   question/step/hypothesis cards, turn composer, assistant strip.
+   Reuses the M014 material system; no new motion beyond fade-in.
+   ------------------------------------------------------------------ */
+
+.badge-good {
+  color: var(--green);
+  border-color: #234d3a;
+}
+.badge-bad {
+  color: var(--red);
+  border-color: #5c2b26;
+}
+.badge-warn {
+  color: var(--amber);
+  border-color: #5c4a26;
+}
+.badge-mute {
+  color: var(--muted);
+}
+.badge-current {
+  color: var(--cyan);
+  border-color: #2c4a5c;
+}
+.flag-origin {
+  color: var(--amber);
+  background: rgba(217, 164, 65, 0.12);
+}
+
+.guide {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+.guide-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+.guide-meta-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.8rem;
+  align-items: flex-end;
+}
+.guide-meta-grid .field {
+  min-width: 11rem;
+}
+.guide-budget {
+  flex: 1 1 100%;
+  margin: 0;
+}
+.guide-confirm {
+  margin-top: 0.5rem;
+}
+.guide-blocked {
+  border-left: 3px solid var(--red);
+}
+.guide-assistant {
+  border-left: 2px solid var(--cyan);
+  padding-left: 0.7rem;
+  color: var(--ink);
+}
+.guide-q {
+  font-weight: 600;
+  margin: 0 0 0.2rem;
+}
+.guide-why {
+  margin: 0 0 0.5rem;
+  font-size: 0.85rem;
+}
+.guide-answer-row,
+.guide-outcome-row,
+.guide-judge-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.guide-input {
+  flex: 1 1 16rem;
+}
+.guide-answered {
+  opacity: 0.85;
+}
+.guide-a {
+  margin: 0.2rem 0 0;
+}
+.guide-current {
+  border-left: 3px solid var(--cyan);
+}
+.guide-step-head {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 0.3rem;
+}
+.guide-kind {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.guide-instruction {
+  margin: 0 0 0.2rem;
+  font-weight: 600;
+}
+.guide-expected {
+  margin: 0.3rem 0;
+  padding-left: 1.1rem;
+  color: var(--muted);
+  font-size: 0.87rem;
+}
+.guide-refs {
+  display: flex;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+  margin: 0.3rem 0;
+}
+.guide-contra .chip {
+  border-style: dashed;
+}
+.guide-outcome {
+  margin: 0.4rem 0 0;
+  font-size: 0.9rem;
+}
+.guide-step-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+.guide-step-done,
+.guide-step-skipped {
+  opacity: 0.75;
+}
+.guide-history {
+  margin: 0.4rem 0;
+  font-size: 0.87rem;
+}
+.guide-history ul {
+  margin: 0.3rem 0;
+  padding-left: 1.1rem;
+}
+.guide-hyp .link-button {
+  margin-top: 0.3rem;
+}
+.guide-turn-row {
+  margin-bottom: 0.4rem;
+}
+.guide-strip {
+  display: flex;
+  gap: 0.8rem;
+  align-items: center;
+  justify-content: space-between;
+  border-left: 3px solid var(--gold);
+}
+.guide-strip-main {
+  display: flex;
+  gap: 0.6rem;
+  align-items: baseline;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+.guide-strip-text {
+  font-size: 0.9rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@media (max-width: 640px) {
+  .guide-strip {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .guide-meta-grid .field {
+    min-width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .guide {
+    animation: none !important;
+  }
+}

@@ -284,7 +284,12 @@ export type ActivityKind =
   | "verification_started"
   | "verified"
   | "done"
-  | "error";
+  | "error"
+  | "hypothesis"
+  | "troubleshoot_plan"
+  | "turn"
+  | "question"
+  | "provider";
 
 export interface ActivityRecord {
   seq: number;
@@ -364,6 +369,17 @@ export interface InvestigationResponse {
   regression_checks: RegressionCheck[];
   tool_calls_used: number;
   tool_calls_max: number;
+  // M016 adaptive layer (defaulted by the backend for older rows).
+  stage: InvestigationStage;
+  target: DiagnosisTarget;
+  understanding: string;
+  hypotheses: Hypothesis[];
+  plan: TroubleshootPlan | null;
+  questions: ClarifyingQuestion[];
+  provider_info: ProviderInfo | null;
+  rounds_used: number;
+  blocked_reason: string | null;
+  assistant_message: string;
 }
 
 export interface InvestigationSummary {
@@ -382,3 +398,94 @@ export interface ToolInfo {
   description: string;
   category: string;
 }
+
+export type DiagnosisTarget = "local" | "remote" | "unknown";
+
+export type InvestigationStage =
+  | "INTAKE"
+  | "CLARIFYING"
+  | "PLANNING"
+  | "INVESTIGATING"
+  | "REASSESSING"
+  | "READY_TO_RESOLVE"
+  | "VERIFYING"
+  | "RESOLVED"
+  | "BLOCKED";
+
+export type HypothesisStatus = "active" | "weakened" | "ruled_out" | "confirmed";
+
+export interface HypothesisEvent {
+  round: number;
+  status: HypothesisStatus;
+  reason: string;
+}
+
+export interface Hypothesis {
+  hypothesis_id: string;
+  title: string;
+  description: string;
+  status: HypothesisStatus;
+  supporting_evidence_ids: string[];
+  contradicting_evidence_ids: string[];
+  created_round: number;
+  updated_round: number;
+  history: HypothesisEvent[];
+}
+
+export type PlanStepKind =
+  | "AUTOMATED_READ_ONLY"
+  | "TECHNICIAN_CHECK"
+  | "CLARIFYING_QUESTION"
+  | "EXTERNAL_SYSTEM_CHECK"
+  | "PROPOSED_INTERVENTION"
+  | "VERIFICATION";
+
+export type PlanStepStatus = "suggested" | "current" | "done" | "blocked" | "skipped";
+
+export interface TroubleshootStep {
+  step_id: string;
+  instruction: string;
+  why: string;
+  kind: PlanStepKind;
+  status: PlanStepStatus;
+  tool_name: string | null;
+  expected_observations: string[];
+  outcome: string;
+  evidence_ids: string[];
+  admin_maybe: boolean;
+}
+
+export interface TroubleshootPlan {
+  plan_id: string;
+  updated_round: number;
+  steps: TroubleshootStep[];
+  current_step_id: string | null;
+}
+
+export interface ClarifyingQuestion {
+  question_id: string;
+  question: string;
+  why: string;
+  status: "open" | "answered";
+  answer: string;
+}
+
+export interface ProviderInfo {
+  name: string;
+  model: string;
+  processing_location: string;
+  vision: boolean;
+  tool_calling: boolean;
+}
+
+export interface ProviderOption {
+  name: string;
+  model: string;
+  processing_location: string;
+  vision: boolean;
+  tool_calling: boolean;
+  available: boolean;
+  reason: string;
+}
+
+export type TurnKind = "answer" | "observation" | "test_result" | "correction" | "question";

@@ -45,6 +45,10 @@ def _as_float(name: str, default: float) -> float:
         return default
 
 
+def _as_flag(name: str) -> bool:
+    return os.environ.get(name, "").strip().lower() in ("1", "true", "yes", "on")
+
+
 @dataclass(frozen=True)
 class Settings:
     model_api_key: str | None
@@ -55,6 +59,13 @@ class Settings:
     model_timeout_s: float
     evidence_ttl_s: float = 900.0
     offline_mode: bool = False
+    # M016: explicit inference-provider selection. "auto" keeps the legacy
+    # behavior (Meta cloud when a key is set, else simulated).
+    model_provider: str = "auto"  # "auto" | "meta" | "simulated" | "local"
+    local_model_url: str = ""  # e.g. http://127.0.0.1:11434/v1 (loopback only)
+    local_model_name: str = ""
+    local_model_vision: bool = False
+    local_model_tools: bool = False
 
 
 def load_settings() -> Settings:
@@ -67,6 +78,9 @@ def load_settings() -> Settings:
     if fixtures_mode not in ("auto", "always", "never"):
         fixtures_mode = "auto"
     raw_key = "" if offline_mode else os.environ.get("MODEL_API_KEY", "").strip()
+    provider = os.environ.get("FIELDROOK_MODEL_PROVIDER", "auto").strip().lower()
+    if provider not in ("auto", "meta", "simulated", "local"):
+        provider = "auto"
     return Settings(
         model_api_key=raw_key or None,
         model_base_url=os.environ.get("MODEL_BASE_URL", DEFAULT_MODEL_BASE_URL).strip()
@@ -77,4 +91,9 @@ def load_settings() -> Settings:
         model_timeout_s=_as_float("FIELDROOK_MODEL_TIMEOUT_S", 60.0),
         evidence_ttl_s=_as_float("FIELDROOK_EVIDENCE_TTL_S", 900.0),
         offline_mode=offline_mode,
+        model_provider=provider,
+        local_model_url=os.environ.get("FIELDROOK_LOCAL_MODEL_URL", "").strip(),
+        local_model_name=os.environ.get("FIELDROOK_LOCAL_MODEL_NAME", "").strip(),
+        local_model_vision=_as_flag("FIELDROOK_LOCAL_MODEL_VISION"),
+        local_model_tools=_as_flag("FIELDROOK_LOCAL_MODEL_TOOLS"),
     )

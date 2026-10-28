@@ -19,7 +19,15 @@ const CATEGORY_LABELS: Record<string, string> = {
   demo_worker: "Demo worker",
   error_code: "Error codes",
   screenshot: "Screenshot",
+  technician_report: "Technician reports",
 };
+
+function originLabel(source: string): string | null {
+  if (source.startsWith("technician:")) return "TECHNICIAN-REPORTED";
+  if (source.startsWith("upload:")) return "TECHNICIAN-PROVIDED";
+  if (source.startsWith("tool:")) return null; // measured readings need no extra flag
+  return null;
+}
 
 function dataWarnings(item: EvidenceItem): string[] {
   const w: unknown = item.data["warnings"];
@@ -92,6 +100,9 @@ export function EvidenceCards({
                   </span>
                 </div>
                 <div className="evidence-flags">
+                  {originLabel(item.source) && (
+                    <span className="flag flag-origin">{originLabel(item.source)}</span>
+                  )}
                   {item.refresh_of && (
                     <span className="flag flag-current">RE-CHECK OF {item.refresh_of}</span>
                   )}
