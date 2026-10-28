@@ -35,11 +35,17 @@ for children except the single `worktree add`.
 
 | agent | branch | base | deliverables | tests | status |
 |---|---|---|---|---|---|
-| ALPHA collector | `forge/alpha-collector` | ded3b17 | `collector/**`, `test_collector_*.py` | pytest collector suite | RUNNING (wt: C:\tmp\forge-wt-alpha) |
-| BETA toolpacks | `forge/beta-toolpacks` | ded3b17 | `backend/app/toolpacks/**`, `windows_<new>.py`, `test_toolpacks_*.py` | pytest toolpack suite | RUNNING (wt: C:\tmp\forge-wt-beta) |
-| GAMMA knowledge | `forge/gamma-knowledge` | ded3b17 | `reference/**`, `reference_index.py`, `reference_service.py`, `test_knowledge_ref_*.py` | pytest knowledge suite | RUNNING (wt: C:\tmp\forge-wt-gamma) |
-| DELTA engine | `forge/delta-engine` | ded3b17 | loop/local_tasks/assist edits + `evidence_digest.py` | full backend suite green | RUNNING (wt: C:\tmp\forge-wt-delta) |
-| EPSILON workstation | `forge/epsilon-workstation` | ded3b17 | `frontend/src/forge/**`, forge spec | tsc/build + spec at integration | RUNNING (wt: C:\tmp\forge-wt-epsilon) |
+| ALPHA collector | `forge/alpha-collector` | ded3b17 | 16 new, 0 edits (741716f) | 96 passed, verified by lead | MERGED |
+| BETA toolpacks | `forge/beta-toolpacks` | ded3b17 | 7 new, 0 edits (53eef3e) | 26 passed, verified by lead | MERGED |
+| GAMMA knowledge | `forge/gamma-knowledge` | ded3b17 | 11 new, 0 edits (8b46661) | 36+1 passed after lead CRLF-hash fix | MERGED |
+| DELTA engine | `forge/delta-engine` | ded3b17 | 2 new + loop/local_tasks/assist only (c2127ad) | full 394 green, verified by lead | MERGED |
+| EPSILON workstation | `forge/epsilon-workstation` | ded3b17 | 13 new, 0 edits (1c97bc6) | spec runs after lead wiring (step 7) | MERGED |
+
+Integration branch: `forge/integration`. Lead step 1 (schemas/state/
+persist/export 1.1 + 3 tests) committed as `7798ea1`. Combined gate:
+**556 passed**. Integration fix `53fa9f7`: LF-normalized corpus
+hashing + `.gitattributes` + CRLF regression test (git autocrlf had
+invalidated GAMMA's manifest hashes at merge).
 
 Rules: new-files-only except DELTA (see contracts §6). No agent
 touches another agent's paths. No pushes. Offline: no cloud calls,
