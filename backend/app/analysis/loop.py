@@ -17,6 +17,7 @@ from ..analysis.assist import refresh_assist
 from ..analysis.provider import ModelProvider, RoundCancelled, select_provider
 from ..analysis.refresh import compare_readings
 from ..analysis.validate import ModelAnalysisError, validate_assessment_output
+from ..analysis.evidence_digest import build_collector_context, build_knowledge_context, collector_capability_ids, knowledge_questions_from, new_collector_items
 from ..config import SIMULATED_MODEL_NAME, Settings
 from ..diagnostics import fixtures as fx
 from ..investigations.store import InvestigationState
@@ -147,12 +148,31 @@ def build_investigation_messages(
     image_mime: str | None,
     screenshot_evidence_id: str | None = None,
     target: str = "local",
+    evidence: list[Any] | None = None,
+    knowledge_excerpts: list[dict[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
     context = f"Technician's problem description:\n{problem}"
     if service_name:
         context += f"\n\nSuspected service (unverified): {service_name}"
     else:
         context += "\n\nNo specific service was selected; decide which diagnostics apply."
+    # FORGE DELTA (a): quoted collector + knowledge context on the user
+    # message only — never system instructions. Lead wires evidence/excerpts;
+    # defaults keep existing callers unchanged.
+    if evidence:
+        try:
+            _collector_block = build_collector_context(evidence, max_chars=MAX_HISTORY_CHARS)
+        except Exception:
+            _collector_block = ""
+        if _collector_block:
+            context += "\n\n" + _collector_block
+    if knowledge_excerpts:
+        try:
+            _knowledge_block = build_knowledge_context(knowledge_excerpts, max_chars=MAX_HISTORY_CHARS)
+        except Exception:
+            _knowledge_block = ""
+        if _knowledge_block:
+            context += "\n\n" + _knowledge_block
     if image_b64 and image_mime:
         shot_note = (
             f"\n\nA screenshot is attached. It is recorded as evidence {screenshot_evidence_id}; "
@@ -558,9 +578,25 @@ async def _run_local_tasks(
         titles = [h.title for h in state.hypotheses if h.status == "active"]
         asked = [q.question for q in state.questions[-6:]]
         thin = int(state.assist_counters.get("thin_answers", 0) or 0)
+        # FORGE DELTA (c): carry collector capabilities + open knowledge
+        # questions into reassessment (generic; absent when none exist).
+        try:
+            _forge_caps = collector_capability_ids(state.evidence)
+        except Exception:
+            _forge_caps = []
+        try:
+            _forge_kq: list[str] = []
+            _stored_kq = getattr(state, "knowledge_questions", None)
+            if isinstance(_stored_kq, list):
+                _forge_kq.extend(str(q) for q in _stored_kq if str(q).strip())
+            _excerpts = getattr(state, "knowledge_excerpts", None)
+            if isinstance(_excerpts, list) and _excerpts:
+                _forge_kq.extend(knowledge_questions_from(_excerpts))
+        except Exception:
+            _forge_kq = []
         reassess, task_warnings = await run_task(
             "reassess",
-            reassess_prompt(titles, observation, asked, thin_streak=thin),
+            reassess_prompt(titles, observation, asked, thin_streak=thin, collector_capabilities=_forge_caps or None, knowledge_questions=_forge_kq or None),
             cancel_scope=_scope_of(state),
         )
         state.warnings.extend(task_warnings)
@@ -1162,6 +1198,43 @@ async def run_rounds(
     max_new_calls: int | None = None,
     is_followup: bool = False,
 ) -> None:
+    # FORGE DELTA (b): new collector evidence since the last round forces
+    # a reassess round, noted on the record. Budgets below stay EXACT.
+    try:
+        _seen_raw = state.assist_counters.get("collector_seen_ids", []) or []
+        _seen_ids = set(_seen_raw) if isinstance(_seen_raw, list) else set()
+        _fresh_items = new_collector_items(state.evidence, _seen_ids)
+        if _fresh_items:
+            _fresh_ids = [str(getattr(item, "id", "") or (item.get("id", "") if isinstance(item, dict) else "")) for item in _fresh_items]
+            _fresh_ids = [i for i in _fresh_ids if i]
+            try:
+                _re_block = build_collector_context(state.evidence, max_chars=MAX_HISTORY_CHARS)
+            except Exception:
+                _re_block = ""
+            _re_note = (
+                f"New collector evidence arrived since the last round ({', '.join(_fresh_ids)}). "
+                "Reassess from these measured readings."
+            )
+            if _re_block:
+                _re_note += f"\n{_re_block}"
+            state.messages.append({"role": "user", "content": _re_note})
+            state.add_activity(
+                "note",
+                "Collector evidence arrived",
+                f"New collector item(s) {', '.join(_fresh_ids)}; forcing reassessment.",
+            )
+            if state.hypotheses:
+                is_followup = True
+        _current_collector_ids: list[str] = []
+        for _item in state.evidence:
+            _src = getattr(_item, "source", "") if not isinstance(_item, dict) else _item.get("source", "")
+            if isinstance(_src, str) and _src.startswith("collector:"):
+                _iid = getattr(_item, "id", "") if not isinstance(_item, dict) else _item.get("id", "")
+                if _iid:
+                    _current_collector_ids.append(str(_iid))
+        state.assist_counters["collector_seen_ids"] = _current_collector_ids
+    except Exception:
+        pass
     if max_new_calls is None:
         max_new_calls = MAX_FOLLOWUP_CALLS if is_followup else MAX_INITIAL_CALLS
     try:

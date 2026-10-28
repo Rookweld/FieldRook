@@ -98,8 +98,19 @@ def reassess_prompt(
     observation: str,
     asked_questions: list[str] | None = None,
     thin_streak: int = 0,
+    collector_capabilities: list[str] | None = None,
+    knowledge_questions: list[str] | None = None,
 ) -> str:
     titles = "; ".join(t for t in hypothesis_titles if t)[:600] or "none tracked yet"
+    # FORGE DELTA (c): collector capabilities + open knowledge questions ride
+    # along generically; empty stays empty so existing prompts are unchanged.
+    _caps = "; ".join(str(c)[:80] for c in (collector_capabilities or []) if str(c).strip())[:400]
+    _kq = "; ".join(str(q)[:120] for q in (knowledge_questions or []) if str(q).strip())[:600]
+    _forge_extra = ""
+    if _caps:
+        _forge_extra += f" Collector capabilities already collected: [{_caps}]. Prefer checks or questions outside this coverage."
+    if _kq:
+        _forge_extra += f" Open knowledge questions: [{_kq}]. Let answers to these discriminate the hypotheses."
     asked = "; ".join(q[:80] for q in (asked_questions or []) if q)[:400]
     no_repeat = (
         f" Already-asked questions (do not repeat or paraphrase): [{asked}]."
@@ -123,7 +134,7 @@ def reassess_prompt(
             else ""
         )
         + f"Open hypotheses: [{titles}]. New technician observation: {observation.strip()[:800]}"
-        f"{no_repeat}"
+        f"{no_repeat}{_forge_extra}"
     )
 
 
