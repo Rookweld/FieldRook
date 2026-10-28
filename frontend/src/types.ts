@@ -399,6 +399,7 @@ export interface ToolInfo {
   name: string;
   description: string;
   category: string;
+  family?: string | null;
 }
 
 export type DiagnosisTarget = "local" | "remote" | "unknown";

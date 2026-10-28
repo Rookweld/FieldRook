@@ -12,7 +12,7 @@ from app.toolpacks.families import (
     DEMO_TOOLS,
     FAMILY_METADATA,
     FAMILY_TOOL_MAP,
-    PROPOSED_TOOLPACKS,
+    TOOLPACKS,
     all_mapped_tools,
     family_for_tool,
 )
@@ -166,7 +166,7 @@ def test_schema_version_rejects_major_warns_minor() -> None:
     assert any("minor" in str(item.message) for item in caught)
 
 
-def test_family_map_asserts_fourteen_verified_tools() -> None:
+def test_family_map_asserts_eighteen_verified_tools() -> None:
     assert FAMILY_TOOL_MAP["reliability"] == [
         "list_services",
         "get_service_details",
@@ -182,16 +182,22 @@ def test_family_map_asserts_fourteen_verified_tools() -> None:
         "get_connections",
         "test_dns_resolution",
     ]
-    assert FAMILY_TOOL_MAP["devices"] == []
+    assert FAMILY_TOOL_MAP["devices"] == [
+        "list_devices",
+        "list_volumes",
+    ]
     assert FAMILY_TOOL_MAP["applications"] == [
         "search_application_crashes",
         "get_process_info",
     ]
-    assert FAMILY_TOOL_MAP["office_local"] == []
+    assert FAMILY_TOOL_MAP["office_local"] == [
+        "list_office_installs",
+        "get_office_config",
+    ]
     assert DEMO_TOOLS == ["get_demo_worker_health"]
-    assert len(all_mapped_tools()) == 13
-    assert len(ALL_VERIFIED_TOOLS) == 14
-    assert len(set(ALL_VERIFIED_TOOLS)) == 14
+    assert len(all_mapped_tools()) == 17
+    assert len(ALL_VERIFIED_TOOLS) == 18
+    assert len(set(ALL_VERIFIED_TOOLS)) == 18
     assert set(FAMILY_METADATA) == {"reliability", "networking", "devices", "applications", "office_local"}
 
 
@@ -199,6 +205,8 @@ def test_family_lookup() -> None:
     assert family_for_tool("list_services") == "reliability"
     assert family_for_tool("test_dns_resolution") == "networking"
     assert family_for_tool("get_process_info") == "applications"
+    assert family_for_tool("list_devices") == "devices"
+    assert family_for_tool("get_office_config") == "office_local"
     assert family_for_tool("get_demo_worker_health") is None
     assert family_for_tool("no_such_tool") is None
 
@@ -211,17 +219,39 @@ def _resolve(dotted: str):  # type: ignore[no-untyped-def]
     return func
 
 
-def test_proposed_packs_reference_built_impls_only() -> None:
-    assert len(PROPOSED_TOOLPACKS) == 2
-    check_global_uniqueness(PROPOSED_TOOLPACKS)
-    proposed_names: list[str] = []
-    for pack in PROPOSED_TOOLPACKS:
+def test_packs_reference_built_impls_only() -> None:
+    assert len(TOOLPACKS) == 2
+    check_global_uniqueness(TOOLPACKS)
+    pack_names: list[str] = []
+    for pack in TOOLPACKS:
         assert pack.privileges == "current_user_readonly"
         for tool in pack.tools:
-            proposed_names.append(tool.name)
+            pack_names.append(tool.name)
             assert tool.impact_tier == "READ_ONLY"
             assert tool.timeout_s is None
             _resolve(tool.live_impl)
             _resolve(tool.fixture_impl)
-    assert proposed_names == ["list_devices", "list_volumes", "list_office_installs", "get_office_config"]
-    assert not (set(proposed_names) & set(ALL_VERIFIED_TOOLS))
+    assert pack_names == ["list_devices", "list_volumes", "list_office_installs", "get_office_config"]
+    assert set(pack_names) <= set(ALL_VERIFIED_TOOLS)
+
+def test_registry_matches_family_declarations() -> None:
+    """M021: REGISTRY and families are one truth (fail-closed on drift)."""
+    from app.tools.registry import REGISTRY
+    from app.toolpacks.families import TOOLPACKS
+    assert set(REGISTRY) == set(ALL_VERIFIED_TOOLS)
+    for pack in TOOLPACKS:
+        for tool in pack.tools:
+            spec = REGISTRY[tool.name]
+            assert spec.category == tool.category
+            assert family_for_tool(tool.name) == pack.family
+
+
+def test_new_tools_reach_model_locally_only() -> None:
+    """M021: promoted tools are offered for local targets, withheld for remote."""
+    from app.analysis.loop import tools_for_target
+    names = {"list_devices", "list_volumes", "list_office_installs", "get_office_config"}
+    local = {(s.get("function") or {}).get("name") for s in tools_for_target("local")}
+    remote = {(s.get("function") or {}).get("name") for s in tools_for_target("remote")}
+    assert names <= local
+    assert not (names & remote)
+

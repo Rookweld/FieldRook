@@ -84,3 +84,16 @@ Operator :8000 stack untouched throughout.
 Collector foundation: portable collect -> versioned package -> secure
 import -> target-kept evidence -> investigation -> verified export.
 Cut from `forge/integration`; no push (awaiting authorization).
+
+## M021 checkpoint (diagnostic expansion hardening)
+
+- Promoted the 4 BETA tools from PROPOSED_TOOLPACKS to wired families
+  (devices: list_devices, list_volumes; office_local:
+  list_office_installs, get_office_config); TOOLPACKS renamed, 18/18.
+- REGISTRY<->families cross-check test (fail-closed on drift) + model
+  exposure pin (local yes, remote no via HOST_MEASUREMENT_TOOLS).
+- `/api/tools` gains additive `family`; frontend ToolInfo parity.
+- Category labels for pnp_devices/volumes/office_* in both maps.
+- Closed Phase A read gaps: windows_net.py:1-129,
+  windows_tasks.py:130-319 (allowlisted scripts, sanitized shaping).
+- Gates: backend 571, E2E 39/39, gauntlet 37/37, build clean.

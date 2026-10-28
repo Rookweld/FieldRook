@@ -277,8 +277,13 @@ def test_api_failure_substituted_gracefully(monkeypatch) -> None:  # type: ignor
 def test_tools_endpoint_lists_registry() -> None:
     response = client.get("/api/tools")
     assert response.status_code == 200
-    names = {tool["name"] for tool in response.json()}
+    tools = response.json()
+    names = {tool["name"] for tool in tools}
     assert len(names) == 18
+    families = {tool["name"]: tool["family"] for tool in tools}
+    assert families["list_devices"] == "devices"
+    assert families["get_office_config"] == "office_local"
+    assert families["get_demo_worker_health"] is None
     assert {"get_dns_config", "search_event_logs", "get_scheduled_tasks", "list_devices", "list_office_installs"} <= names
 
 

@@ -1,11 +1,11 @@
 """Family metadata and tool maps (forge.toolpack/v1, section 3 + D6).
 
-FAMILY_TOOL_MAP covers exactly the 14 VERIFIED registry tools: 13 mapped
-into reliability/networking/applications plus get_demo_worker_health outside
-families. devices and office_local are new families with no verified tools
-yet (NONE). PROPOSED_TOOLPACKS declares the 4 NEW BETA tools (built in
-windows_devices.py / windows_office.py) for lead wiring; every proposed
-tool has a live+fixture impl pair, so no unbuilt tool is contracted.
+FAMILY_TOOL_MAP covers exactly the 18 VERIFIED registry tools: 17 mapped
+into reliability/networking/devices/applications/office_local plus
+get_demo_worker_health outside families. TOOLPACKS declares the devices
+and office_local packs (built in windows_devices.py / windows_office.py,
+wired into REGISTRY by the lead in M020); every declared tool has a
+live+fixture impl pair, so no unbuilt tool is contracted.
 """
 
 from __future__ import annotations
@@ -53,12 +53,18 @@ FAMILY_TOOL_MAP: dict[str, list[str]] = {
         "get_connections",
         "test_dns_resolution",
     ],
-    "devices": [],
+    "devices": [
+        "list_devices",
+        "list_volumes",
+    ],
     "applications": [
         "search_application_crashes",
         "get_process_info",
     ],
-    "office_local": [],
+    "office_local": [
+        "list_office_installs",
+        "get_office_config",
+    ],
 }
 
 DEMO_TOOLS: list[str] = ["get_demo_worker_health"]
@@ -70,7 +76,7 @@ ALL_VERIFIED_TOOLS: list[str] = [
 
 
 def all_mapped_tools() -> list[str]:
-    """Return the 13 family-mapped verified tool names (excludes demo)."""
+    """Return the 17 family-mapped verified tool names (excludes demo)."""
     return [name for names in FAMILY_TOOL_MAP.values() for name in names]
 
 
@@ -82,7 +88,7 @@ def family_for_tool(name: str) -> str | None:
     return None
 
 
-PROPOSED_TOOLPACKS: list[ToolPackSpec] = [
+TOOLPACKS: list[ToolPackSpec] = [
     ToolPackSpec(
         toolpack_id="devices-core",
         pack_version="1.0.0",
@@ -155,14 +161,14 @@ PROPOSED_TOOLPACKS: list[ToolPackSpec] = [
     ),
 ]
 
-check_global_uniqueness(PROPOSED_TOOLPACKS)
+check_global_uniqueness(TOOLPACKS)
 
 __all__ = [
     "ALL_VERIFIED_TOOLS",
     "DEMO_TOOLS",
     "FAMILY_METADATA",
     "FAMILY_TOOL_MAP",
-    "PROPOSED_TOOLPACKS",
+    "TOOLPACKS",
     "all_mapped_tools",
     "family_for_tool",
 ]

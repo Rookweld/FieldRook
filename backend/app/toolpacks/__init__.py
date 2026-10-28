@@ -10,7 +10,7 @@ from .families import (
     DEMO_TOOLS,
     FAMILY_METADATA,
     FAMILY_TOOL_MAP,
-    PROPOSED_TOOLPACKS,
+    TOOLPACKS,
     all_mapped_tools,
     family_for_tool,
 )
@@ -20,7 +20,7 @@ __all__ = [
     "DEMO_TOOLS",
     "FAMILY_METADATA",
     "FAMILY_TOOL_MAP",
-    "PROPOSED_TOOLPACKS",
+    "TOOLPACKS",
     "ToolDecl",
     "ToolPackSpec",
     "all_mapped_tools",

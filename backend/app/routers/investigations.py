@@ -97,8 +97,15 @@ def _processing_location(settings: object, override: str | None) -> str:
 
 @router.get("/api/tools")
 def list_tools() -> list[ToolInfo]:
+    from ..toolpacks.families import family_for_tool
+
     return [
-        ToolInfo(name=spec.name, description=spec.description, category=spec.category)
+        ToolInfo(
+            name=spec.name,
+            description=spec.description,
+            category=spec.category,
+            family=family_for_tool(spec.name),
+        )
         for spec in REGISTRY.values()
     ]
 

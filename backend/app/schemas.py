@@ -677,6 +677,8 @@ class ToolInfo(BaseModel):
     name: str
     description: str
     category: str
+    # Toolpack family (forge.toolpack/v1); None for demo tools outside families.
+    family: str | None = None
 
 
 # ResolutionPlan and ActionProposal are defined after InvestigationResponse;
