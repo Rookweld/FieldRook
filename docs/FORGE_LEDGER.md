@@ -58,3 +58,29 @@ from the worktree `backend/` dir (read-only use; never modify it).
 0. contracts (this branch) → 1. lead schemas → 2. BETA →
 3. ALPHA → 4. DELTA → 5. turn/import wiring (lead) → 6. GAMMA →
 7. EPSILON → 8. export/security → 9. ZETA.
+
+## Phase C (lead wiring + integration)
+
+| step | commit | content | gate |
+|---|---|---|---|
+| 2 | `b87e35e` | import endpoint, 18-tool registry, 11 wiring tests | 565 + count-fix |
+| 3-4 | `68b42bd` | references endpoint, EPSILON App mount, spec un-fixme + legacy scoping | 569 / 39 E2E / 37 gauntlet / build |
+
+Legacy E2E scoping rationale: the workspace dock legitimately
+duplicates turn composer / notes / queue-head controls, so page-wide
+selectors became ambiguous. Scoped to `.view-panel` (same user-visible
+capability, zero tests deleted). Evidence-visual scroll check now
+settles scroll before measuring (click's own scroll was page height).
+
+## Phase D (ZETA validation, lead-executed)
+
+Report: `docs/FORGE_ZETA.md`. Secret scan clean (grep fallback).
+Live probes 17/17. UI acceptance demo 4/4 screenshots.
+Demo stack (:8123/:4173) PID-verified stopped; ports freed.
+Operator :8000 stack untouched throughout.
+
+## M020 checkpoint
+
+Collector foundation: portable collect -> versioned package -> secure
+import -> target-kept evidence -> investigation -> verified export.
+Cut from `forge/integration`; no push (awaiting authorization).
