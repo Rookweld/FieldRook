@@ -80,8 +80,8 @@ MANIFEST_NAME = "manifest.json"
 MAX_DATA_BYTES = 12 * 1024
 
 # Lead-verified at contracts base (FORGE_CONTRACTS.md verification note):
-# the 14 registered tools. Frozen here so the portable collector can
-# validate tool_name without importing the backend registry.
+# the 18 registered tools (lead-synced with REGISTRY; update both together).
+# Frozen here so the portable collector can validate tool_name standalone.
 TOOL_NAMES = frozenset(
     {
         "list_services",
@@ -98,6 +98,10 @@ TOOL_NAMES = frozenset(
         "get_process_info",
         "test_dns_resolution",
         "get_scheduled_tasks",
+        "list_devices",
+        "list_volumes",
+        "list_office_installs",
+        "get_office_config",
     }
 )
 
@@ -122,6 +126,10 @@ KNOWN_CATEGORIES = frozenset(
         "process_info",
         "dns_test",
         "scheduled_tasks",
+        "pnp_devices",
+        "volumes",
+        "office_installs",
+        "office_config",
     }
 )
 

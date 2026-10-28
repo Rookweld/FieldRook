@@ -34,6 +34,11 @@ ALLOWLISTED_COMMANDS: tuple[str, ...] = (
     "Get-CimInstance Win32_Service/ProcessId",
     "Get-Service/Dependencies",
     "Resolve-DnsName",
+    # FORGE/BETA (lead-approved, fixed scripts only):
+    "Get-PnpDevice",
+    "Get-CimInstance Win32_LogicalDisk",
+    "Get-ItemProperty Uninstall/Office",
+    "Get-ItemProperty ClickToRun/Configuration",
 )
 
 SOURCE_LIST = "powershell:Get-Service"

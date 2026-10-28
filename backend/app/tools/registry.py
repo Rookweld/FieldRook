@@ -23,6 +23,22 @@ from ..diagnostics.errorcodes import ErrorCodeError, interpret
 from ..diagnostics.event_search import normalize_logs, search_events_live
 from ..diagnostics.service_allowlist import validate_service_name
 from ..diagnostics.windows_apps import search_crashes_live, validate_app_name
+from ..diagnostics.windows_devices import (
+    ListDevicesArgs,
+    ListVolumesArgs,
+    list_devices_fixture,
+    list_devices_live,
+    list_volumes_fixture,
+    list_volumes_live,
+)
+from ..diagnostics.windows_office import (
+    GetOfficeConfigArgs,
+    ListOfficeInstallsArgs,
+    get_office_config_fixture,
+    get_office_config_live,
+    list_office_installs_fixture,
+    list_office_installs_live,
+)
 from ..diagnostics.windows_net import (
     get_adapters_live,
     get_connections_live,
@@ -584,6 +600,90 @@ def _scheduled_tasks_fixture(args: BaseModel) -> ToolOutput:
     )
 
 
+def _devices_live(args: BaseModel, timeout_s: float) -> ToolOutput:
+    assert isinstance(args, ListDevicesArgs)
+    devices = list_devices_live(timeout_s, args.limit, args.status)
+    problems = sum(1 for device in devices if device["has_problem"])
+    return ToolOutput(
+        summary=f"Listed {len(devices)} PnP devices, {problems} with problems (live).",
+        data={"count": len(devices), "problems": problems, "devices": devices},
+        source="live",
+    )
+
+
+def _devices_fixture(args: BaseModel) -> ToolOutput:
+    assert isinstance(args, ListDevicesArgs)
+    devices = list_devices_fixture(args.limit, args.status)
+    problems = sum(1 for device in devices if device["has_problem"])
+    return ToolOutput(
+        summary=f"Listed {len(devices)} PnP devices, {problems} with problems (fixture).",
+        data={"count": len(devices), "problems": problems, "devices": devices},
+        source="fixture",
+    )
+
+
+def _volumes_live(args: BaseModel, timeout_s: float) -> ToolOutput:
+    assert isinstance(args, ListVolumesArgs)
+    volumes = list_volumes_live(timeout_s)
+    return ToolOutput(
+        summary=f"Listed {len(volumes)} local volumes (live).",
+        data={"count": len(volumes), "volumes": volumes},
+        source="live",
+    )
+
+
+def _volumes_fixture(args: BaseModel) -> ToolOutput:
+    assert isinstance(args, ListVolumesArgs)
+    volumes = list_volumes_fixture()
+    return ToolOutput(
+        summary=f"Listed {len(volumes)} local volumes (fixture).",
+        data={"count": len(volumes), "volumes": volumes},
+        source="fixture",
+    )
+
+
+def _office_installs_live(args: BaseModel, timeout_s: float) -> ToolOutput:
+    assert isinstance(args, ListOfficeInstallsArgs)
+    installs = list_office_installs_live(timeout_s)
+    return ToolOutput(
+        summary=f"Listed {len(installs)} Office installs (live).",
+        data={"count": len(installs), "installs": installs},
+        source="live",
+    )
+
+
+def _office_installs_fixture(args: BaseModel) -> ToolOutput:
+    assert isinstance(args, ListOfficeInstallsArgs)
+    installs = list_office_installs_fixture()
+    return ToolOutput(
+        summary=f"Listed {len(installs)} Office installs (fixture).",
+        data={"count": len(installs), "installs": installs},
+        source="fixture",
+    )
+
+
+def _office_config_live(args: BaseModel, timeout_s: float) -> ToolOutput:
+    assert isinstance(args, GetOfficeConfigArgs)
+    config = get_office_config_live(timeout_s)
+    state = "installed" if config.get("installed") else "not installed"
+    return ToolOutput(
+        summary=f"Office Click-to-Run {state} (live).",
+        data={"config": config},
+        source="live",
+    )
+
+
+def _office_config_fixture(args: BaseModel) -> ToolOutput:
+    assert isinstance(args, GetOfficeConfigArgs)
+    config = get_office_config_fixture()
+    state = "installed" if config.get("installed") else "not installed"
+    return ToolOutput(
+        summary=f"Office Click-to-Run {state} (fixture).",
+        data={"config": config},
+        source="fixture",
+    )
+
+
 REGISTRY: dict[str, ToolSpec] = {
     spec.name: spec
     for spec in [
@@ -719,6 +819,38 @@ REGISTRY: dict[str, ToolSpec] = {
             args_model=ScheduledTasksArgs,
             run_live=_scheduled_tasks_live,
             run_fixture=_scheduled_tasks_fixture,
+        ),
+        ToolSpec(
+            name="list_devices",
+            description="List PnP devices with status and problem codes (read-only, bounded).",
+            category="pnp_devices",
+            args_model=ListDevicesArgs,
+            run_live=_devices_live,
+            run_fixture=_devices_fixture,
+        ),
+        ToolSpec(
+            name="list_volumes",
+            description="List local disk volumes with size and free space (read-only).",
+            category="volumes",
+            args_model=ListVolumesArgs,
+            run_live=_volumes_live,
+            run_fixture=_volumes_fixture,
+        ),
+        ToolSpec(
+            name="list_office_installs",
+            description="List installed Office products from the uninstall registry (read-only).",
+            category="office_installs",
+            args_model=ListOfficeInstallsArgs,
+            run_live=_office_installs_live,
+            run_fixture=_office_installs_fixture,
+        ),
+        ToolSpec(
+            name="get_office_config",
+            description="Read the Office Click-to-Run version and channel (read-only).",
+            category="office_config",
+            args_model=GetOfficeConfigArgs,
+            run_live=_office_config_live,
+            run_fixture=_office_config_fixture,
         ),
     ]
 }

@@ -31,6 +31,7 @@ ActivityKind = Literal[
     "turn",
     "question",
     "provider",
+    "collector_import",
 ]
 InvestigationStatus = Literal["complete", "partial", "error"]
 ActionProposalStatus = Literal[

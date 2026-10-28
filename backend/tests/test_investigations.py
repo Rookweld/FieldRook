@@ -278,8 +278,8 @@ def test_tools_endpoint_lists_registry() -> None:
     response = client.get("/api/tools")
     assert response.status_code == 200
     names = {tool["name"] for tool in response.json()}
-    assert len(names) == 14
-    assert {"get_dns_config", "search_event_logs", "get_scheduled_tasks"} <= names
+    assert len(names) == 18
+    assert {"get_dns_config", "search_event_logs", "get_scheduled_tasks", "list_devices", "list_office_installs"} <= names
 
 
 def test_demo_worker_problem_uses_health_tool() -> None:
