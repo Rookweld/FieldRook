@@ -67,15 +67,22 @@ def _parse_runbook_steps(raw: Any) -> tuple[list[RunbookStep], list[str]]:
         return [], []
     if not isinstance(raw, list):
         return [], ["Dropped malformed next_steps (not a list); kept next_actions text."]
+    from .guidance import classify_guidance
+
     steps: list[RunbookStep] = []
     dropped = 0
     for entry in raw[:MAX_RUNBOOK_STEPS]:
         if isinstance(entry, str):
             entry = {"step": entry}
         try:
-            steps.append(RunbookStep.model_validate(entry))
+            step = RunbookStep.model_validate(entry)
         except ValidationError:
             dropped += 1
+            continue
+        verdict = classify_guidance(step.step, step.why or "")
+        step.guidance_impact = verdict.impact
+        step.safety_note = verdict.safety_note[:1000]
+        steps.append(step)
     warnings: list[str] = []
     if isinstance(raw, list) and len(raw) > MAX_RUNBOOK_STEPS:
         warnings.append(f"Kept the first {MAX_RUNBOOK_STEPS} runbook steps; dropped the rest.")
@@ -157,6 +164,7 @@ def _parse_suggested_plan(raw: Any) -> tuple[SuggestedPlan | None, list[str]]:
                 f"Step {step.instruction[:60]!r} names unknown tool "
                 f"{step.tool_name!r}; kept as technician guidance."
             )
+            step.unsupported_tool = step.tool_name
             if step.kind == "AUTOMATED_READ_ONLY":
                 step.kind = "TECHNICIAN_CHECK"
             step.tool_name = None
@@ -247,6 +255,11 @@ def validate_assessment_output(
     result.validation_warnings.extend(hyp_warnings)
     result.validation_warnings.extend(plan_warnings)
     result.validation_warnings.extend(question_warnings)
+    from .guidance import scan_texts_for_unsafe
+
+    free_text = [str(a) for a in actions] if isinstance(actions, list) else []
+    free_text.append(str(data.get("explanation") or ""))
+    result.validation_warnings.extend(scan_texts_for_unsafe(free_text))
 
     dropped: list[str] = []
     for fact in result.facts:

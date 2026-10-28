@@ -220,7 +220,7 @@ def _migrate(conn: sqlite3.Connection) -> None:
 
 
 def request_cancel(investigation_id: str, round_no: int = 0) -> None:
-    """Flag an investigation round for cancellation (honored between calls).
+    """Flag an investigation round for cancellation (honored mid-flight).
 
     The flag is scoped to the round active when the technician asked, so a
     flag no round consumed (e.g. a simulated round, which makes no model

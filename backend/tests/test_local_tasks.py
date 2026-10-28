@@ -184,14 +184,52 @@ def test_assemble_maps_model_parts() -> None:
 
 
 def test_assemble_reassess_weakens_and_questions() -> None:
-    reassess = {"verdict": "App-wide failure less likely.", "weakened": ["Damaged install"], "next_step": "Check Teams permissions."}
+    reassess = {"verdict": "App-wide failure less likely.", "weakened": ["Damaged install"], "next_step": "Does Teams web open it?"}
     result, warnings, parts = assemble_assessment(
         "Excel fails.", [], None, _plan(), reassess, "local/m", "local"
     )
     assert parts == ["reassess", "plan"]
     assert result.causes == [], "follow-ups keep tracked hypotheses; no junk causes"
     assert result.suggested_hypotheses[0].status == "weakened"
-    assert result.suggested_questions[0].question == "Check Teams permissions."
+    assert result.suggested_questions[0].question == "Does Teams web open it?"
+
+
+def test_assemble_reassess_ask_prefixed_next_step_becomes_question() -> None:
+    """M019: 'Ask the technician to ...' is a question, not a check."""
+    reassess = {
+        "verdict": "Need the exact text.",
+        "weakened": [],
+        "next_step": "Ask the technician to provide the exact error message.",
+    }
+    result, _warnings, parts = assemble_assessment(
+        "Excel fails.", [], None, None, reassess, "local/m", "local", plan_skipped=True
+    )
+    assert parts == ["reassess"]
+    assert result.suggested_plan is None
+    assert len(result.suggested_questions) == 1
+    assert result.suggested_questions[0].question.startswith("Ask the technician")
+
+
+def test_reassess_prompt_prefers_discriminating_questions_after_surprises() -> None:
+    prompt = reassess_prompt(["H1"], "Something unexpected.", [])
+    assert "discriminate" in prompt
+    assert "contradicts" in prompt
+    assert "ruled out" in prompt
+    assert "gave no usable information" not in prompt
+    assert "gave no usable information" in reassess_prompt(["H1"], "X.", [], thin_streak=2)
+
+
+def test_assemble_reassess_check_like_next_step_becomes_step() -> None:
+    """M019: a check-like reassess next_step routes to a plan step, not a question."""
+    reassess = {"verdict": "App-wide failure less likely.", "weakened": [], "next_step": "Check Teams permissions."}
+    result, _warnings, parts = assemble_assessment(
+        "Excel fails.", [], None, None, reassess, "local/m", "local", plan_skipped=True
+    )
+    assert parts == ["reassess"]
+    assert result.suggested_questions == []
+    assert result.suggested_plan is not None
+    assert result.suggested_plan.steps[0].instruction == "Check Teams permissions."
+    assert result.suggested_plan.steps[0].kind == "TECHNICIAN_CHECK"
 
 
 def test_assemble_total_failure_is_labeled() -> None:
@@ -215,7 +253,7 @@ class _MockTransport:
         self.replies = list(replies)
         self.calls = 0
 
-    async def ollama(self, base, model, messages, json_only, num_predict, timeout=None):  # noqa: ANN001, ANN002
+    async def ollama(self, base, model, messages, json_only, num_predict, timeout=None, cancel_scope=None):  # noqa: ANN001, ANN002, ANN003
         self.calls += 1
         return {"role": "assistant", "content": self.replies.pop(0)}
 
@@ -331,7 +369,7 @@ class _TaskProvider:
     def model_label(self) -> str:
         return "local/mocked"
 
-    async def run_task(self, task, prompt, timeout_s=None, images=None):  # noqa: ANN001, ANN002
+    async def run_task(self, task, prompt, timeout_s=None, images=None, cancel_scope=None):  # noqa: ANN001, ANN002, ANN003
         self.calls.append(task)
         return self._parts.get(task), []
 
@@ -340,12 +378,15 @@ def test_pipeline_assembles_live_assessment() -> None:
     state = _pipeline_state()
     provider = _TaskProvider({"triage": _triage(), "plan": _plan()})
     asyncio.run(_run_local_tasks(state, provider, _settings(), False))
-    assert provider.calls == ["triage", "plan"]
+    assert provider.calls == ["triage"], "M019: plan skipped when triage decides"
     assert state.assessment is not None
     assert state.assessment.mode == "live"
     assert state.assessment.model == "local/mocked"
     assert state.assessment.suggested_questions
+    assert any(r.title == "Single-decision round" for r in state.activity)
     assert any(r.title == "Local inference stats" for r in state.activity)
+    assert state.assessment.suggested_plan is not None
+    assert state.assessment.suggested_plan.steps[0].instruction == "Open the file from local disk."
 
 
 def test_pipeline_followup_reassesses() -> None:
@@ -361,9 +402,11 @@ def test_pipeline_followup_reassesses() -> None:
         }
     )
     asyncio.run(_run_local_tasks(state, provider, _settings(), True))
-    assert provider.calls == ["reassess", "plan"]
+    assert provider.calls == ["reassess"], "M019: plan skipped when reassess decides"
     assert state.assessment is not None
     assert state.assessment.suggested_hypotheses[0].status == "weakened"
+    assert state.assessment.suggested_plan is not None, "check-like next step becomes a step"
+    assert state.assessment.suggested_plan.steps[0].instruction == "Check Teams."
 
 
 def test_local_path_collects_host_evidence_for_local_target() -> None:
@@ -374,7 +417,7 @@ def test_local_path_collects_host_evidence_for_local_target() -> None:
     assert state.tool_calls_made > 0
     host_items = [e for e in state.evidence if (e.source or "").startswith("tool:")]
     assert host_items, "local target must yield host-sourced evidence"
-    assert provider.calls == ["triage", "plan"]
+    assert provider.calls == ["triage"]
     assert state.assessment is not None
 
 
@@ -386,16 +429,48 @@ def test_local_path_collects_nothing_for_remote_target() -> None:
     assert state.tool_calls_made == 0
     host_items = [e for e in state.evidence if (e.source or "").startswith("tool:")]
     assert not host_items
-    assert provider.calls == ["triage", "plan"]
+    assert provider.calls == ["triage"]
 
 
 def test_pipeline_total_failure_substitutes() -> None:
     state = _pipeline_state()
     provider = _TaskProvider({})
     asyncio.run(_run_local_tasks(state, provider, _settings(), False))
+    assert provider.calls == ["triage", "plan"], "plan runs as recovery when starved"
     assert state.assessment is not None
     assert state.assessment.mode == "simulated"
     assert any("no usable output" in w for w in state.warnings)
+
+
+def test_plan_skipped_when_direction_already_pending() -> None:
+    """M019: a failed primary task does not trigger plan when work is pending."""
+    from app.schemas import ClarifyingQuestion
+
+    state = _pipeline_state()
+    state.questions.append(
+        ClarifyingQuestion(question_id="q-old", question="Does it fail for others?", why="Scope.")
+    )
+    provider = _TaskProvider({})
+    asyncio.run(_run_local_tasks(state, provider, _settings(), False))
+    assert provider.calls == ["triage"], "existing open question stands; no recovery call"
+    assert state.assessment is not None
+
+
+def test_reassess_question_like_next_step_stays_a_question() -> None:
+    """M019: next steps phrased as questions route to questions, not steps."""
+    from app.schemas import Hypothesis
+
+    state = _pipeline_state()
+    state.hypotheses.append(Hypothesis(hypothesis_id="hyp-1", title="Damaged install"))
+    state.messages.append({"role": "user", "content": "Technician observation: local files open."})
+    provider = _TaskProvider(
+        {"reassess": {"verdict": "Less likely.", "weakened": [], "next_step": "Does Teams web work?"}}
+    )
+    asyncio.run(_run_local_tasks(state, provider, _settings(), True))
+    assert provider.calls == ["reassess"]
+    assert state.assessment is not None
+    assert any("Does Teams web work?" in q.question for q in state.assessment.suggested_questions)
+    assert state.assessment.suggested_plan is None
 
 
 def test_fallback_missing_evidence_is_technician_meaningful() -> None:
@@ -449,7 +524,7 @@ def test_stale_cancel_flag_never_aborts_a_later_round() -> None:
     state = _pipeline_state(id=inv_id, rounds_used=2)
     provider = _TaskProvider({"triage": _triage(), "plan": _plan()})
     asyncio.run(_run_local_tasks(state, provider, _settings(), False))
-    assert provider.calls == ["triage", "plan"]
+    assert provider.calls == ["triage"]
     assert state.assessment is not None
     assert not any("cancelled" in w.lower() for w in state.warnings)
     assert persistence.cancel_requested(inv_id, 2) is False, "stale flag is reaped"

@@ -2,11 +2,13 @@
 
 A local CPU model must not be asked for the full Muse Spark assessment in
 one giant call (measured: >280s, unusable). Instead the local path runs
-small task calls — triage, then plan, reassess on follow-ups — each with a
-compact prompt, a strict token cap, and its own timeout. The returned parts
-are validated and assembled here into one AnalysisResult; every part records
-whether it is model reasoning or deterministic fill so the UI can label it
-honestly.
+small task calls — triage, plan, reassess on follow-ups — each with a
+compact prompt, a strict token cap, and its own timeout. M019 routes them
+single-decision: one task per round normally (triage OR reassess), with
+plan only as recovery when nothing else gives direction. The returned
+parts are validated and assembled here into one AnalysisResult; every part
+records whether it is model reasoning or deterministic fill so the UI can
+label it honestly.
 
 The benchmark harness (eval/local_bench.py) exercises these exact prompts,
 so published numbers describe production behavior.
@@ -15,7 +17,11 @@ so published numbers describe production behavior.
 from __future__ import annotations
 
 import json
+import re
 from typing import Any
+
+# Next steps phrased as requests for information route to questions.
+_ASK_RE = re.compile(r"^\s*(ask|find out|check with|confirm with)\b", re.IGNORECASE)
 
 TASK_LIMITS: dict[str, dict[str, int]] = {
     # task -> output cap (tokens) + call timeout (seconds)
@@ -60,7 +66,13 @@ def triage_prompt(problem: str, evidence_digest: str, target: str) -> str:
         "\"<one safe read-only check>\", \"unknowns\": [\"<what is still unknown>\"]}. "
         "At most 2 hypotheses and 2 unknowns. The question must name something "
         "concrete (a symptom, timing, scope, or error text); never ask for "
-        "\"more details\" in general. "
+        "\"more details\" in general. Ask the question whose answer most "
+        "narrows the cause, in this order: scope (one or many? which machine? "
+        "which users?), timing (when did it start? what changed?), exact "
+        "symptoms. Never ask for readings already present in Evidence, and "
+        "avoid version-number or have-you-rebooted openers unless the report "
+        "points there. Ask only what the technician must answer; anything a "
+        "safe read-only check could settle belongs in next_check instead. "
         f"{scope} Problem: {problem.strip()[:800]} Evidence: {evidence[:1500]}"
     )
 
@@ -85,6 +97,7 @@ def reassess_prompt(
     hypothesis_titles: list[str],
     observation: str,
     asked_questions: list[str] | None = None,
+    thin_streak: int = 0,
 ) -> str:
     titles = "; ".join(t for t in hypothesis_titles if t)[:600] or "none tracked yet"
     asked = "; ".join(q[:80] for q in (asked_questions or []) if q)[:400]
@@ -98,7 +111,18 @@ def reassess_prompt(
         "this JSON object, no other text: {\"verdict\": \"<one sentence: what the new "
         "observation means>\", \"weakened\": [\"<hypothesis titles now less likely>\"], "
         "\"next_step\": \"<the single most useful next check or question>\"}. "
-        f"Open hypotheses: [{titles}]. New technician observation: {observation.strip()[:800]}"
+        "When the observation contradicts the open hypotheses or answers "
+        "nothing, prefer a question whose answer would discriminate the new "
+        "possibilities over another check. Never ask about a hypothesis this "
+        "observation just ruled out; pursue the surviving alternatives. "
+        + (
+            f"Note: the last {thin_streak} technician answers gave no usable "
+            "information. Switch to a different branch or propose a concrete "
+            "check the technician CAN perform instead of re-asking. "
+            if thin_streak >= 2
+            else ""
+        )
+        + f"Open hypotheses: [{titles}]. New technician observation: {observation.strip()[:800]}"
         f"{no_repeat}"
     )
 
@@ -183,6 +207,7 @@ def assemble_assessment(
     reassess: dict[str, Any] | None,
     model_label: str,
     target: str,
+    plan_skipped: bool = False,
 ) -> tuple[Any, list[str], list[str]]:
     """Build one AnalysisResult from validated task parts.
 
@@ -220,6 +245,9 @@ def assemble_assessment(
     causes: list[RootCause] = []
     suggested_hypotheses: list[SuggestedHypothesis] = []
     suggested_questions: list[SuggestedQuestion] = []
+    next_steps: list[RunbookStep] = []
+    next_actions: list[str] = []
+    suggested_steps: list[SuggestedPlanStep] = []
     understanding_bits: list[str] = [
         f"Reported: {_short(problem, 200)}",
         f"Observed: {len(usable)} usable evidence item(s).",
@@ -286,13 +314,24 @@ def assemble_assessment(
                 )
         next_step = _short(str(reassess.get("next_step", "")), 500)
         if next_step:
-            suggested_questions.append(
-                SuggestedQuestion(question=next_step, why="Reassessment follow-up.")
-            )
+            # M019 single-decision routing: a next step phrased as a question
+            # becomes an open question, otherwise a technician check step —
+            # no second model call needed to structure it. Ask-prefixed
+            # instructions ("Ask the technician to ...") are questions
+            # semantically, so they route to questions verbatim.
+            if next_step.rstrip().endswith("?") or _ASK_RE.match(next_step):
+                suggested_questions.append(
+                    SuggestedQuestion(question=next_step, why="Reassessment follow-up.")
+                )
+            else:
+                suggested_steps.append(
+                    SuggestedPlanStep(
+                        instruction=next_step,
+                        why="Reassessment follow-up.",
+                        kind="TECHNICIAN_CHECK",  # type: ignore[arg-type]
+                    )
+                )
 
-    next_steps: list[RunbookStep] = []
-    next_actions: list[str] = []
-    suggested_steps: list[SuggestedPlanStep] = []
     if plan:
         model_parts.append("plan")
         for entry in (plan.get("steps") or [])[:4]:
@@ -328,10 +367,39 @@ def assemble_assessment(
                     expected_observations=[expect] if expect else [],
                 )
             )
-    else:
+    elif plan_skipped and next_check:
+        # M019 single-decision: plan was deliberately not requested; the
+        # triage check becomes the one current step without a second call.
+        next_actions.append(next_check)
+        next_steps.append(
+            RunbookStep(
+                step=next_check,
+                why="Single next check from triage.",
+                inspect="The reported outcome.",
+                confirms="A reported outcome corroborates one hypothesis over the others.",
+                impact="read-only",
+            )
+        )
+        suggested_steps.append(
+            SuggestedPlanStep(
+                instruction=next_check,
+                why="Single next check from triage.",
+                kind="TECHNICIAN_CHECK",  # type: ignore[arg-type]
+            )
+        )
+    elif not plan_skipped:
         warnings.append("Plan generation produced no usable output; the deterministic planner fills in.")
     if next_check and not next_actions:
         next_actions.append(next_check)
+
+    from .guidance import classify_guidance
+
+    for runbook in next_steps:
+        rb_verdict = classify_guidance(
+            runbook.step, runbook.why or "", problem=problem, target=target
+        )
+        runbook.guidance_impact = rb_verdict.impact
+        runbook.safety_note = rb_verdict.safety_note[:1000]
 
     missing = [q.question for q in suggested_questions]
     if not missing and reassess is None:

@@ -228,6 +228,8 @@ export interface RunbookStep {
   confirms: string;
   impact: StepImpact;
   admin_maybe: boolean;
+  guidance_impact: GuidanceImpact;
+  safety_note: string;
 }
 
 export interface TechnicianNote {
@@ -442,6 +444,14 @@ export type PlanStepKind =
 
 export type PlanStepStatus = "suggested" | "current" | "done" | "blocked" | "skipped";
 
+export type GuidanceImpact =
+  | "READ_ONLY"
+  | "MANUAL_INFORMATION"
+  | "SYSTEM_CHANGE"
+  | "PRIVILEGED_ACTION"
+  | "POTENTIALLY_DISRUPTIVE"
+  | "UNSUPPORTED_OR_UNSAFE";
+
 export interface TroubleshootStep {
   step_id: string;
   instruction: string;
@@ -453,6 +463,8 @@ export interface TroubleshootStep {
   outcome: string;
   evidence_ids: string[];
   admin_maybe: boolean;
+  guidance_impact: GuidanceImpact;
+  safety_note: string;
 }
 
 export interface TroubleshootPlan {
@@ -462,12 +474,24 @@ export interface TroubleshootPlan {
   current_step_id: string | null;
 }
 
+export type QuestionStatus =
+  | "open"
+  | "answered"
+  | "superseded"
+  | "retired"
+  | "blocked";
+
+export type QuestionSource = "model" | "fallback" | "target";
+
 export interface ClarifyingQuestion {
   question_id: string;
   question: string;
   why: string;
-  status: "open" | "answered";
+  status: QuestionStatus;
   answer: string;
+  asked_round: number;
+  source: QuestionSource;
+  retired_note: string;
 }
 
 export interface ProviderInfo {
@@ -517,4 +541,4 @@ export interface LocalTestResult {
   vision_warning?: string | null;
 }
 
-export type TurnKind = "answer" | "observation" | "test_result" | "correction" | "question";
+export type TurnKind = "answer" | "observation" | "test_result" | "correction" | "question" | "unable";

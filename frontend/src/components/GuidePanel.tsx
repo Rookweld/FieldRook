@@ -50,6 +50,21 @@ const KIND_LABELS: Record<TroubleshootStep["kind"], string> = {
   VERIFICATION: "Verification",
 };
 
+const IMPACT_LABELS: Record<TroubleshootStep["guidance_impact"], string> = {
+  READ_ONLY: "Read-only",
+  MANUAL_INFORMATION: "Information",
+  SYSTEM_CHANGE: "System change",
+  PRIVILEGED_ACTION: "Needs elevation",
+  POTENTIALLY_DISRUPTIVE: "Potentially disruptive",
+  UNSUPPORTED_OR_UNSAFE: "Unsupported or unsafe",
+};
+
+function impactTone(impact: TroubleshootStep["guidance_impact"]): string {
+  if (impact === "UNSUPPORTED_OR_UNSAFE" || impact === "POTENTIALLY_DISRUPTIVE") return "bad";
+  if (impact === "SYSTEM_CHANGE" || impact === "PRIVILEGED_ACTION") return "warn";
+  return "mute";
+}
+
 const TURN_OPTIONS: { value: TurnKind; label: string }[] = [
   { value: "observation", label: "Observation" },
   { value: "test_result", label: "Test result" },
@@ -71,12 +86,14 @@ function QuestionCard({
   disabled,
   onUpdate,
   onError,
+  isCurrent,
 }: {
   question: ClarifyingQuestion;
   invId: string;
   disabled: boolean;
   onUpdate: (inv: InvestigationResponse) => void;
   onError: (msg: string) => void;
+  isCurrent: boolean;
 }) {
   const [answer, setAnswer] = useState("");
   const [sending, setSending] = useState(false);
@@ -84,10 +101,24 @@ function QuestionCard({
     return (
       <li className="guide-qa guide-answered">
         <p className="guide-q">{question.question}</p>
-        <p className="guide-a">
-          <span className="runbook-label">You answered — </span>
-          {question.answer}
-        </p>
+        {question.status === "answered" && (
+          <p className="guide-a">
+            <span className="runbook-label">You answered — </span>
+            {question.answer}
+          </p>
+        )}
+        {question.status === "blocked" && (
+          <p className="guide-a">
+            <span className="runbook-label">Can&apos;t answer — </span>
+            {question.answer}
+          </p>
+        )}
+        {(question.status === "superseded" || question.status === "retired") && question.retired_note && (
+          <p className="muted guide-why">
+            {question.status === "superseded" ? "Superseded — " : "Retired — "}
+            {question.retired_note}
+          </p>
+        )}
       </li>
     );
   }
@@ -109,8 +140,31 @@ function QuestionCard({
       setSending(false);
     }
   };
+  const sendUnable = async () => {
+    if (sending) return;
+    setSending(true);
+    try {
+      const result = await sendTurn(invId, {
+        kind: "unable",
+        text: answer.trim() || "I can't answer this question.",
+        questionId: question.question_id,
+        shareConsent: false,
+      });
+      onUpdate(result);
+      setAnswer("");
+    } catch (e) {
+      onError(e instanceof ApiError ? `Update failed (HTTP ${e.status}): ${e.message}` : String(e));
+    } finally {
+      setSending(false);
+    }
+  };
   return (
-    <li className="guide-qa guide-open">
+    <li className={`guide-qa guide-open${isCurrent ? " guide-focus" : ""}`} data-testid={isCurrent ? "current-question" : undefined}>
+      {isCurrent && (
+        <div className="guide-step-head">
+          <span className="badge badge-warn">CURRENT</span>
+        </div>
+      )}
       <p className="guide-q">{question.question}</p>
       {question.why && <p className="muted guide-why">Why this matters: {question.why}</p>}
       <div className="guide-answer-row">
@@ -134,6 +188,16 @@ function QuestionCard({
           disabled={disabled || sending || !answer.trim()}
         >
           {sending ? "Sending…" : "Answer"}
+        </button>
+        <button
+          type="button"
+          className="button button-ghost button-small"
+          onClick={() => void sendUnable()}
+          disabled={disabled || sending}
+          title="Tell FieldRook you cannot answer this question"
+          aria-label={`Mark as unanswerable: ${question.question}`}
+        >
+          Can&apos;t answer
         </button>
       </div>
     </li>
@@ -161,6 +225,7 @@ function StepCard({
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const open = step.status === "suggested" || step.status === "current";
+  const impact = step.guidance_impact ?? "MANUAL_INFORMATION";
   const submit = async () => {
     if (!mode || !text.trim() || sending) return;
     setSending(true);
@@ -187,9 +252,19 @@ function StepCard({
         <span className="guide-kind">{KIND_LABELS[step.kind]}</span>
         {step.tool_name && <code className="mono muted">{step.tool_name}</code>}
         {step.admin_maybe && <span className="muted">may need admin</span>}
+        {impact !== "READ_ONLY" && impact !== "MANUAL_INFORMATION" && (
+          <span className={`badge badge-${impactTone(impact)}`}>
+            {IMPACT_LABELS[impact]}
+          </span>
+        )}
       </div>
       <p className="guide-instruction">{step.instruction}</p>
       {step.why && <p className="muted guide-why">{step.why}</p>}
+      {step.safety_note && (
+        <p className={impactTone(impact) === "bad" ? "warn" : "muted guide-why"}>
+          {step.safety_note}
+        </p>
+      )}
       {step.expected_observations.length > 0 && (
         <ul className="guide-expected">
           {step.expected_observations.map((item, i) => (
@@ -416,6 +491,11 @@ function ProviderDetail({
           {option.vision ? "yes" : "no"} · tool calling {option.tool_calling ? "yes" : "no"}
         </p>
       )}
+      {providerName === "local" && profile && (profile.notes ?? "").includes("NOT RECOMMENDED") && (
+        <p className="warn" role="alert">
+          This model is not recommended for investigations — see the profile notes below.
+        </p>
+      )}
       {providerName === "local" && profile && (
         <details className="guide-history">
           <summary>
@@ -508,8 +588,10 @@ export function GuidePanel({
   }, []);
 
   const invId = investigation.investigation_id;
-  const openQuestions = investigation.questions.filter((q) => q.status === "open");
-  const answeredQuestions = investigation.questions.filter((q) => q.status !== "open");
+  const openQuestions = investigation.questions
+    .filter((q) => q.status === "open")
+    .reverse(); // newest first: the current question leads, older asks follow
+  const historyQuestions = investigation.questions.filter((q) => q.status !== "open");
   const currentStep =
     investigation.plan?.steps.find((s) => s.step_id === investigation.plan?.current_step_id) ??
     null;
@@ -746,7 +828,7 @@ export function GuidePanel({
             <span className="muted">{openQuestions.length} open</span>
           </div>
           <ul className="guide-list">
-            {openQuestions.map((q) => (
+            {openQuestions.map((q, i) => (
               <QuestionCard
                 key={q.question_id}
                 question={q}
@@ -754,6 +836,7 @@ export function GuidePanel({
                 disabled={working !== null}
                 onUpdate={onUpdate}
                 onError={onError}
+                isCurrent={i === 0}
               />
             ))}
           </ul>
@@ -829,24 +912,24 @@ export function GuidePanel({
         </section>
       )}
 
-      {answeredQuestions.length > 0 && (
+      {historyQuestions.length > 0 && (
         <section className="card">
-          <div className="card-head">
-            <h2>Answered</h2>
-            <span className="muted">{answeredQuestions.length}</span>
-          </div>
-          <ul className="guide-list">
-            {answeredQuestions.map((q) => (
-              <QuestionCard
-                key={q.question_id}
-                question={q}
-                invId={invId}
-                disabled={working !== null}
-                onUpdate={onUpdate}
-                onError={onError}
-              />
-            ))}
-          </ul>
+          <details className="guide-history">
+            <summary>Earlier questions ({historyQuestions.length})</summary>
+            <ul className="guide-list">
+              {historyQuestions.map((q) => (
+                <QuestionCard
+                  key={q.question_id}
+                  question={q}
+                  invId={invId}
+                  disabled={working !== null}
+                  onUpdate={onUpdate}
+                  onError={onError}
+                  isCurrent={false}
+                />
+              ))}
+            </ul>
+          </details>
         </section>
       )}
 
@@ -938,7 +1021,7 @@ export function GuidePanel({
           )}
           {working === "turn" && cancelState === "requested" && (
             <span className="muted">
-              The current model call finishes, then the round stops. Evidence is kept.
+              The current model call is interrupted, then the round stops. Evidence is kept.
             </span>
           )}
         </div>

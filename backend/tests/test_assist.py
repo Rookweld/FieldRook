@@ -99,7 +99,7 @@ class _ScriptedProvider:
     def model_label(self) -> str:
         return "test-model"
 
-    async def chat(self, messages, tools=None, json_only=False):  # noqa: ANN001, ANN002, ANN003
+    async def chat(self, messages, tools=None, json_only=False, cancel_scope=None):  # noqa: ANN001, ANN002, ANN003, ANN004
         self.seen_tools = tools
         reply = self._script[min(self.turns, len(self._script) - 1)]
         self.turns += 1
@@ -773,3 +773,402 @@ def test_v5_database_migrates_to_v6_with_defaults() -> None:
         assert conn.execute("PRAGMA user_version").fetchone()[0] == persistence.DB_VERSION
     finally:
         conn.close()
+
+
+# ---------------------------------------------------------------------------
+# M019 progress / stagnation monitor
+# ---------------------------------------------------------------------------
+
+
+def _stall_state() -> InvestigationState:
+    """A round whose model output repeats only already-tracked direction."""
+    from app.schemas import ClarifyingQuestion, TroubleshootPlan, TroubleshootStep
+
+    state = _live_state(target="local")
+    state.questions.append(
+        ClarifyingQuestion(question_id="q-1", question="When did it start?", why="timing")
+    )
+    state.plan = TroubleshootPlan(
+        plan_id="tplan-x",
+        updated_round=1,
+        steps=[
+            TroubleshootStep(step_id="step-1", instruction="Check the thing.", status="current")
+        ],
+        current_step_id="step-1",
+    )
+    state.assessment = validate_assessment_output(
+        _final_json(
+            [],
+            questions=[{"question": "When did it start?", "why": "timing matters"}],
+            plan={"steps": [{"instruction": "Check the thing.", "kind": "TECHNICIAN_CHECK"}]},
+        ),
+        set(),
+        "m",
+        "live",
+    )
+    return state
+
+
+def test_repeated_question_is_withheld_and_visible() -> None:
+    from app.analysis.assist import refresh_assist
+
+    state = _stall_state()
+    refresh_assist(state, 2, fresh_round=True)
+    assert [q.question_id for q in state.questions] == ["q-1"], "no duplicate asked"
+    assert any(r.title == "Repeated question withheld" for r in state.activity)
+    assert any(r.title == "No new direction" for r in state.activity)
+    assert not any("stalled" in w for w in state.warnings), "first stall stays quiet"
+
+
+def test_consecutive_stalls_warn_with_alternatives() -> None:
+    from app.analysis.assist import refresh_assist
+
+    state = _stall_state()
+    refresh_assist(state, 2, fresh_round=True)
+    refresh_assist(state, 3, fresh_round=True)
+    assert any("stalled" in w for w in state.warnings)
+    warning = next(w for w in state.warnings if "stalled" in w)
+    assert "re-verify" in warning
+    assert any(r.title == "Investigation stalled" for r in state.activity)
+
+
+def test_near_verbatim_paraphrase_is_withheld() -> None:
+    from app.analysis.assist import refresh_assist
+    from app.schemas import ClarifyingQuestion
+
+    state = _live_state(target="local")
+    state.questions.append(
+        ClarifyingQuestion(
+            question_id="q-1",
+            question="Ask the technician to verify if the license server is running on the server side",
+            why="scope", status="open", asked_round=1, source="model",
+        )
+    )
+    state.assist_counters["q"] = 1
+    state.assessment = validate_assessment_output(
+        _final_json(
+            [],
+            questions=[{
+                "question": "Ask the technician to confirm if the license server is running on the server side",
+                "why": "scope",
+            }],
+        ),
+        set(),
+        "m",
+        "live",
+    )
+    refresh_assist(state, 2, fresh_round=True)
+    assert [q.question_id for q in state.questions] == ["q-1"]
+    assert any(r.title == "Repeated question withheld" for r in state.activity)
+
+
+def test_close_but_distinct_scoping_questions_survive() -> None:
+    from app.analysis.assist import _near_verbatim
+
+    assert not _near_verbatim(
+        "Does it fail for local files too?",
+        "Does it fail for Teams files too?",
+    )
+    assert _near_verbatim(
+        "Ask the technician to verify if the license server is running",
+        "Ask the technician to confirm if the license server is running",
+    )
+
+
+def test_withheld_repeat_visible_despite_progress() -> None:
+    """A repeat stays in the record even when the round moves forward."""
+    from app.analysis.assist import refresh_assist
+    from app.schemas import ClarifyingQuestion
+
+    state = _live_state(target="local")
+    state.questions.append(
+        ClarifyingQuestion(
+            question_id="q-1", question="When did it start?", why="timing",
+            status="open", asked_round=1, source="model",
+        )
+    )
+    state.assist_counters["q"] = 1
+    state.assessment = validate_assessment_output(
+        _final_json(
+            [],
+            questions=[
+                {"question": "When did it start?", "why": "repeat"},
+                {"question": "Does it fail for others?", "why": "scope"},
+            ],
+        ),
+        set(),
+        "m",
+        "live",
+    )
+    refresh_assist(state, 2, fresh_round=True)
+    assert state.assist_counters.get("stall_rounds") == 0, "new question = progress"
+    assert any(r.title == "Repeated question withheld" for r in state.activity)
+
+
+def test_hyp_churn_with_repeats_still_counts_as_stall() -> None:
+    from app.analysis.assist import refresh_assist
+    from app.schemas import ClarifyingQuestion, TroubleshootPlan, TroubleshootStep
+
+    state = _live_state(target="local")
+    state.questions.append(
+        ClarifyingQuestion(
+            question_id="q-1", question="When did it start?", why="timing",
+            status="open", asked_round=1, source="model",
+        )
+    )
+    state.assist_counters["q"] = 1
+    state.plan = TroubleshootPlan(
+        plan_id="tplan-x",
+        updated_round=1,
+        steps=[TroubleshootStep(step_id="step-1", instruction="Check the thing.", status="current")],
+        current_step_id="step-1",
+    )
+    state.assessment = validate_assessment_output(
+        _final_json(
+            [],
+            questions=[{"question": "When did it start?", "why": "timing"}],
+            hypotheses=[{"title": "Brand new wording", "status": "active"}],
+            plan={"steps": [{"instruction": "Check the thing.", "kind": "TECHNICIAN_CHECK"}]},
+        ),
+        set(),
+        "m",
+        "live",
+    )
+    refresh_assist(state, 2, fresh_round=True)
+    assert state.assist_counters.get("stall_rounds") == 1
+    assert any(r.title == "Revisited settled ground" for r in state.activity)
+
+
+def test_progress_resets_stall_counter() -> None:
+    from app.analysis.assist import refresh_assist
+
+    state = _stall_state()
+    refresh_assist(state, 2, fresh_round=True)
+    assert state.assist_counters.get("stall_rounds") == 1
+    state.assessment = validate_assessment_output(
+        _final_json([], questions=[{"question": "Does it fail for others?", "why": "scope"}]),
+        set(),
+        "m",
+        "live",
+    )
+    refresh_assist(state, 3, fresh_round=True)
+    assert state.assist_counters.get("stall_rounds") == 0
+    assert not any("stalled" in w for w in state.warnings)
+
+
+def test_thin_answer_detector_is_narrow() -> None:
+    from app.analysis.assist import _looks_uninformative
+
+    assert _looks_uninformative("I don't have that information.")
+    assert _looks_uninformative("Not sure.")
+    assert _looks_uninformative("No idea.")
+    assert not _looks_uninformative("I cannot reach that machine.")
+    assert not _looks_uninformative("I can't do that test; no admin rights.")
+    assert not _looks_uninformative("Not sure of the code, but the dialog mentioned Teams.")
+    assert not _looks_uninformative("")
+    assert not _looks_uninformative("I don't know. " + "But here's a photo. " * 10)
+
+
+def test_thin_answer_streak_counts_and_resets() -> None:
+    from app.analysis.assist import note_technician_answer
+
+    state = _live_state(target="local")
+    assert note_technician_answer(state, "No idea.") == 1
+    assert note_technician_answer(state, "I don't have that information.") == 2
+    assert note_technician_answer(state, "The error is 0x80070005.") == 0
+    assert note_technician_answer(state, "Not sure.") == 1
+
+
+def test_thin_streak_stalls_despite_new_questions() -> None:
+    from app.analysis.assist import refresh_assist
+
+    state = _live_state(target="local")
+    state.assist_counters["thin_answers"] = 3
+    state.assessment = validate_assessment_output(
+        _final_json([], questions=[{"question": "One more question?", "why": "why"}]),
+        set(),
+        "m",
+        "live",
+    )
+    refresh_assist(state, 4, fresh_round=True)
+    assert state.assist_counters.get("stall_rounds") == 1
+    assert any(r.title == "Answers giving no information" for r in state.activity)
+
+
+def test_recovery_refresh_never_trips_stall_monitor() -> None:
+    from app.analysis.assist import refresh_assist
+
+    state = _stall_state()
+    refresh_assist(state, 1)  # load recovery / re-check path: fresh_round=False
+    refresh_assist(state, 1)
+    assert "stall_rounds" not in state.assist_counters
+    assert not any(r.title in ("No new direction", "Investigation stalled") for r in state.activity)
+
+
+# ---------------------------------------------------------------------------
+# M019 question lifecycle
+# ---------------------------------------------------------------------------
+
+
+def test_refined_question_supersedes_older() -> None:
+    from app.analysis.assist import refresh_assist
+    from app.schemas import ClarifyingQuestion
+
+    state = _live_state(target="local")
+    state.questions.append(
+        ClarifyingQuestion(
+            question_id="q-1", question="When did it start?", why="timing",
+            status="open", asked_round=1, source="model",
+        )
+    )
+    state.assist_counters["q"] = 1
+    state.assessment = validate_assessment_output(
+        _final_json(
+            [],
+            questions=[{
+                "question": "When did it start, and what changed that morning?",
+                "why": "timing plus trigger",
+            }],
+        ),
+        set(),
+        "m",
+        "live",
+    )
+    refresh_assist(state, 2, fresh_round=True)
+    old = next(q for q in state.questions if q.question_id == "q-1")
+    assert old.status == "superseded"
+    assert "q-2" in old.retired_note
+    assert old.question == "When did it start?", "history preserved"
+    assert any(r.title == "Question lifecycle" for r in state.activity)
+
+
+def test_fallback_question_retires_when_model_question_arrives() -> None:
+    from app.analysis.assist import refresh_assist
+    from app.schemas import ClarifyingQuestion
+
+    state = _live_state(target="local")
+    state.questions.append(
+        ClarifyingQuestion(
+            question_id="q-1",
+            question="Can you provide or check the following: exact error text",
+            why="fallback", status="open", asked_round=1, source="fallback",
+        )
+    )
+    state.assist_counters["q"] = 1
+    state.assessment = validate_assessment_output(
+        _final_json(
+            [], questions=[{"question": "What is the exact error on screen?", "why": "scope"}]
+        ),
+        set(),
+        "m",
+        "live",
+    )
+    refresh_assist(state, 2, fresh_round=True)
+    old = next(q for q in state.questions if q.question_id == "q-1")
+    assert old.status == "retired"
+    assert "took priority" in old.retired_note
+    assert len(state.questions) == 2, "retired questions stay in history"
+
+
+def test_target_question_retires_once_target_known() -> None:
+    from app.analysis.assist import refresh_assist
+    from app.schemas import ClarifyingQuestion
+
+    state = _live_state(target="remote")
+    state.questions.append(
+        ClarifyingQuestion(
+            question_id="q-1",
+            question="Is the affected computer this one?",
+            why="scope", status="open", asked_round=1, source="target",
+        )
+    )
+    state.assessment = validate_assessment_output(_final_json([]), set(), "m", "live")
+    refresh_assist(state, 2, fresh_round=True)
+    old = next(q for q in state.questions if q.question_id == "q-1")
+    assert old.status == "retired"
+    assert "target" in old.retired_note.lower()
+
+
+def test_stale_open_question_ages_out() -> None:
+    from app.analysis.assist import refresh_assist
+    from app.schemas import ClarifyingQuestion
+
+    state = _live_state(target="local")
+    state.questions.append(
+        ClarifyingQuestion(
+            question_id="q-1", question="Does it fail for others?", why="scope",
+            status="open", asked_round=1, source="model",
+        )
+    )
+    state.assessment = validate_assessment_output(_final_json([]), set(), "m", "live")
+    refresh_assist(state, 6, fresh_round=True)
+    old = next(q for q in state.questions if q.question_id == "q-1")
+    assert old.status == "retired"
+    assert "history" in old.retired_note
+
+
+def test_unable_turn_blocks_question() -> None:
+    started = _investigate("Something is broken.", target="unknown")
+    inv_id = started["investigation_id"]
+    first_id = started["questions"][0]["question_id"]
+    body = _turn(inv_id, "I cannot reach that machine.", kind="unable", question_id=first_id)
+    blocked = next(q for q in body["questions"] if q["question_id"] == first_id)
+    assert blocked["status"] == "blocked"
+    assert blocked["answer"] == "I cannot reach that machine."
+    assert (
+        client.post(
+            f"/api/investigations/{inv_id}/turn",
+            data={"kind": "answer", "text": "late", "question_id": first_id},
+        ).status_code
+        == 409
+    )
+
+
+def test_legacy_question_validates_with_lifecycle_defaults() -> None:
+    from app.schemas import ClarifyingQuestion
+
+    legacy = ClarifyingQuestion.model_validate({"question_id": "q-0", "question": "Q?"})
+    assert legacy.status == "open"
+    assert legacy.asked_round == 0
+    assert legacy.source == "model"
+    assert legacy.retired_note == ""
+
+
+def test_plan_step_duping_open_question_is_skipped() -> None:
+    """M019: a check restating an open question adds no direction."""
+    from app.schemas import ClarifyingQuestion
+
+    state = _live_state(target="local")
+    state.questions.append(
+        ClarifyingQuestion(
+            question_id="q-1",
+            question="Is Contoso Planner slow for all users or just one?",
+            why="scope", status="open", asked_round=1, source="model",
+        )
+    )
+    state.assist_counters["q"] = 1
+    state.assessment = validate_assessment_output(
+        _final_json(
+            [],
+            plan={
+                "steps": [
+                    {
+                        "instruction": "Check if Contoso Planner is slow for all users on the laptop or just the user",
+                        "kind": "TECHNICIAN_CHECK",
+                    },
+                    {
+                        "instruction": "Check how much RAM is free while Planner is slow.",
+                        "kind": "TECHNICIAN_CHECK",
+                    },
+                ]
+            },
+        ),
+        set(),
+        "m",
+        "live",
+    )
+    merge_plan(state, 2)
+    assert state.plan is not None
+    instructions = [s.instruction for s in state.plan.steps]
+    assert len(instructions) == 1, f"dupe step must be skipped, kept: {instructions}"
+    assert "RAM" in instructions[0]

@@ -44,6 +44,37 @@ def _normalize(text: str) -> str:
     return re.sub(r"\s+", " ", (text or "").strip().lower())
 
 
+_TOKEN_RE = re.compile(r"[a-z0-9]+")
+_STOPWORDS = frozenset(
+    "a an the is are was were do does did done it its this that these those "
+    "for to of on in at as by from with and or but not no any some what when "
+    "where which who how whom whose you your yours me my we our they their "
+    "them he him his she her can could would should will shall may might "
+    "must have has had having be been being am if then than there here so "
+    "such please tell say describe explain whether either does".split()
+)
+
+
+def _content_tokens(text: str) -> set[str]:
+    return {
+        token
+        for token in _TOKEN_RE.findall((text or "").lower())
+        if token not in _STOPWORDS and len(token) > 1
+    }
+
+
+def _refines(new_text: str, old_text: str) -> bool:
+    """True when the new question covers the old one's ground, plus more.
+
+    Strict subset on content words: "When did it start, and what changed
+    that morning?" refines "When did it start?". Exact and substring
+    duplicates never reach here (withheld as repeats at add time).
+    """
+    old = _content_tokens(old_text)
+    new = _content_tokens(new_text)
+    return bool(old) and old < new
+
+
 def _new_id(state: InvestigationState, kind: str) -> str:
     counters = state.assist_counters
     counters[kind] = int(counters.get(kind, 0)) + 1
@@ -218,6 +249,7 @@ def _downgrade_for_target(step: SuggestedPlanStep, target: str) -> SuggestedPlan
         tool_name=None,
         expected_observations=list(step.expected_observations),
         admin_maybe=step.admin_maybe,
+        unsupported_tool=step.unsupported_tool,
     )
 
 
@@ -303,11 +335,81 @@ def _deterministic_steps(state: InvestigationState) -> list[SuggestedPlanStep]:
     return steps[:MAX_PLAN_STEPS]
 
 
+def _guidance_verdict_for(
+    item: SuggestedPlanStep, state: InvestigationState, registered: bool
+):
+    """Impact verdict for one suggested step (M019 safety filter)."""
+    from .guidance import GuidanceVerdict, classify_guidance
+
+    if item.unsupported_tool:
+        return GuidanceVerdict(
+            "UNSUPPORTED_OR_UNSAFE",
+            f"Names unsupported tool {item.unsupported_tool!r}; no registered "
+            "FieldRook tool performs this. Treat as manual guidance only.",
+        )
+    return classify_guidance(
+        item.instruction or "",
+        item.why or "",
+        item.kind,
+        tool_registered=registered,
+        problem=state.problem,
+        target=state.target,
+    )
+
+
+def _same_ground(text_a: str, text_b: str) -> bool:
+    """True when two asks share most of their content words.
+
+    Overlap coefficient >= 0.6 with at least 3 shared-able words: catches
+    "Check if X is slow for all users" beside "Is X slow for all users?"
+    without firing on one-word coincidences like "disk".
+    """
+    tokens_a = _content_tokens(text_a)
+    tokens_b = _content_tokens(text_b)
+    smallest = min(len(tokens_a), len(tokens_b))
+    if smallest < 3:
+        return False
+    return len(tokens_a & tokens_b) / smallest >= 0.6
+
+
+def _step_dupes_open_question(
+    state: InvestigationState, instruction: str, round_no: int
+) -> bool:
+    """True when an EARLIER round's open question already covers the step.
+
+    The model sometimes restates an open question as a check ("Check if X
+    is slow for all users" beside "Is X slow for all users?"). The step
+    adds no direction, so the merge skips it; if nothing else is new, the
+    stall monitor honestly reports no progress. Same-round question/step
+    pairs are deliberate (the question asks, the step tracks), so only
+    earlier rounds count.
+    """
+    needle = _normalize(instruction)
+    if not needle:
+        return False
+    for question in state.questions:
+        if question.status != "open":
+            continue
+        if question.asked_round >= round_no:
+            continue
+        hay = _normalize(question.question)
+        if not hay:
+            continue
+        if needle == hay or needle in hay or hay in needle:
+            return True
+        if _same_ground(instruction, question.question):
+            return True
+    return False
+
+
 def merge_plan(state: InvestigationState, round_no: int) -> str:
     """Merge suggested/deterministic steps into the living plan.
 
-    Terminal steps (done/blocked) and their outcomes are always preserved;
-    open steps are matched by instruction so ids stay stable across rounds.
+    Terminal steps (done/blocked) and skipped history are always preserved
+    with their outcomes; open steps are matched by instruction so ids stay
+    stable across rounds.
+    Every open step is classified by the M019 safety filter; automation the
+    registry cannot back is demoted to manual guidance and flagged.
     Returns a one-line summary for the activity record.
     """
     from ..tools.registry import REGISTRY
@@ -320,7 +422,7 @@ def merge_plan(state: InvestigationState, round_no: int) -> str:
         suggested = [_downgrade_for_target(s, state.target) for s in state.assessment.suggested_plan.steps]
     if not suggested:
         suggested = [_downgrade_for_target(s, state.target) for s in _deterministic_steps(state)]
-    kept: list[TroubleshootStep] = [s for s in plan.steps if s.status in ("done", "blocked")]
+    kept: list[TroubleshootStep] = [s for s in plan.steps if s.status in ("done", "blocked", "skipped")]
     kept_keys = {_normalize(s.instruction) for s in kept}
     open_existing = {_normalize(s.instruction): s for s in plan.steps if s.status in ("suggested", "current")}
     merged: list[TroubleshootStep] = list(kept)
@@ -328,6 +430,18 @@ def merge_plan(state: InvestigationState, round_no: int) -> str:
         instruction = (item.instruction or "").strip()
         if not instruction or _normalize(instruction) in kept_keys:
             continue
+        # CLARIFYING_QUESTION steps ("Answer: ...") deliberately track an open
+        # question in plan form; only restated *checks* are duplicates.
+        if item.kind != "CLARIFYING_QUESTION" and _step_dupes_open_question(
+            state, instruction, round_no
+        ):
+            continue
+        registered = bool(item.tool_name) and item.tool_name in REGISTRY
+        kind = item.kind
+        if kind == "AUTOMATED_READ_ONLY" and not registered:
+            # The registry — not the model — decides what FieldRook may run.
+            kind = "TECHNICIAN_CHECK"
+        verdict = _guidance_verdict_for(item, state, registered)
         match = open_existing.pop(_normalize(instruction), None)
         if match is not None:
             if item.why:
@@ -335,25 +449,34 @@ def merge_plan(state: InvestigationState, round_no: int) -> str:
             if item.expected_observations:
                 match.expected_observations = [o[:500] for o in item.expected_observations[:6]]
             if item.kind:
-                match.kind = item.kind
-            if item.tool_name and item.tool_name in REGISTRY:
+                match.kind = kind
+            if registered and item.tool_name:
                 match.tool_name = item.tool_name
             match.admin_maybe = bool(item.admin_maybe)
+            if match.guidance_impact != verdict.impact:
+                if verdict.impact == "UNSUPPORTED_OR_UNSAFE":
+                    state.warnings.append(
+                        f"Guidance reclassified ({match.step_id}): {verdict.safety_note}"
+                    )
+                match.guidance_impact = verdict.impact
+                match.safety_note = verdict.safety_note[:1000]
             merged.append(match)
             continue
-        tool_name = item.tool_name if item.tool_name in REGISTRY else None
-        merged.append(
-            TroubleshootStep(
-                step_id=_new_id(state, "step"),
-                instruction=instruction[:1000],
-                why=(item.why or "")[:1000],
-                kind=item.kind,
-                status="suggested",
-                tool_name=tool_name,
-                expected_observations=[o[:500] for o in item.expected_observations[:6]],
-                admin_maybe=bool(item.admin_maybe),
-            )
+        step = TroubleshootStep(
+            step_id=_new_id(state, "step"),
+            instruction=instruction[:1000],
+            why=(item.why or "")[:1000],
+            kind=kind,
+            status="suggested",
+            tool_name=item.tool_name if registered else None,
+            expected_observations=[o[:500] for o in item.expected_observations[:6]],
+            admin_maybe=bool(item.admin_maybe),
+            guidance_impact=verdict.impact,
+            safety_note=verdict.safety_note[:1000],
         )
+        merged.append(step)
+        if verdict.impact == "UNSUPPORTED_OR_UNSAFE":
+            state.warnings.append(f"Guidance flagged ({step.step_id}): {verdict.safety_note}")
     # Open steps the new direction no longer mentions are kept as skipped
     # history, never silently dropped.
     for leftover in open_existing.values():
@@ -398,6 +521,21 @@ def current_step(state: InvestigationState) -> TroubleshootStep | None:
 TARGET_QUESTION = "Is the affected computer this one (where FieldRook runs) or a different machine?"
 
 
+def _near_verbatim(text_a: str, text_b: str) -> bool:
+    """True for rewordings that ask the same thing ("verify" vs "confirm").
+
+    Deliberately strict (overlap >= 0.8, >= 3 content words): close but
+    distinct scoping questions ("local files" vs "Teams files", overlap
+    0.67) must survive, while single-word swaps must not.
+    """
+    tokens_a = _content_tokens(text_a)
+    tokens_b = _content_tokens(text_b)
+    smallest = min(len(tokens_a), len(tokens_b))
+    if smallest < 3:
+        return False
+    return len(tokens_a & tokens_b) / smallest >= 0.8
+
+
 def _question_exists(state: InvestigationState, text: str) -> bool:
     needle = _normalize(text)
     if not needle:
@@ -408,12 +546,22 @@ def _question_exists(state: InvestigationState, text: str) -> bool:
             continue
         if needle == hay or needle in hay or hay in needle:
             return True
+        if _near_verbatim(text, existing.question):
+            return True
     return False
 
 
-def merge_questions(state: InvestigationState) -> list[str]:
-    """Adopt suggested questions; never repeat an asked one. Returns new ids."""
+def merge_questions(
+    state: InvestigationState, round_no: int
+) -> tuple[list[str], list[str]]:
+    """Adopt suggested questions; never repeat an asked one.
+
+    Returns (added ids, withheld duplicate texts) so the stall monitor can
+    tell a repeated question from a round that suggested nothing. Every
+    adopted question records its round and source for lifecycle settling.
+    """
     added: list[str] = []
+    withheld: list[str] = []
     suggested = (
         list(state.assessment.suggested_questions)
         if state.assessment is not None
@@ -429,13 +577,18 @@ def merge_questions(state: InvestigationState) -> list[str]:
         )
     for item in suggested:
         text = (item.question or "").strip()
-        if not text or _question_exists(state, text):
+        if not text:
+            continue
+        if _question_exists(state, text):
+            withheld.append(text[:300])
             continue
         question = ClarifyingQuestion(
             question_id=_new_id(state, "q"),
             question=text[:1000],
             why=(item.why or "").strip()[:1000],
             status="open",
+            asked_round=round_no,
+            source="target" if text == TARGET_QUESTION else "model",
         )
         state.questions.append(question)
         added.append(question.question_id)
@@ -444,18 +597,73 @@ def merge_questions(state: InvestigationState) -> list[str]:
         for missing in state.assessment.missing_evidence[:2]:
             text = f"Can you provide or check the following: {missing}"
             if _question_exists(state, text):
+                withheld.append(text[:300])
                 continue
             question = ClarifyingQuestion(
                 question_id=_new_id(state, "q"),
                 question=text[:1000],
                 why="This would distinguish between the open hypotheses.",
                 status="open",
+                asked_round=round_no,
+                source="fallback",
             )
             state.questions.append(question)
             added.append(question.question_id)
             if len(added) >= 2:
                 break
-    return added
+    return added, withheld
+
+
+QUESTION_STALE_ROUNDS = 4
+
+
+def _settle_questions(
+    state: InvestigationState, round_no: int, added_ids: list[str]
+) -> list[str]:
+    """M019 lifecycle: supersede refined questions, retire stale ones.
+
+    Nothing is deleted; settled questions keep their text, answers, and a
+    note explaining why they left the open set. Returns activity notes.
+    """
+    notes: list[str] = []
+    added_set = set(added_ids)
+    added = [q for q in state.questions if q.question_id in added_set]
+    for new_question in added:
+        for old in state.questions:
+            if old.question_id in added_set or old.status != "open":
+                continue
+            if old.asked_round >= round_no:
+                continue  # same-round companions coexist
+            if _refines(new_question.question, old.question):
+                old.status = "superseded"
+                old.retired_note = f"Refined by {new_question.question_id}."
+                notes.append(
+                    f"{old.question_id} superseded by {new_question.question_id}."
+                )
+    new_model = any(q.source == "model" for q in added)
+    for question in state.questions:
+        if question.status != "open" or question.question_id in added_set:
+            continue
+        if question.source == "target" and state.target != "unknown":
+            question.status = "retired"
+            question.retired_note = "The diagnostic target is now known."
+            notes.append(f"{question.question_id} retired: target known.")
+        elif (
+            question.source == "fallback"
+            and new_model
+            and question.asked_round < round_no
+        ):
+            question.status = "retired"
+            question.retired_note = "A newer question took priority."
+            notes.append(f"{question.question_id} retired: a newer question took priority.")
+        elif (
+            question.asked_round
+            and question.asked_round + QUESTION_STALE_ROUNDS < round_no
+        ):
+            question.status = "retired"
+            question.retired_note = "No answer after several rounds; kept for history."
+            notes.append(f"{question.question_id} retired: gone stale.")
+    return notes
 
 
 # ---------------------------------------------------------------------------
@@ -498,8 +706,125 @@ def compute_stage(state: InvestigationState) -> str:
     return "INVESTIGATING"
 
 
-def refresh_assist(state: InvestigationState, round_no: int) -> None:
-    """Master hook after every accepted/substituted assessment."""
+STALL_WARNING_ROUNDS = 2
+THIN_ANSWER_STREAK = 3
+
+# Short answers that convey no information ("I don't have that
+# information"). Deliberately narrow: inability reports ("I can't reach
+# that machine") never match, and hedged answers with real substance
+# ("Not sure of the code, but the dialog mentioned Teams") pass on the
+# strength of their remainder.
+_THIN_ANSWER_RE = re.compile(
+    r"\b(don'?t know|doesn'?t know|do not know|no idea|not sure|unsure|"
+    r"don'?t have|do not have|can'?t say|cannot say|no information)\b",
+    re.IGNORECASE,
+)
+
+
+def _looks_uninformative(text: str) -> bool:
+    cleaned = (text or "").strip()
+    if not cleaned or len(cleaned) >= 80:
+        return False
+    match = _THIN_ANSWER_RE.search(cleaned)
+    if not match:
+        return False
+    remainder = cleaned[: match.start()] + " " + cleaned[match.end() :]
+    return len(_content_tokens(remainder)) < 3
+
+
+def note_technician_answer(state: InvestigationState, text: str) -> int:
+    """Track consecutive uninformative technician answers. Returns the streak.
+
+    Any substantive answer resets the streak. The stall monitor treats a
+    streak of THIN_ANSWER_STREAK as stagnation even when the model keeps
+    asking: repeated "don't know" is not forward motion.
+    """
+    counters = state.assist_counters
+    if _looks_uninformative(text):
+        counters["thin_answers"] = int(counters.get("thin_answers", 0) or 0) + 1
+    else:
+        counters["thin_answers"] = 0
+    return int(counters["thin_answers"])
+
+
+def _assess_round_stall(
+    state: InvestigationState,
+    added_questions: list[str],
+    withheld_duplicates: list[str],
+    hyp_notes: list[str],
+    new_plan_steps: int,
+) -> None:
+    """M019 progress monitor: notice when a fresh round adds no direction.
+
+    A round counts as progress when it adds a question, a hypothesis change,
+    or a genuinely new plan step. Repeats of already-asked questions are
+    withheld by merge_questions; here they become visible instead of silent,
+    and consecutive no-progress rounds escalate to a technician warning with
+    concrete alternatives. Intentional re-verification never passes through
+    this hook (it adds evidence, not merges), so it is never flagged.
+    A round whose only novelty is hypothesis churn while repeating
+    already-asked questions still counts as stagnation: new wording on an
+    old ask is not forward motion.
+    """
+    counters = state.assist_counters
+    real_direction = bool(added_questions or new_plan_steps)
+    churn_only = bool(withheld_duplicates) and not real_direction
+    thin = int(counters.get("thin_answers", 0) or 0)
+    if withheld_duplicates:
+        # Always visible, even when the round also made progress: a repeat
+        # the technician never sees must still appear in the record.
+        state.add_activity(
+            "note",
+            "Repeated question withheld",
+            f"FieldRook re-asked already-covered ground; not shown again: "
+            f"{withheld_duplicates[0][:200]}",
+        )
+    if real_direction or (hyp_notes and not churn_only):
+        if thin < THIN_ANSWER_STREAK:
+            counters["stall_rounds"] = 0
+            return
+        # The model keeps asking, but the answers carry no information.
+        state.add_activity(
+            "note",
+            "Answers giving no information",
+            f"The last {thin} technician answers gave no usable information; "
+            "the investigation needs a different branch or a concrete check.",
+        )
+    stalls = int(counters.get("stall_rounds", 0) or 0) + 1
+    counters["stall_rounds"] = stalls
+    if churn_only:
+        state.add_activity(
+            "note",
+            "Revisited settled ground",
+            "FieldRook repeated settled ground; only hypothesis wording changed.",
+        )
+    if stalls >= STALL_WARNING_ROUNDS:
+        state.warnings.append(
+            "Progress has stalled: recent rounds added no new questions, checks, "
+            "or hypotheses. Report what changed since the problem started, "
+            "re-verify a key reading, or say which proposed check is impossible."
+        )
+        state.add_activity(
+            "note",
+            "Investigation stalled",
+            "No new direction for consecutive rounds; awaiting a new observation "
+            "or a re-verified reading.",
+        )
+    else:
+        state.add_activity(
+            "note",
+            "No new direction",
+            "This round added no new questions, checks, or hypotheses.",
+        )
+
+
+def refresh_assist(state: InvestigationState, round_no: int, fresh_round: bool = False) -> None:
+    """Master hook after every accepted/substituted assessment.
+
+    fresh_round is True only for a genuinely new model round (loop.py). Load
+    recovery, evidence re-checks, step updates, and target changes reuse the
+    standing assessment and must never trip the stall monitor.
+    """
     if state.assessment is not None and state.assessment.understanding.strip():
         state.understanding = state.assessment.understanding.strip()[:2000]
     hyp_notes = merge_hypotheses(state, round_no)
@@ -508,12 +833,30 @@ def refresh_assist(state: InvestigationState, round_no: int) -> None:
         if len(hyp_notes) > 3:
             shown += f" (+{len(hyp_notes) - 3} more)"
         state.add_activity("hypothesis", "Hypotheses updated", shown)
-    plan_summary = merge_plan(state, round_no)
-    state.add_activity("troubleshoot_plan", "Troubleshooting plan updated", plan_summary)
-    new_questions = merge_questions(state)
+    # Questions merge before the plan so same-round question/step pairs
+    # coexist deliberately: the question asks, the step tracks it. Merging
+    # the plan first would hide fresh questions from _deterministic_steps
+    # and from the duplicate-question guard.
+    new_questions, withheld = merge_questions(state, round_no)
     for question_id in new_questions:
         question = next(q for q in state.questions if q.question_id == question_id)
         state.add_activity("question", "Clarifying question", question.question[:300])
+    for note in _settle_questions(state, round_no, new_questions):
+        state.add_activity("question", "Question lifecycle", note)
+    before_steps = (
+        {_normalize(s.instruction) for s in state.plan.steps}
+        if state.plan is not None
+        else set()
+    )
+    plan_summary = merge_plan(state, round_no)
+    state.add_activity("troubleshoot_plan", "Troubleshooting plan updated", plan_summary)
+    new_plan_steps = 0
+    if state.plan is not None:
+        new_plan_steps = sum(
+            1 for s in state.plan.steps if _normalize(s.instruction) not in before_steps
+        )
+    if fresh_round:
+        _assess_round_stall(state, new_questions, withheld, hyp_notes, new_plan_steps)
 
 
 def latest_assistant_message(state: InvestigationState) -> str:

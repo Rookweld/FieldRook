@@ -20,7 +20,7 @@ export function Header({ status }: { status: StatusResponse | null }) {
               className={status.model_mode === "live" ? "badge badge-live" : "badge badge-sim"}
               title={
                 status.model_mode === "live"
-                  ? "Reasoning engine: live model (Meta Muse Spark)"
+                  ? `Reasoning engine: live model (${status.model_name || "unknown"})`
                   : "Reasoning engine: deterministic simulated analysis (no model calls)"
               }
             >

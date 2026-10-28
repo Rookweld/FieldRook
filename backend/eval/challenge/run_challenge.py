@@ -39,6 +39,7 @@ os.environ["FIELDROOK_DEMO_STATE"] = tempfile.mkdtemp(prefix="fieldrook-challeng
 from fastapi.testclient import TestClient  # noqa: E402
 
 from app.main import app  # noqa: E402
+from eval.challenge.heldout_scenarios import HELDOUT_SCENARIOS  # noqa: E402
 from eval.challenge.scenarios import SCENARIOS, Scenario  # noqa: E402
 from eval.challenge.simulator import evaluate, render_transcript, run_scenario  # noqa: E402
 
@@ -172,6 +173,8 @@ def main() -> int:
     parser.add_argument("--model", required=True, help="local model name (e.g. qwen3:4b)")
     parser.add_argument("--provider", default="local")
     parser.add_argument("--scenarios", default="", help="comma-separated IDs (default: all)")
+    parser.add_argument("--suite", default="main", choices=["main", "heldout", "all"],
+                        help="M019: main = original 20 (comparison baseline); heldout = 6 unseen cases")
     parser.add_argument("--url", default="http://127.0.0.1:11434/v1")
     parser.add_argument("--vision", action="store_true", help="enable local vision flag")
     parser.add_argument("--max-turns", type=int, default=None, help="cap simulator turns per scenario")
@@ -205,7 +208,12 @@ def main() -> int:
         os.environ["FIELDROOK_LOCAL_NUM_GPU"] = str(args.num_gpu)
 
     wanted = {s.strip() for s in args.scenarios.split(",") if s.strip()}
-    selected = [s for s in SCENARIOS if not wanted or s.id in wanted]
+    pool: list[Scenario] = list(SCENARIOS)
+    if args.suite == "heldout":
+        pool = list(HELDOUT_SCENARIOS)
+    elif args.suite == "all":
+        pool = list(SCENARIOS) + list(HELDOUT_SCENARIOS)
+    selected = [s for s in pool if not wanted or s.id in wanted]
     if not selected:
         print("no scenarios selected")
         return 2
@@ -216,7 +224,7 @@ def main() -> int:
     client = TestClient(app)
     model_tag = args.model.replace(":", "-")
 
-    print(f"challenge: model={args.model} provider={args.provider} scenarios={len(selected)}")
+    print(f"challenge: model={args.model} provider={args.provider} suite={args.suite} scenarios={len(selected)}")
     sys.stdout.flush()
 
     results: list[dict] = []
@@ -244,6 +252,11 @@ def main() -> int:
                     "total": len(checks),
                     "deliveries": run["deliveries"],
                     "recovery": recovery,
+                    "intake_latency_s": run.get("intake_latency_s", 0.0),
+                    "withheld_repeats": run.get("withheld_repeats", 0),
+                    "stall_notes": run.get("stall_notes", 0),
+                    "unsafe_flags": run.get("unsafe_flags", 0),
+                    "hyp_revisions": run.get("hyp_revisions", 0),
                 }
             )
             transcript = render_transcript(scenario, run, checks)
@@ -279,7 +292,9 @@ def main() -> int:
             f"  {scenario.id:24} {status} "
             f"turns={entry.get('turns', '-')} wall={entry.get('wall_s', '?')}s "
             f"calls={entry.get('model_calls', '?')} "
-            f"q={entry.get('questions', '?')} unusable={entry.get('unusable_tasks', '?')}",
+            f"q={entry.get('questions', '?')} unusable={entry.get('unusable_tasks', '?')} "
+            f"withheld={entry.get('withheld_repeats', '?')} "
+            f"unsafe={entry.get('unsafe_flags', '?')} stall={entry.get('stall_notes', '?')}",
             flush=True,
         )
 
@@ -299,6 +314,7 @@ def main() -> int:
         "created_at": stamp,
         "model": args.model,
         "provider": args.provider,
+        "suite": args.suite,
         "num_gpu": args.num_gpu,
         "results": [
             {k: v for k, v in entry.items() if k != "trace"} for entry in results

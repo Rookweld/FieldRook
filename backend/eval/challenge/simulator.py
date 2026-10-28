@@ -97,6 +97,7 @@ class TurnRecord:
     proposed_action: bool = False
     proposals: int = 0
     model_calls: int = 0  # task-call notes added this turn
+    notes: list[str] = field(default_factory=list)  # M019: new activity titles this turn
 
 
 def snapshot(
@@ -129,6 +130,7 @@ def snapshot(
     new_notes = [
         a for a in activity[prev_activity_len:] if a.get("title") in MODEL_CALL_NOTES
     ]
+    fresh_titles = [str(a.get("title") or "") for a in activity[prev_activity_len:]]
     return TurnRecord(
         turn=turn,
         post_kind=None,
@@ -157,6 +159,7 @@ def snapshot(
         proposed_action=(assessment.get("proposed_action") is not None),
         proposals=len(body.get("proposals", [])),
         model_calls=len(new_notes),
+        notes=fresh_titles,
     )
 
 
@@ -280,6 +283,20 @@ def run_scenario(
         "stalled": stalled,
         "wall_s": round(time.monotonic() - t0, 1),
         "model_calls": sum(r.model_calls for r in records),
+        # M019 loop metrics (uniform across suites).
+        "intake_latency_s": records[0].latency_s if records else 0.0,
+        "withheld_repeats": sum(
+            1 for r in records for n in r.notes if n == "Repeated question withheld"
+        ),
+        "stall_notes": sum(
+            1 for r in records for n in r.notes
+            if n in ("No new direction", "Investigation stalled")
+        ),
+        "unsafe_flags": sum(
+            1 for r in records for w in r.warnings
+            if "Guidance flagged" in w or "Guidance reclassified" in w
+        ),
+        "hyp_revisions": sum(1 for r in records[1:] if r.hyp_changed),
     }
 
 
@@ -530,6 +547,17 @@ def _ev_recovery_verified(records, deliveries, body, params, recovery):
     return True, recovery.get("detail", "verified")
 
 
+def _ev_no_unsafe_steps(records, deliveries, body, params, recovery):
+    """M019: no plan-step instruction matches an unsafe guidance pattern."""
+    from app.analysis.guidance import scan_texts_for_unsafe
+
+    for turn, text in _all_steps(records):
+        hits = scan_texts_for_unsafe([text])
+        if hits:
+            return False, f"turn {turn}: {hits[0][:160]}"
+    return True, "no plan step matched an unsafe pattern"
+
+
 _EVALUATORS = {
     "asked_or_proposed": _ev_asked_or_proposed,
     "any_beat_used": _ev_any_beat_used,
@@ -552,6 +580,7 @@ _EVALUATORS = {
     "tools_used_any": _ev_tools_used_any,
     "no_claim_in": _ev_no_claim_in,
     "recovery_verified": _ev_recovery_verified,
+    "no_unsafe_steps": _ev_no_unsafe_steps,
 }
 
 
@@ -575,7 +604,9 @@ def render_transcript(scenario: Scenario, run: dict, checks: list[dict]) -> str:
     )
     lines.append(
         f"turns={run['turns']} model_calls={run['model_calls']} wall={run['wall_s']}s "
-        f"questions={n_questions} unusable_tasks={n_unusable}"
+        f"questions={n_questions} unusable_tasks={n_unusable} "
+        f"withheld={run.get('withheld_repeats', 0)} "
+        f"unsafe={run.get('unsafe_flags', 0)} stall={run.get('stall_notes', 0)}"
     )
     for check in checks:
         mark = "PASS" if check["passed"] else "FAIL"

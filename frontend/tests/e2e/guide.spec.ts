@@ -22,6 +22,10 @@ test("guided remote investigation answers questions and works the plan", async (
   const answerBox = page.getByPlaceholder("Type your answer…").first();
   await answerBox.fill("The user's laptop in room 3.");
   await page.getByRole("button", { name: "Answer", exact: true }).first().click();
+  // Answered questions collapse into the history record; expand it to verify.
+  const history = page.getByText(/Earlier questions/);
+  await expect(history).toBeVisible({ timeout: 30000 });
+  await history.click();
   await expect(page.getByText("The user's laptop in room 3.")).toBeVisible({ timeout: 30000 });
 
   // Report an observation through the turn composer.

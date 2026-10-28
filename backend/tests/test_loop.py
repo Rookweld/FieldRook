@@ -50,7 +50,7 @@ class _ScriptedProvider:
     def model_label(self) -> str:
         return "test-model"
 
-    async def chat(self, messages, tools=None, json_only=False):  # noqa: ANN001, ANN002, ANN003
+    async def chat(self, messages, tools=None, json_only=False, cancel_scope=None):  # noqa: ANN001, ANN002, ANN003, ANN004
         called: set[str] = set()
         for message in messages:
             for tool_call in message.get("tool_calls") or []:

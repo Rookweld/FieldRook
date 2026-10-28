@@ -140,6 +140,14 @@ class ProposedAction(BaseModel):
 
 
 StepImpact = Literal["read-only", "changes-system", "unknown"]
+GuidanceImpact = Literal[
+    "READ_ONLY",
+    "MANUAL_INFORMATION",
+    "SYSTEM_CHANGE",
+    "PRIVILEGED_ACTION",
+    "POTENTIALLY_DISRUPTIVE",
+    "UNSUPPORTED_OR_UNSAFE",
+]
 
 
 class RunbookStep(BaseModel):
@@ -152,6 +160,8 @@ class RunbookStep(BaseModel):
     confirms: str = ""
     impact: StepImpact = "unknown"
     admin_maybe: bool = False
+    guidance_impact: GuidanceImpact = "MANUAL_INFORMATION"
+    safety_note: str = ""
 
 
 class AnalysisResult(BaseModel):
@@ -432,8 +442,12 @@ PlanStepKind = Literal[
     "VERIFICATION",
 ]
 PlanStepStatus = Literal["suggested", "current", "done", "blocked", "skipped"]
-QuestionStatus = Literal["open", "answered"]
-TurnKind = Literal["answer", "observation", "test_result", "correction", "question"]
+# M019 lifecycle: open awaits an answer; answered closes the loop; superseded
+# was refined by a newer question; retired is no longer relevant but kept in
+# history; blocked means the technician explicitly cannot answer it.
+QuestionStatus = Literal["open", "answered", "superseded", "retired", "blocked"]
+QuestionSource = Literal["model", "fallback", "target"]
+TurnKind = Literal["answer", "observation", "test_result", "correction", "question", "unable"]
 ProviderName = Literal["auto", "meta", "simulated", "local"]
 
 
@@ -456,6 +470,9 @@ class SuggestedPlanStep(BaseModel):
     tool_name: str | None = None
     expected_observations: list[str] = Field(default_factory=list)
     admin_maybe: bool = False
+    # M019: set when the model named a tool outside the registry. The
+    # step is downgraded to manual guidance and flagged unsupported.
+    unsupported_tool: str | None = None
 
 
 class SuggestedPlan(BaseModel):
@@ -500,6 +517,8 @@ class TroubleshootStep(BaseModel):
     outcome: str = ""
     evidence_ids: list[str] = Field(default_factory=list)
     admin_maybe: bool = False
+    guidance_impact: GuidanceImpact = "MANUAL_INFORMATION"
+    safety_note: str = ""
 
 
 class TroubleshootPlan(BaseModel):
@@ -515,6 +534,9 @@ class ClarifyingQuestion(BaseModel):
     why: str = ""
     status: QuestionStatus = "open"
     answer: str = ""
+    asked_round: int = 0
+    source: QuestionSource = "model"
+    retired_note: str = ""
 
 
 class ProviderInfo(BaseModel):

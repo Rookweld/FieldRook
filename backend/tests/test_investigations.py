@@ -262,7 +262,7 @@ def test_api_failure_substituted_gracefully(monkeypatch) -> None:  # type: ignor
             model_timeout_s=current.model_timeout_s,
         )
 
-    async def boom(self, messages, tools=None, json_only=False):  # noqa: ANN001, ANN002, ANN003
+    async def boom(self, messages, tools=None, json_only=False, cancel_scope=None):  # noqa: ANN001, ANN002, ANN003, ANN004
         raise ModelAnalysisError("simulated outage")
 
     monkeypatch.setattr(inv_router, "load_settings", fake_load)

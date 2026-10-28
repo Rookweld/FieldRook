@@ -85,9 +85,11 @@ request (`app/analysis/local_tasks.py`):
 
 Each task validates its JSON (extract, repair once, coerce unknowns
 with warnings) and degrades to the deterministic planner per task —
-never presented as model reasoning. Measured on Fury CPU-only:
-qwen3:4b triage ~2.5s warm, plan ~3.5s. Full numbers and quality
-grades: `backend/eval/LOCAL_BENCH_M017.md`.
+never presented as model reasoning. M017's "Fury CPU-only" speeds
+(triage ~2.5s) were later proven GPU-flavored (M018 erratum in
+`backend/eval/LOCAL_BENCH_M017.md`); placement-verified true-CPU
+triage is ~25-33s for qwen3:4b. Full numbers and quality grades:
+`backend/eval/LOCAL_BENCH_M017.md`, `backend/eval/challenge/REPORT_M019.md`.
 
 Engineering notes from measurement:
 
@@ -129,25 +131,30 @@ for a readable dialog 3/3; qwen3-coder:30b rejects images (HTTP 400).
   vision mismatch. It is **user-triggered only** — the Guide never
   polls or preloads models.
 - `POST /api/investigations/{id}/cancel` sets a cancel flag
-  (persisted `cancel_flags` table) honored **between** model calls:
-  the in-flight call finishes, no further calls start, evidence is
-  kept, and the investigation stays resumable. The Guide shows live
-  elapsed time and the cancel control during a turn.
+  (persisted `cancel_flags` table). M019 aborts **mid-flight** via
+  streaming generation (~0.2s, was ~9s): the in-flight call stops,
+  no further calls start, evidence is kept, and the investigation
+  stays resumable. The Guide shows live elapsed time and the cancel
+  control during a turn, and blocks duplicate submits.
 
 ## Deployment direction (ordinary laptops)
 
-Default FieldRook bundles no model and requires none. The M017
-recommendation, from measurement:
+Default FieldRook bundles no model and requires none. Measured
+verdicts (M018 challenge + M019 placement-verified CPU runs):
 
 - **Default local text model: qwen3:4b** (~2.5GB download, ~3.3GB
-  resident, ~90 tok/s CPU, valid JSON 12/12). Fits the 8-16GB,
-  no-GPU laptop target with headroom for Windows itself.
+  resident, reliable structured output). GPU runs answer in ~2-4s;
+  TRUE CPU-only triage is ~25-33s — no 8GB CPU-laptop interactivity
+  claim; the in-app profile says so.
 - **Screenshot cases: qwen3-vl:8b** (~6GB) as an opt-in second
   model for its exact dialog reads — not as the default.
-- **Alternative text: gemma4:e4b** (~9.6GB disk, ~3.2GB resident)
-  asked the best triage question measured, but its vision is
-  unreliable; text use only.
-- **Not recommended: qwen3-coder:30b** (19.2GB resident, ~26 tok/s)
+- **Best local quality: gemma4:e4b** (~9.6GB disk) reasons best but
+  needs ~45-73s on true CPU: not interactive there; text use only
+  (its vision returned null 3/3 on a readable dialog).
+- **Meta open-weight: llama3.2:3b** is usable with repetition and
+  fixation caveats (~16-32s true-CPU triage); **llama3.2:1b is not
+  a supported reasoning model** (unacceptable M018 quality/safety).
+- **Not recommended: qwen3-coder:30b** (19.2GB resident)
   — workstation reference only.
 
 Packaging stays out of M017 scope, but the shape is set: optional
@@ -157,14 +164,25 @@ downloads, no background model loading.
 
 ## Meta open-weight note
 
-No Meta model is installed on this machine, so M017 claims no
-Meta-model measurements and no hackathon eligibility. The genuine
-lightweight candidates are Meta Llama 3.2 1B/3B Instruct (text-only;
-profiles + install hints ship in `local_profiles.py`, unmeasured).
-There is no official small Glimmer checkpoint — Glimmer 30B stays a
-workstation-class comparison target, not a laptop requirement.
-Measuring Llama 3.2 triage/plan quality on CPU is the obvious M018
-local-AI follow-up.
+M018 measured the genuine lightweight Meta candidates (Llama 3.2
+1B/3B Instruct, text-only) on the identical 20-scenario challenge:
+3B is a viable alternative (132/142 checks, repetition caveats),
+1B is disqualified on quality/safety — see
+`backend/eval/challenge/REPORT_M018.md` and the per-model profiles
+in `local_profiles.py`. There is no official small Glimmer
+checkpoint — Glimmer 30B stays a workstation-class comparison
+target, not a laptop requirement.
+
+## M019: single-decision loop
+
+One technician turn now costs one model decision (triage OR
+reassess; plan only as recovery): ~4.7x fewer calls than M018 on
+the identical challenge with no quality regression (127-131/142
+vs 132/142, within run variance; 48/53 on 6 unseen held-out
+cases). Questions have a lifecycle (current/answered/superseded/
+retired/blocked), manual guidance passes a 6-tier impact filter,
+and CPU profiles are placement-verified honest. Details:
+`backend/eval/challenge/REPORT_M019.md`.
 
 ## M016 smoke test (measured 2026-10-28)
 

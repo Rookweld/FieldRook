@@ -14,7 +14,7 @@ import re
 from typing import Any
 
 from ..analysis.assist import refresh_assist
-from ..analysis.provider import ModelProvider, select_provider
+from ..analysis.provider import ModelProvider, RoundCancelled, select_provider
 from ..analysis.refresh import compare_readings
 from ..analysis.validate import ModelAnalysisError, validate_assessment_output
 from ..config import SIMULATED_MODEL_NAME, Settings
@@ -345,6 +345,7 @@ async def _finalize_from_content(
                     }
                 ],
                 json_only=True,
+                cancel_scope=_scope_of(state),
             )
         except ModelAnalysisError as exc:
             _substitute_simulated(state, f"Live assessment failed ({exc}).")
@@ -378,6 +379,7 @@ async def _finalize_from_content(
                 }
             ],
             json_only=True,
+            cancel_scope=_scope_of(state),
         )
         second = validate_assessment_output(
             str(repair.get("content") or ""), state.known_evidence_ids(), model_name, "live"
@@ -422,7 +424,9 @@ async def _run_live_no_tools(
         }
     )
     try:
-        message = await provider.chat(state.messages, json_only=True)
+        message = await provider.chat(
+            state.messages, json_only=True, cancel_scope=_scope_of(state)
+        )
     except ModelAnalysisError as exc:
         _substitute_simulated(state, f"Live model call failed ({exc}).")
         return
@@ -459,6 +463,11 @@ def _cancel_requested(state: InvestigationState) -> bool:
         return False
 
 
+def _scope_of(state: InvestigationState) -> tuple[str, int]:
+    """Cancel scope for model calls in this round (matches cancel_round)."""
+    return (state.id, getattr(state, "rounds_used", 0))
+
+
 def _clear_cancel(state: InvestigationState) -> None:
     try:
         from ..investigations.persistence import clear_cancel
@@ -480,7 +489,8 @@ async def _run_local_tasks(
     Small task calls with tight caps replace the single giant assessment
     call that CPU models cannot finish. Parts are validated and assembled
     into one assessment; every warning says which part failed so the UI can
-    label deterministic remainder honestly. Cancellation is honored between
+    label deterministic remainder honestly. Cancellation is honored
+    mid-flight (the provider raises RoundCancelled) as well as between
     task calls.
 
     M018: when the diagnostic target is the FieldRook host, bounded
@@ -547,8 +557,11 @@ async def _run_local_tasks(
                 break
         titles = [h.title for h in state.hypotheses if h.status == "active"]
         asked = [q.question for q in state.questions[-6:]]
+        thin = int(state.assist_counters.get("thin_answers", 0) or 0)
         reassess, task_warnings = await run_task(
-            "reassess", reassess_prompt(titles, observation, asked)
+            "reassess",
+            reassess_prompt(titles, observation, asked, thin_streak=thin),
+            cancel_scope=_scope_of(state),
         )
         state.warnings.extend(task_warnings)
         state.add_activity(
@@ -561,6 +574,7 @@ async def _run_local_tasks(
             triage_prompt(state.problem, digest, state.target)
             + (" A screenshot is attached; say what it shows." if images else ""),
             images=images or None,
+            cancel_scope=_scope_of(state),
         )
         state.warnings.extend(task_warnings)
         state.add_activity(
@@ -572,30 +586,53 @@ async def _run_local_tasks(
         state.warnings.append("Round cancelled by the technician after the first model call.")
         state.add_activity("note", "Round cancelled", "Plan generation skipped.")
         return
-    context_bits: list[str] = []
-    if triage:
-        if triage.get("question"):
-            context_bits.append(f"Open question: {triage['question']}")
-        if triage.get("next_check"):
-            context_bits.append(f"Candidate check: {triage['next_check']}")
-    if reassess:
-        if reassess.get("verdict"):
-            context_bits.append(f"Reassessment: {reassess['verdict']}")
-        if reassess.get("next_step"):
-            context_bits.append(f"Candidate next: {reassess['next_step']}")
+    # M019 single-decision routing: one model call per round normally. The
+    # plan task runs only as recovery — when the primary task produced no
+    # usable direction AND nothing is already pending. Otherwise the round's
+    # question or check stands on its own without a second call.
+    primary = triage if triage is not None else reassess
+    primary_direction = ""
+    if primary:
+        primary_direction = str(
+            primary.get("question", "")
+            or primary.get("next_check", "")
+            or primary.get("next_step", "")
+        ).strip()
     open_questions = [q for q in state.questions if q.status == "open"]
-    if open_questions:
-        context_bits.append(f"Already-asked questions (do not repeat): {[q.question[:80] for q in open_questions][:3]}")
-    plan, task_warnings = await run_task(
-        "plan", plan_prompt(state.problem, " ".join(context_bits) or digest, state.target)
-    )
-    state.warnings.extend(task_warnings)
-    state.add_activity(
-        "note", "Local plan",
-        "Plan answered." if plan else "Plan unusable; deterministic planner fills in.",
-    )
+    prior_steps = state.plan.steps if state.plan else []
+    incomplete_steps = [s for s in prior_steps if s.status in ("suggested", "current")]
+    plan_skipped = True
+    if not primary_direction and not open_questions and not incomplete_steps:
+        plan_skipped = False
+        context_bits: list[str] = []
+        if triage:
+            if triage.get("question"):
+                context_bits.append(f"Open question: {triage['question']}")
+            if triage.get("next_check"):
+                context_bits.append(f"Candidate check: {triage['next_check']}")
+        if reassess:
+            if reassess.get("verdict"):
+                context_bits.append(f"Reassessment: {reassess['verdict']}")
+            if reassess.get("next_step"):
+                context_bits.append(f"Candidate next: {reassess['next_step']}")
+        plan, task_warnings = await run_task(
+            "plan",
+            plan_prompt(state.problem, " ".join(context_bits) or digest, state.target),
+            cancel_scope=_scope_of(state),
+        )
+        state.warnings.extend(task_warnings)
+        state.add_activity(
+            "note", "Local plan",
+            "Plan answered." if plan else "Plan unusable; deterministic planner fills in.",
+        )
+    else:
+        state.add_activity(
+            "note", "Single-decision round",
+            "Plan task skipped: the primary task's question or check stands alone.",
+        )
     result, assembly_warnings, model_parts = assemble_assessment(
-        state.problem, list(state.evidence), triage, plan, reassess, label, state.target
+        state.problem, list(state.evidence), triage, plan, reassess, label, state.target,
+        plan_skipped=plan_skipped,
     )
     state.warnings.extend(assembly_warnings)
     if not model_parts:
@@ -608,16 +645,15 @@ async def _run_local_tasks(
     _accept_assessment(state, result, label)
     stats = getattr(provider, "last_stats", {}) or {}
     if stats:
-        state.add_activity(
-            "note", "Local inference stats",
-            f"Last call: {stats.get('wall_s', '?')}s wall"
-            + (
-                f", {stats.get('eval_count', '?')} tokens in {stats.get('eval_duration_s', '?')}s"
-                if stats.get("eval_count")
-                else ""
+        detail = f"Last call: {stats.get('wall_s', '?')}s wall"
+        if stats.get("eval_count"):
+            detail += (
+                f", {stats.get('eval_count', '?')} tokens "
+                f"in {stats.get('eval_duration_s', '?')}s"
             )
-            + ".",
-        )
+        if stats.get("first_token_s") is not None:
+            detail += f", first token in {stats['first_token_s']}s"
+        state.add_activity("note", "Local inference stats", detail + ".")
 
 
 async def _run_live(
@@ -675,7 +711,9 @@ async def _run_live(
             state.add_activity("note", "Round cancelled", "Stopping before the next model call.")
             return
         try:
-            message = await provider.chat(state.messages, tools=tools)
+            message = await provider.chat(
+                state.messages, tools=tools, cancel_scope=_scope_of(state)
+            )
         except ModelAnalysisError as exc:
             if state.has_image and not text_only_retried:
                 _strip_images(state.messages)
@@ -876,7 +914,9 @@ async def _run_live(
         }
     )
     try:
-        message = await provider.chat(state.messages, json_only=True)
+        message = await provider.chat(
+            state.messages, json_only=True, cancel_scope=_scope_of(state)
+        )
     except ModelAnalysisError as exc:
         _substitute_simulated(state, f"Live final assessment failed ({exc}).")
         return
@@ -1133,17 +1173,38 @@ async def run_rounds(
         )
         state.add_activity("note", "Provider fallback", f"{state.provider_override} unusable; using simulated.")
         provider, mode = select_provider(settings, "simulated")
-    if mode == "simulated":
-        await _run_simulated(state, settings, use_fixtures, is_followup)
-        maybe_create_proposal(state, live_check=False)
-    elif getattr(provider, "name", "") == "local":
-        await _run_local_tasks(state, provider, settings, is_followup, use_fixtures)
-        maybe_create_proposal(state, live_check=True)
-    else:
-        await _run_live(state, provider, settings, use_fixtures, max_new_calls)
-        maybe_create_proposal(state, live_check=True)
+    try:
+        if mode == "simulated":
+            await _run_simulated(state, settings, use_fixtures, is_followup)
+            maybe_create_proposal(state, live_check=False)
+        elif getattr(provider, "name", "") == "local":
+            await _run_local_tasks(state, provider, settings, is_followup, use_fixtures)
+            maybe_create_proposal(state, live_check=True)
+        else:
+            await _run_live(state, provider, settings, use_fixtures, max_new_calls)
+            maybe_create_proposal(state, live_check=True)
+    except RoundCancelled:
+        # Mid-flight cancel: stop the round, keep everything collected, and
+        # never fabricate an assessment to fill the gap. The refresh below is
+        # deliberately not a fresh round — nothing new arrived.
+        _clear_cancel(state)
+        state.warnings.append(
+            "Round cancelled by the technician during the model call; "
+            "collected evidence is kept."
+        )
+        state.add_activity(
+            "note", "Round cancelled",
+            "The in-flight model call was interrupted; nothing was fabricated "
+            "to fill the gap.",
+        )
+        state.rounds_used += 1
+        try:
+            refresh_assist(state, state.rounds_used)
+        except Exception as exc:  # noqa: BLE001 - assist must never sink a round
+            state.warnings.append(f"Assistance layer skipped this round ({exc}).")
+        return
     state.rounds_used += 1
     try:
-        refresh_assist(state, state.rounds_used)
+        refresh_assist(state, state.rounds_used, fresh_round=True)
     except Exception as exc:  # noqa: BLE001 - assist must never sink a round
         state.warnings.append(f"Assistance layer skipped this round ({exc}).")

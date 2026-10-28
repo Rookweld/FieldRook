@@ -1,6 +1,13 @@
 import type { AnalysisResult } from "../types";
 import { EvidenceChip } from "./EvidenceChip";
 
+const GUIDANCE_IMPACT_CLASS: Record<string, string> = {
+  SYSTEM_CHANGE: "system-change",
+  PRIVILEGED_ACTION: "privileged-action",
+  POTENTIALLY_DISRUPTIVE: "potentially-disruptive",
+  UNSUPPORTED_OR_UNSAFE: "unsupported-or-unsafe",
+};
+
 export function DiagnosisPanel({
   analysis,
   warnings,
@@ -98,6 +105,11 @@ export function DiagnosisPanel({
                 <strong>{s.step}</strong>{" "}
                 <span className={`impact impact-${s.impact}`}>{s.impact}</span>
                 {s.admin_maybe && <span className="impact impact-admin">may need admin</span>}{" "}
+                {s.guidance_impact && GUIDANCE_IMPACT_CLASS[s.guidance_impact] && (
+                  <span className={`impact impact-${GUIDANCE_IMPACT_CLASS[s.guidance_impact]}`}>
+                    {s.guidance_impact.toLowerCase().replace(/_/g, " ")}
+                  </span>
+                )}{" "}
                 {s.evidence_ids.map((eid) => (
                   <EvidenceChip key={eid} id={eid} onSelect={onEvidenceClick} />
                 ))}
@@ -115,6 +127,18 @@ export function DiagnosisPanel({
               {s.confirms && (
                 <p>
                   <span className="runbook-label">Confirms / weakens:</span> {s.confirms}
+                </p>
+              )}
+              {s.safety_note && (
+                <p
+                  className={
+                    s.guidance_impact === "UNSUPPORTED_OR_UNSAFE" ||
+                    s.guidance_impact === "POTENTIALLY_DISRUPTIVE"
+                      ? "warn"
+                      : undefined
+                  }
+                >
+                  <span className="runbook-label">Safety:</span> {s.safety_note}
                 </p>
               )}
             </details>

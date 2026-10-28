@@ -8,10 +8,18 @@ without tool calling gets a plan-only path instead of tool definitions.
 
 Inference provider (where intelligence runs) is independent from diagnostic
 target (which computer the evidence describes); the two are never conflated.
+
+M019 mid-flight cancel: model calls accept a cancel scope (investigation id
++ round) and raise RoundCancelled when the technician's cancel flag lands —
+the Ollama transport streams so a slow CPU generation aborts within a chunk.
+Streaming stays transport-internal: only completed, validated output ever
+reaches the technician, so the streaming capability remains False.
 """
 
 from __future__ import annotations
 
+import asyncio
+import json
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Any
@@ -24,6 +32,67 @@ from ..diagnostics import fixtures as fx
 from ..schemas import AnalysisMode, AnalysisResult, DiagnosticBundle
 from .prompts import build_messages
 from .validate import ModelAnalysisError, validate_model_output
+
+
+class RoundCancelled(Exception):
+    """The technician cancelled the round while a model call was in flight.
+
+    Deliberately NOT a ModelAnalysisError: the loop must stop the round and
+    keep collected evidence, never substitute fallback content for the
+    cancelled call.
+    """
+
+
+# Cancel scope: (investigation id, rounds_used value the flag was filed under).
+CancelScope = tuple[str, int]
+
+_CANCEL_POLL_S = 0.25
+
+
+def _flag_set(inv_id: str, round_no: int) -> bool:
+    """True when a matching cancel flag exists. Never raises: a broken flag
+    check must not break (or fake-cancel) a model call."""
+    try:
+        from ..investigations.persistence import cancel_requested
+    except Exception:  # noqa: BLE001 - cancel must never break a round
+        return False
+    try:
+        return bool(cancel_requested(inv_id, round_no))
+    except Exception:  # noqa: BLE001 - cancel must never break a round
+        return False
+
+
+async def _await_cancellable(coro: Any, cancel_scope: CancelScope | None) -> Any:
+    """Await a model-call coroutine, racing the technician's cancel flag.
+
+    A pre-set flag aborts before any HTTP is sent. Mid-flight, the wait is
+    abandoned promptly; aborting our wait does not guarantee the model
+    server stops generating, only that FieldRook stops waiting for it.
+    """
+    if cancel_scope is None:
+        return await coro
+    inv_id, round_no = cancel_scope
+    if _flag_set(inv_id, round_no):
+        close = getattr(coro, "close", None)
+        if callable(close):
+            close()
+        raise RoundCancelled(
+            "Round cancelled by the technician before the model call started."
+        )
+    task = asyncio.ensure_future(coro)
+    while True:
+        done, _pending = await asyncio.wait({task}, timeout=_CANCEL_POLL_S)
+        if done:
+            return task.result()
+        if _flag_set(inv_id, round_no):
+            task.cancel()
+            try:
+                await task
+            except BaseException:  # noqa: BLE001 - the cancel itself is the outcome
+                pass
+            raise RoundCancelled(
+                "Round cancelled by the technician during the model call."
+            )
 
 
 @dataclass(frozen=True)
@@ -57,8 +126,13 @@ class ModelProvider(ABC):
         messages: list[dict[str, Any]],
         tools: list[dict[str, Any]] | None = None,
         json_only: bool = False,
+        cancel_scope: CancelScope | None = None,
     ) -> dict[str, Any]:
-        """One chat turn. Returns the assistant message {role, content, tool_calls?}."""
+        """One chat turn. Returns the assistant message {role, content, tool_calls?}.
+
+        cancel_scope (investigation id + round) lets the call raise
+        RoundCancelled when the technician cancels mid-flight.
+        """
         ...
 
     def model_label(self) -> str:
@@ -72,6 +146,16 @@ class ModelProvider(ABC):
         )
 
 
+async def _post_completions(
+    url: str,
+    payload: dict[str, Any],
+    headers: dict[str, str],
+    timeout_s: float,
+) -> httpx.Response:
+    async with httpx.AsyncClient(timeout=timeout_s) as client:
+        return await client.post(url, json=payload, headers=headers)
+
+
 async def _chat_completions(
     url: str,
     model: str,
@@ -81,6 +165,7 @@ async def _chat_completions(
     timeout_s: float,
     api_key: str | None,
     label: str,
+    cancel_scope: CancelScope | None = None,
 ) -> dict[str, Any]:
     payload: dict[str, Any] = {"model": model, "messages": messages, "temperature": 0.2}
     if tools:
@@ -90,8 +175,9 @@ async def _chat_completions(
         payload["response_format"] = {"type": "json_object"}
     headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
     try:
-        async with httpx.AsyncClient(timeout=timeout_s) as client:
-            response = await client.post(url, json=payload, headers=headers)
+        response = await _await_cancellable(
+            _post_completions(url, payload, headers, timeout_s), cancel_scope
+        )
     except httpx.HTTPError as exc:
         raise ModelAnalysisError(
             f"{label} request failed ({type(exc).__name__}): {str(exc)[:200]}"
@@ -140,6 +226,7 @@ class MetaModelProvider(ModelProvider):
         messages: list[dict[str, Any]],
         tools: list[dict[str, Any]] | None = None,
         json_only: bool = False,
+        cancel_scope: CancelScope | None = None,
     ) -> dict[str, Any]:
         settings = self._settings
         if settings.offline_mode:
@@ -156,6 +243,7 @@ class MetaModelProvider(ModelProvider):
             settings.model_timeout_s,
             settings.model_api_key,
             "Meta API",
+            cancel_scope,
         )
 
     async def analyze(self, bundle: DiagnosticBundle) -> AnalysisResult:
@@ -190,6 +278,7 @@ class SimulatedProvider(ModelProvider):
         messages: list[dict[str, Any]],
         tools: list[dict[str, Any]] | None = None,
         json_only: bool = False,
+        cancel_scope: CancelScope | None = None,
     ) -> dict[str, Any]:
         raise ModelAnalysisError(
             "The simulated provider does not take chat turns; the loop runs "
@@ -303,6 +392,7 @@ class LocalEndpointProvider(ModelProvider):
         messages: list[dict[str, Any]],
         tools: list[dict[str, Any]] | None = None,
         json_only: bool = False,
+        cancel_scope: CancelScope | None = None,
     ) -> dict[str, Any]:
         settings = self._settings
         base = validate_local_model_url(settings.local_model_url)
@@ -319,11 +409,13 @@ class LocalEndpointProvider(ModelProvider):
             )
         # Local servers do not need the cloud key; never send it there.
         if self.api_style() == "ollama":
-            return await self._ollama_chat(base, model, messages, json_only, None)
+            return await self._ollama_chat(
+                base, model, messages, json_only, None, None, cancel_scope
+            )
         url = base + "/chat/completions"
         return await _chat_completions(
             url, model, messages, None, json_only,
-            settings.model_timeout_s, None, "Local model",
+            settings.model_timeout_s, None, "Local model", cancel_scope,
         )
 
     async def _ollama_chat(
@@ -334,6 +426,32 @@ class LocalEndpointProvider(ModelProvider):
         json_only: bool,
         num_predict: int | None,
         timeout_s: float | None = None,
+        cancel_scope: CancelScope | None = None,
+    ) -> dict[str, Any]:
+        """Ollama native chat over a streaming transport.
+
+        The stream assembles one completed reply: partial chunks are never
+        surfaced, only the finished content after the done event. Streaming
+        buys two honest gains — cancel checks that abort a slow CPU
+        generation promptly (per-chunk plus a race covering the silent
+        model-load window), and first-token timing in last_stats.
+        """
+        return await _await_cancellable(
+            self._ollama_chat_stream(
+                base, model, messages, json_only, num_predict, timeout_s, cancel_scope
+            ),
+            cancel_scope,
+        )
+
+    async def _ollama_chat_stream(
+        self,
+        base: str,
+        model: str,
+        messages: list[dict[str, Any]],
+        json_only: bool,
+        num_predict: int | None,
+        timeout_s: float | None = None,
+        cancel_scope: CancelScope | None = None,
     ) -> dict[str, Any]:
         import time as _time
 
@@ -341,7 +459,7 @@ class LocalEndpointProvider(ModelProvider):
         payload: dict[str, Any] = {
             "model": model,
             "messages": _to_ollama_messages(messages),
-            "stream": False,
+            "stream": True,
             "think": self.think_enabled(),
         }
         if json_only:
@@ -357,33 +475,69 @@ class LocalEndpointProvider(ModelProvider):
         payload["options"] = options
         timeout = timeout_s or self._settings.model_timeout_s
         started = _time.monotonic()
+        content_parts: list[str] = []
+        first_token_s: float | None = None
+        chunks = 0
+        final: dict[str, Any] = {}
         try:
             async with httpx.AsyncClient(timeout=timeout) as client:
-                response = await client.post(origin + "/api/chat", json=payload)
+                async with client.stream(
+                    "POST", origin + "/api/chat", json=payload
+                ) as response:
+                    if response.status_code != 200:
+                        body = await response.aread()
+                        raise ModelAnalysisError(
+                            "Local model HTTP "
+                            f"{response.status_code}: "
+                            f"{body.decode('utf-8', 'replace')[:300]}"
+                        )
+                    async for line in response.aiter_lines():
+                        if cancel_scope is not None and _flag_set(*cancel_scope):
+                            raise RoundCancelled(
+                                "Round cancelled by the technician during the model call."
+                            )
+                        if not line.strip():
+                            continue
+                        try:
+                            event = json.loads(line)
+                        except ValueError as exc:
+                            raise ModelAnalysisError(
+                                "Local model returned a malformed stream line."
+                            ) from exc
+                        if not isinstance(event, dict):
+                            raise ModelAnalysisError(
+                                "Local model returned a malformed stream event."
+                            )
+                        message = event.get("message")
+                        if isinstance(message, dict):
+                            piece = message.get("content") or ""
+                            if piece:
+                                if first_token_s is None:
+                                    first_token_s = _time.monotonic() - started
+                                content_parts.append(str(piece))
+                        chunks += 1
+                        if event.get("done"):
+                            final = event
+                            break
         except httpx.HTTPError as exc:
             raise ModelAnalysisError(
                 f"Local model request failed ({type(exc).__name__}): {str(exc)[:200]}"
             ) from exc
         wall_s = _time.monotonic() - started
-        if response.status_code != 200:
+        if not final.get("done"):
             raise ModelAnalysisError(
-                f"Local model HTTP {response.status_code}: {response.text[:300]}"
+                "Local model stream ended without completion."
             )
-        try:
-            data = response.json()
-        except ValueError as exc:
-            raise ModelAnalysisError("Local model returned a non-JSON response.") from exc
-        message = data.get("message") if isinstance(data, dict) else None
-        if not isinstance(message, dict):
-            raise ModelAnalysisError("Local model response is missing message.")
         self.last_stats = {
             "wall_s": round(wall_s, 1),
-            "eval_count": data.get("eval_count"),
-            "eval_duration_s": round((data.get("eval_duration") or 0) / 1e9, 1),
-            "prompt_eval_count": data.get("prompt_eval_count"),
-            "load_duration_s": round((data.get("load_duration") or 0) / 1e9, 1),
+            "eval_count": final.get("eval_count"),
+            "eval_duration_s": round((final.get("eval_duration") or 0) / 1e9, 1),
+            "prompt_eval_count": final.get("prompt_eval_count"),
+            "load_duration_s": round((final.get("load_duration") or 0) / 1e9, 1),
+            "first_token_s": round(first_token_s, 2) if first_token_s is not None else None,
+            "stream_chunks": chunks,
         }
-        return {"role": "assistant", "content": str(message.get("content") or "")}
+        return {"role": "assistant", "content": "".join(content_parts)}
 
     async def run_task(
         self,
@@ -391,6 +545,7 @@ class LocalEndpointProvider(ModelProvider):
         prompt: str,
         timeout_s: float | None = None,
         images: list[str] | None = None,
+        cancel_scope: CancelScope | None = None,
     ) -> tuple[dict[str, Any] | None, list[str]]:
         """Run one pipeline task; returns (parsed payload or None, warnings).
 
@@ -398,6 +553,8 @@ class LocalEndpointProvider(ModelProvider):
         partial content with a warning instead of retrying forever.
         `images` (base64, no data prefix) attaches screenshots for
         vision-capable models; callers must capability-gate first.
+        Raises RoundCancelled (never swallowed as failure) when the
+        technician cancels mid-flight.
         """
         from .local_tasks import TASK_LIMITS, extract_json, missing_keys
 
@@ -431,18 +588,23 @@ class LocalEndpointProvider(ModelProvider):
             messages = [{"role": "user", "content": prompt}]
         try:
             if self.api_style() == "ollama":
-                reply = await self._ollama_chat(base, model, messages, True, num_predict, timeout)
+                reply = await self._ollama_chat(
+                    base, model, messages, True, num_predict, timeout, cancel_scope
+                )
             else:
                 url = base + "/chat/completions"
                 reply = await _chat_completions(
                     url, model, messages, None, True, timeout, None, "Local model",
+                    cancel_scope,
                 )
         except ModelAnalysisError as exc:
             return None, [f"{task} call failed ({exc}); deterministic fallback fills in."]
         text = str(reply.get("content") or "")
         parsed = extract_json(text)
         if parsed is None:
-            repaired = await self._repair_json(task, text, base, model, num_predict, timeout)
+            repaired = await self._repair_json(
+                task, text, base, model, num_predict, timeout, cancel_scope
+            )
             if repaired is None:
                 return None, [f"{task} returned unparseable output; deterministic fallback fills in."]
             warnings.append(f"{task} needed one JSON repair retry.")
@@ -453,7 +615,14 @@ class LocalEndpointProvider(ModelProvider):
         return parsed, warnings
 
     async def _repair_json(
-        self, task: str, text: str, base: str, model: str, num_predict: int, timeout: float
+        self,
+        task: str,
+        text: str,
+        base: str,
+        model: str,
+        num_predict: int,
+        timeout: float,
+        cancel_scope: CancelScope | None = None,
     ) -> dict[str, Any] | None:
         from .local_tasks import extract_json
 
@@ -465,11 +634,13 @@ class LocalEndpointProvider(ModelProvider):
         messages = [{"role": "user", "content": prompt}]
         try:
             if self.api_style() == "ollama":
-                reply = await self._ollama_chat(base, model, messages, True, num_predict, timeout)
+                reply = await self._ollama_chat(
+                    base, model, messages, True, num_predict, timeout, cancel_scope
+                )
             else:
                 reply = await _chat_completions(
                     base + "/chat/completions", model, messages, None, True,
-                    timeout, None, "Local model",
+                    timeout, None, "Local model", cancel_scope,
                 )
         except ModelAnalysisError:
             return None

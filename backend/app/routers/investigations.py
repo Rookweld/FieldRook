@@ -427,6 +427,7 @@ TURN_LABELS = {
     "test_result": "Technician test result",
     "correction": "Technician correction",
     "question": "Technician question",
+    "unable": "Technician unable",
 }
 
 
@@ -440,12 +441,13 @@ async def technician_turn(
     screenshot: UploadFile | None = File(default=None),
 ) -> InvestigationResponse:
     """One technician conversation turn: answer, observation, test result,
-    correction, or question, optionally with a follow-up screenshot.
+    correction, question, or unable, optionally with a follow-up screenshot.
 
     Technician-supplied content becomes labeled evidence
     (source `technician:<kind>`) that hypotheses and plans can cite, but it
     is never confused with independently measured facts. Answering a
-    clarifying question closes it so it is never asked again.
+    clarifying question closes it so it is never asked again; marking it
+    unable records that the technician cannot answer it.
     """
     from ..knowledge.redact import redact_text
 
@@ -457,7 +459,7 @@ async def technician_turn(
     if normalized_kind not in TURN_LABELS:
         raise HTTPException(
             status_code=400,
-            detail=f"Unknown turn kind {kind!r}; use answer, observation, test_result, correction, or question.",
+            detail=f"Unknown turn kind {kind!r}; use answer, observation, test_result, correction, question, or unable.",
         )
     cleaned = redact_text(text.strip())
     if not cleaned:
@@ -469,7 +471,7 @@ async def technician_turn(
         if question is None:
             raise HTTPException(status_code=422, detail=f"Unknown question {question_id!r}.")
         if question.status != "open":
-            raise HTTPException(status_code=409, detail=f"Question {question_id!r} is already answered.")
+            raise HTTPException(status_code=409, detail=f"Question {question_id!r} is already {question.status}.")
 
     image_b64: str | None = None
     image_mime: str | None = None
@@ -531,18 +533,29 @@ async def technician_turn(
             },
         )
         evidence_ids.append(item.id)
+    from ..analysis.assist import note_technician_answer
+
+    note_technician_answer(state, cleaned)
     remaining = MAX_TOOL_CALLS - state.tool_calls_made
     grant = max(0, min(MAX_FOLLOWUP_CALLS, remaining))
     if grant <= 0:
         state.warnings.append("Tool budget exhausted; turn answered from existing evidence only.")
     await run_rounds(state, settings, None, max_new_calls=grant, is_followup=True)
     if question is not None:
-        question.status = "answered"
-        question.answer = cleaned[:1000]
-        state.add_activity(
-            "question", f"Question {question.question_id} answered", cleaned[:300],
-            evidence_ids=evidence_ids,
-        )
+        if normalized_kind == "unable":
+            question.status = "blocked"
+            question.answer = cleaned[:1000]
+            state.add_activity(
+                "question", f"Question {question.question_id} blocked", cleaned[:300],
+                evidence_ids=evidence_ids,
+            )
+        else:
+            question.status = "answered"
+            question.answer = cleaned[:1000]
+            state.add_activity(
+                "question", f"Question {question.question_id} answered", cleaned[:300],
+                evidence_ids=evidence_ids,
+            )
     state.add_activity("turn", f"{label} processed", cleaned[:500], evidence_ids=evidence_ids)
     uses_fixtures = settings.fixtures_mode == "always" or state.mode == "simulated"
     store.save(state)
@@ -706,10 +719,11 @@ async def switch_provider(
 
 @router.post("/api/investigations/{investigation_id}/cancel", response_model=InvestigationResponse)
 async def cancel_round(investigation_id: str) -> InvestigationResponse:
-    """Request cancellation of a running round (honored between model calls).
+    """Request cancellation of a running round (honored mid-flight).
 
-    The in-flight model call finishes, but no further calls are made;
-    collected evidence is kept and the investigation stays resumable.
+    The in-flight model call is interrupted — streaming providers abort
+    within a chunk; others stop waiting — then the round stops. Collected
+    evidence is kept and the investigation stays resumable.
     """
     from ..investigations import persistence as persist
 
@@ -717,7 +731,7 @@ async def cancel_round(investigation_id: str) -> InvestigationResponse:
     if state is None:
         raise HTTPException(status_code=404, detail=f"Unknown investigation {investigation_id!r}.")
     persist.request_cancel(investigation_id, state.rounds_used)
-    state.warnings.append("Cancellation requested; the current model call finishes, then the round stops.")
+    state.warnings.append("Cancellation requested; the current model call is interrupted, then the round stops.")
     settings = load_settings()
     uses_fixtures = settings.fixtures_mode == "always" or state.mode == "simulated"
     return state.to_response(uses_fixtures=uses_fixtures)

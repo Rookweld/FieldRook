@@ -110,7 +110,8 @@ CURATED_PROFILES: dict[str, LocalModelProfile] = {
         "questions, real revision, uses evidence readings. Costs ~2x wall "
         "time vs qwen3:4b. Caution: all-null vision on the readable dialog "
         "fixture (blind_vision) — screenshot reading unreliable despite the "
-        "server advertising vision.",
+        "server advertising vision. True-CPU M019 (num_gpu=0, verified 100% CPU): "
+        "triage 45-73s at ~4 tok/s — best local quality but not CPU-interactive.",
     ),
     "llama3.2:1b": LocalModelProfile(
         model="llama3.2:1b",

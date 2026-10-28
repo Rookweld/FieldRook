@@ -865,6 +865,18 @@ ul.unverified > li:last-child {
   border-color: #4a3a1c;
 }
 
+.impact-system-change,
+.impact-privileged-action {
+  color: var(--amber);
+  border-color: #4a3a1c;
+}
+
+.impact-potentially-disruptive,
+.impact-unsupported-or-unsafe {
+  color: var(--red);
+  border-color: #5c2323;
+}
+
 ol.actions > li {
   padding: 0.3rem 0;
 }
@@ -3540,6 +3552,10 @@ li.tl {
 }
 .guide-a {
   margin: 0.2rem 0 0;
+}
+.guide-qa.guide-focus {
+  border-left: 3px solid var(--cyan);
+  padding-left: 0.7rem;
 }
 .guide-current {
   border-left: 3px solid var(--cyan);

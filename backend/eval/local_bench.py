@@ -340,10 +340,12 @@ def _print_result(result: dict) -> None:
         mem = entry.get("mem_bytes")
         mem_s = f"{mem / 1e9:.1f}GB" if mem else "-"
         blind = " BLIND" if entry.get("blind_vision") else ""
+        ttft = stats.get("first_token_s")
+        ttft_s = f" ttft={ttft:5.1f}s" if ttft is not None else ""
         print(
             f"  {name:18} wall={entry['wall_s']:6.1f}s valid={entry['valid_json']!s:5} "
             f"gaps={entry['missing_keys'] or '-'} nulls={entry.get('null_keys') or '-'}{blind} "
-            f"{tps:>12} mem={mem_s:>7} cpu_max={entry.get('cpu_max')}",
+            f"{tps:>12} mem={mem_s:>7} cpu_max={entry.get('cpu_max')}{ttft_s}",
             flush=True,
         )
         for warning in entry.get("warnings", []):

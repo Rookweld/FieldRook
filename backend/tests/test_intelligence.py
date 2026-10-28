@@ -141,7 +141,7 @@ class _ScriptedProvider:
     def model_label(self) -> str:
         return "test-model"
 
-    async def chat(self, messages, tools=None, json_only=False):  # noqa: ANN001, ANN002, ANN003
+    async def chat(self, messages, tools=None, json_only=False, cancel_scope=None):  # noqa: ANN001, ANN002, ANN003, ANN004
         reply = self._script[min(self.turns, len(self._script) - 1)]
         self.turns += 1
         return reply
