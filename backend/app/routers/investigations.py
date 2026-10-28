@@ -394,6 +394,8 @@ def list_providers() -> list[dict]:
             "reason": "ready (deterministic offline analysis)",
         }
     )
+    from ..analysis.local_profiles import describe_profile, resolve_profile
+
     local = LocalEndpointProvider(settings)
     local_caps = local.capabilities()
     local_available = bool(settings.local_model_url.strip()) and bool(
@@ -412,6 +414,8 @@ def list_providers() -> list[dict]:
                 if local_available
                 else "FIELDROOK_LOCAL_MODEL_URL / FIELDROOK_LOCAL_MODEL_NAME not set"
             ),
+            "profile": describe_profile(resolve_profile(settings.local_model_name)),
+            "api_style": local.api_style() if local_available else "unresolved",
         }
     )
     return entries
@@ -698,6 +702,90 @@ async def switch_provider(
     store.save(state)
     uses_fixtures = settings.fixtures_mode == "always" or state.mode == "simulated"
     return state.to_response(uses_fixtures=uses_fixtures)
+
+
+@router.post("/api/investigations/{investigation_id}/cancel", response_model=InvestigationResponse)
+async def cancel_round(investigation_id: str) -> InvestigationResponse:
+    """Request cancellation of a running round (honored between model calls).
+
+    The in-flight model call finishes, but no further calls are made;
+    collected evidence is kept and the investigation stays resumable.
+    """
+    from ..investigations import persistence as persist
+
+    state = store.get(investigation_id)
+    if state is None:
+        raise HTTPException(status_code=404, detail=f"Unknown investigation {investigation_id!r}.")
+    persist.request_cancel(investigation_id, state.rounds_used)
+    state.warnings.append("Cancellation requested; the current model call finishes, then the round stops.")
+    settings = load_settings()
+    uses_fixtures = settings.fixtures_mode == "always" or state.mode == "simulated"
+    return state.to_response(uses_fixtures=uses_fixtures)
+
+
+@router.post("/api/providers/local/test")
+async def test_local_provider() -> dict:
+    """User-triggered local connection test: one tiny capped completion.
+
+    Reports reachability, API style, resolved profile, server-advertised
+    capabilities, and measured latency. Never triggered automatically.
+    """
+    import time as _time
+
+    from ..analysis.local_profiles import describe_profile, resolve_profile, vision_mismatch
+    from ..analysis.provider import LocalEndpointProvider, cached_server_caps, validate_local_model_url
+    from ..analysis.validate import ModelAnalysisError
+
+    settings = load_settings()
+    model = settings.local_model_name.strip()
+    profile = resolve_profile(model)
+    try:
+        base = validate_local_model_url(settings.local_model_url)
+    except ModelAnalysisError as exc:
+        return {
+            "ok": False, "error": str(exc), "model": model,
+            "profile": describe_profile(profile), "server_caps": [],
+        }
+    if not model:
+        return {
+            "ok": False, "error": "FIELDROOK_LOCAL_MODEL_NAME is not set.",
+            "model": model, "profile": describe_profile(profile), "server_caps": [],
+        }
+    provider = LocalEndpointProvider(settings)
+    style = provider.api_style()
+    server_caps = cached_server_caps(settings.local_model_url, model)
+    started = _time.monotonic()
+    try:
+        if style == "ollama":
+            reply = await provider._ollama_chat(
+                base, model,
+                [{"role": "user", "content": "Reply with exactly: OK"}],
+                False, 16, 30.0,
+            )
+        else:
+            from ..analysis.provider import _chat_completions
+
+            reply = await _chat_completions(
+                base + "/chat/completions", model,
+                [{"role": "user", "content": "Reply with exactly: OK"}],
+                None, False, 30.0, None, "Local model",
+            )
+        latency_s = round(_time.monotonic() - started, 1)
+        text = str(reply.get("content") or "")
+        return {
+            "ok": True, "model": model, "api_style": style,
+            "latency_s": latency_s, "reply": text[:120],
+            "reply_ok": "OK" in text.upper(),
+            "profile": describe_profile(profile), "server_caps": server_caps,
+            "vision_warning": vision_mismatch(settings.local_model_vision, profile, server_caps),
+            "stats": dict(provider.last_stats),
+        }
+    except ModelAnalysisError as exc:
+        return {
+            "ok": False, "error": str(exc)[:300], "model": model,
+            "api_style": style, "latency_s": round(_time.monotonic() - started, 1),
+            "profile": describe_profile(profile), "server_caps": server_caps,
+        }
 
 
 @router.post("/api/investigations/{investigation_id}/target", response_model=InvestigationResponse)

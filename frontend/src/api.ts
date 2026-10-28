@@ -8,6 +8,7 @@ import type {
   KnowledgeMatch,
   PlanTemplate,
   ProviderOption,
+  LocalTestResult,
   ServiceListResponse,
   StatusResponse,
   ToolInfo,
@@ -220,6 +221,17 @@ export function setTarget(
 
 export function listProviders(): Promise<ProviderOption[]> {
   return request<ProviderOption[]>("/api/providers");
+}
+
+export function testLocalProvider(): Promise<LocalTestResult> {
+  return request<LocalTestResult>("/api/providers/local/test", { method: "POST" });
+}
+
+export function cancelRound(id: string): Promise<InvestigationResponse> {
+  return requestInvestigation(
+    `/api/investigations/${encodeURIComponent(id)}/cancel`,
+    { method: "POST" },
+  );
 }
 
 export function followUpInvestigation(

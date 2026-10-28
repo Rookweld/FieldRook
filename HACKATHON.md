@@ -30,6 +30,12 @@ timestamps preserved; history has not been rewritten):
 | `b9fd710` | 2026-10-27 | feat(fieldrook): milestone 005 proof of value |
 | `814c03b` | 2026-10-27 | feat(fieldrook): milestone 006 the field technician |
 | `d29b41a` | 2026-10-27 | feat(fieldrook): milestone 010 reality check |
+| `b4d481e` | 2026-10-27 | feat(fieldrook): milestone 011 technician pilot |
+| `2815771` | 2026-10-27 | feat(fieldrook): milestone 012 focused workstation |
+| `c92ba2e` | 2026-10-27 | feat(fieldrook): milestone 013 the living forge |
+| `252677e` | 2026-10-27 | feat(fieldrook): milestone 014 cinematic atmosphere |
+| `1261815` | 2026-10-28 | feat(fieldrook): milestone 015 living investigation |
+| `acb334c` | 2026-10-28 | feat(fieldrook): milestone 016 the real technician |
 
 Milestone 001 (first diagnosis slice), Milestone 002 (natural-language
 intake, screenshot understanding, tool-calling investigations, follow-ups),

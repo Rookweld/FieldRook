@@ -231,21 +231,46 @@ def validate_local_model_url(raw_url: str) -> str:
     return f"{parsed.scheme}://{parsed.netloc}{parsed.path}".rstrip("/")
 
 
-class LocalEndpointProvider(ModelProvider):
-    """Optional OpenAI-compatible local inference server (Ollama, llama.cpp).
+# Server-capability cache: (origin, model) -> (expires_at, [caps]).
+# Loopback GETs only; a miss degrades to "unknown", never to assumption.
+_SERVER_CAPS_CACHE: dict[tuple[str, str], tuple[float, list[str]]] = {}
+_SERVER_CAPS_TTL_S = 300.0
+# Ollama probe cache: origin -> (expires_at, is_ollama).
+_OLLAMA_PROBE_CACHE: dict[str, tuple[float, bool]] = {}
 
-    Capabilities come from explicit configuration, never assumption: a local
-    model is text-only without tool calling unless the operator enables those
-    flags for a model known to support them.
+
+class LocalEndpointProvider(ModelProvider):
+    """Optional local inference server (Ollama, llama.cpp) over loopback.
+
+    Two API styles: generic OpenAI-compatible chat completions, or the
+    Ollama native API when the server probes as Ollama. The native style is
+    required for thinking control (measured: /v1 ignores think=false and a
+    thinking model then burns 100s+ per call) and for token statistics.
+
+    The local path never uses chat tool-calling: small models reason through
+    the task pipeline (triage/plan/reassess) with tight token caps instead.
+    Capabilities come from explicit configuration plus curated profiles,
+    never from the model name alone.
     """
 
     name = "local"
 
+    def __init__(self, settings: Settings) -> None:
+        super().__init__(settings)
+        self.last_stats: dict[str, Any] = {}
+
     def capabilities(self) -> ProviderCapabilities:
+        from .local_profiles import effective_vision, resolve_profile
+
+        settings = self._settings
+        profile = resolve_profile(settings.local_model_name)
+        server_caps = cached_server_caps(
+            settings.local_model_url, settings.local_model_name
+        )
         return ProviderCapabilities(
             text=True,
-            vision=self._settings.local_model_vision,
-            tool_calling=self._settings.local_model_tools,
+            vision=effective_vision(settings.local_model_vision, profile, server_caps),
+            tool_calling=False,
             structured_output=False,
             streaming=False,
             processing_location="local",
@@ -254,6 +279,24 @@ class LocalEndpointProvider(ModelProvider):
     def model_label(self) -> str:
         name = self._settings.local_model_name or "local-model"
         return f"local/{name}"
+
+    def api_style(self) -> str:
+        """Resolved API style: explicit config, else a cached Ollama probe."""
+        wanted = (self._settings.local_api or "auto").strip().lower()
+        if wanted in ("openai", "ollama"):
+            return wanted
+        try:
+            base = validate_local_model_url(self._settings.local_model_url)
+        except ModelAnalysisError:
+            return "openai"
+        return "ollama" if probe_ollama(base) else "openai"
+
+    def think_enabled(self) -> bool:
+        """Thinking defaults OFF for task calls; the operator may force it on."""
+        setting = (self._settings.local_think or "auto").strip().lower()
+        if setting == "on":
+            return True
+        return False
 
     async def chat(
         self,
@@ -269,12 +312,261 @@ class LocalEndpointProvider(ModelProvider):
                 "FIELDROOK_LOCAL_MODEL_NAME is not set; name the model the local "
                 "server should run."
             )
-        url = base + "/chat/completions"
+        if tools:
+            raise ModelAnalysisError(
+                "The local path does not use chat tool-calling; reasoning runs "
+                "through the task pipeline instead."
+            )
         # Local servers do not need the cloud key; never send it there.
+        if self.api_style() == "ollama":
+            return await self._ollama_chat(base, model, messages, json_only, None)
+        url = base + "/chat/completions"
         return await _chat_completions(
-            url, model, messages, tools, json_only,
+            url, model, messages, None, json_only,
             settings.model_timeout_s, None, "Local model",
         )
+
+    async def _ollama_chat(
+        self,
+        base: str,
+        model: str,
+        messages: list[dict[str, Any]],
+        json_only: bool,
+        num_predict: int | None,
+        timeout_s: float | None = None,
+    ) -> dict[str, Any]:
+        import time as _time
+
+        origin = _origin_of(base)
+        payload: dict[str, Any] = {
+            "model": model,
+            "messages": _to_ollama_messages(messages),
+            "stream": False,
+            "think": self.think_enabled(),
+        }
+        if json_only:
+            payload["format"] = "json"
+        # Tight context: task prompts are <2K tokens, and an uncapped KV
+        # cache balloons process memory (measured 14.4GB for a 2.5GB model).
+        options: dict[str, Any] = {"temperature": 0.2, "num_ctx": 8192}
+        if num_predict:
+            options["num_predict"] = num_predict
+        payload["options"] = options
+        timeout = timeout_s or self._settings.model_timeout_s
+        started = _time.monotonic()
+        try:
+            async with httpx.AsyncClient(timeout=timeout) as client:
+                response = await client.post(origin + "/api/chat", json=payload)
+        except httpx.HTTPError as exc:
+            raise ModelAnalysisError(
+                f"Local model request failed ({type(exc).__name__}): {str(exc)[:200]}"
+            ) from exc
+        wall_s = _time.monotonic() - started
+        if response.status_code != 200:
+            raise ModelAnalysisError(
+                f"Local model HTTP {response.status_code}: {response.text[:300]}"
+            )
+        try:
+            data = response.json()
+        except ValueError as exc:
+            raise ModelAnalysisError("Local model returned a non-JSON response.") from exc
+        message = data.get("message") if isinstance(data, dict) else None
+        if not isinstance(message, dict):
+            raise ModelAnalysisError("Local model response is missing message.")
+        self.last_stats = {
+            "wall_s": round(wall_s, 1),
+            "eval_count": data.get("eval_count"),
+            "eval_duration_s": round((data.get("eval_duration") or 0) / 1e9, 1),
+            "prompt_eval_count": data.get("prompt_eval_count"),
+            "load_duration_s": round((data.get("load_duration") or 0) / 1e9, 1),
+        }
+        return {"role": "assistant", "content": str(message.get("content") or "")}
+
+    async def run_task(
+        self,
+        task: str,
+        prompt: str,
+        timeout_s: float | None = None,
+        images: list[str] | None = None,
+    ) -> tuple[dict[str, Any] | None, list[str]]:
+        """Run one pipeline task; returns (parsed payload or None, warnings).
+
+        One bounded repair retry on JSON-parse failure; schema gaps return
+        partial content with a warning instead of retrying forever.
+        `images` (base64, no data prefix) attaches screenshots for
+        vision-capable models; callers must capability-gate first.
+        """
+        from .local_tasks import TASK_LIMITS, extract_json, missing_keys
+
+        limits = TASK_LIMITS.get(task, {"num_predict": 300, "timeout": 120})
+        settings = self._settings
+        base = validate_local_model_url(settings.local_model_url)
+        model = settings.local_model_name.strip()
+        if not model:
+            raise ModelAnalysisError("FIELDROOK_LOCAL_MODEL_NAME is not set.")
+        warnings: list[str] = []
+        timeout = timeout_s or float(limits["timeout"])
+        num_predict = int(limits["num_predict"])
+        try:
+            from .local_profiles import resolve_profile
+
+            scale = resolve_profile(model).task_budget_scale
+            num_predict = int(num_predict * scale)
+        except Exception:  # noqa: BLE001 - profile failure keeps defaults
+            pass
+        if images:
+            content: str | list[dict[str, Any]] = [{"type": "text", "text": prompt}]
+            for blob in images[:4]:
+                content.append(
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": f"data:image/png;base64,{blob}"},
+                    }
+                )
+            messages: list[dict[str, Any]] = [{"role": "user", "content": content}]
+        else:
+            messages = [{"role": "user", "content": prompt}]
+        try:
+            if self.api_style() == "ollama":
+                reply = await self._ollama_chat(base, model, messages, True, num_predict, timeout)
+            else:
+                url = base + "/chat/completions"
+                reply = await _chat_completions(
+                    url, model, messages, None, True, timeout, None, "Local model",
+                )
+        except ModelAnalysisError as exc:
+            return None, [f"{task} call failed ({exc}); deterministic fallback fills in."]
+        text = str(reply.get("content") or "")
+        parsed = extract_json(text)
+        if parsed is None:
+            repaired = await self._repair_json(task, text, base, model, num_predict, timeout)
+            if repaired is None:
+                return None, [f"{task} returned unparseable output; deterministic fallback fills in."]
+            warnings.append(f"{task} needed one JSON repair retry.")
+            parsed = repaired
+        gaps = missing_keys(parsed, task)
+        if gaps:
+            warnings.append(f"{task} is missing keys {gaps}; partial content used.")
+        return parsed, warnings
+
+    async def _repair_json(
+        self, task: str, text: str, base: str, model: str, num_predict: int, timeout: float
+    ) -> dict[str, Any] | None:
+        from .local_tasks import extract_json
+
+        prompt = (
+            "Your previous reply was not valid JSON. Reply with ONLY the corrected "
+            f"JSON object for the {task} task, no other text. Previous reply "
+            f"(truncated): {text.strip()[:1200]}"
+        )
+        messages = [{"role": "user", "content": prompt}]
+        try:
+            if self.api_style() == "ollama":
+                reply = await self._ollama_chat(base, model, messages, True, num_predict, timeout)
+            else:
+                reply = await _chat_completions(
+                    base + "/chat/completions", model, messages, None, True,
+                    timeout, None, "Local model",
+                )
+        except ModelAnalysisError:
+            return None
+        return extract_json(str(reply.get("content") or ""))
+
+
+def _origin_of(base: str) -> str:
+    from urllib.parse import urlparse
+
+    parsed = urlparse(base)
+    return f"{parsed.scheme}://{parsed.netloc}"
+
+
+def _to_ollama_messages(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Convert OpenAI-style messages (incl. image parts) to Ollama form."""
+    converted: list[dict[str, Any]] = []
+    for message in messages:
+        content = message.get("content")
+        if isinstance(content, str):
+            converted.append({"role": message.get("role", "user"), "content": content})
+            continue
+        texts: list[str] = []
+        images: list[str] = []
+        for part in content if isinstance(content, list) else []:
+            if not isinstance(part, dict):
+                continue
+            if part.get("type") == "text" and part.get("text"):
+                texts.append(str(part["text"]))
+            elif part.get("type") == "image_url":
+                url = ((part.get("image_url") or {}).get("url") or "")
+                if url.startswith("data:") and ";base64," in url:
+                    images.append(url.split(";base64,", 1)[1])
+        entry: dict[str, Any] = {
+            "role": message.get("role", "user"),
+            "content": "\n".join(texts),
+        }
+        if images:
+            entry["images"] = images
+        converted.append(entry)
+    return converted
+
+
+def probe_ollama(base: str) -> bool:
+    """True when the origin answers like Ollama. Cached; never raises."""
+    import time as _time
+
+    import httpx as _httpx
+
+    origin = _origin_of(base)
+    now = _time.monotonic()
+    cached = _OLLAMA_PROBE_CACHE.get(origin)
+    if cached and cached[0] > now:
+        return cached[1]
+    result = False
+    try:
+        with _httpx.Client(timeout=5.0) as client:
+            response = client.get(origin + "/api/tags")
+        if response.status_code == 200:
+            data = response.json()
+            result = isinstance(data, dict) and isinstance(data.get("models"), list)
+    except Exception:  # noqa: BLE001 - probe failure means "not Ollama"
+        result = False
+    _OLLAMA_PROBE_CACHE[origin] = (now + _SERVER_CAPS_TTL_S, result)
+    return result
+
+
+def fetch_server_caps(origin: str, model: str, timeout: float = 8.0) -> list[str]:
+    """Server-advertised model capabilities via /api/show (Ollama)."""
+    import httpx as _httpx
+
+    try:
+        with _httpx.Client(timeout=timeout) as client:
+            response = client.post(origin + "/api/show", json={"model": model})
+        if response.status_code != 200:
+            return []
+        data = response.json()
+        caps = data.get("capabilities")
+        return [str(cap) for cap in caps] if isinstance(caps, list) else []
+    except Exception:  # noqa: BLE001 - unknown server, unknown caps
+        return []
+
+
+def cached_server_caps(raw_url: str, model: str) -> list[str]:
+    """Cached server caps; empty on any failure (never raises, never assumes)."""
+    import time as _time
+
+    try:
+        base = validate_local_model_url(raw_url)
+    except ModelAnalysisError:
+        return []
+    if not probe_ollama(base):
+        return []
+    key = (_origin_of(base), (model or "").strip())
+    now = _time.monotonic()
+    cached = _SERVER_CAPS_CACHE.get(key)
+    if cached and cached[0] > now:
+        return cached[1]
+    caps = fetch_server_caps(key[0], key[1])
+    _SERVER_CAPS_CACHE[key] = (now + _SERVER_CAPS_TTL_S, caps)
+    return caps
 
 
 def select_provider(

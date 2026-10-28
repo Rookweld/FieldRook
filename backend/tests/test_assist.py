@@ -184,10 +184,21 @@ def test_provider_capabilities_are_declared() -> None:
     local = LocalEndpointProvider(settings).capabilities()
     assert local.processing_location == "local"
     assert local.vision is False and local.tool_calling is False
+    # M017: vision needs flag + evidence (profile/server); the local path
+    # never uses chat tool-calling (task pipeline instead).
     flagged = LocalEndpointProvider(
-        _settings(local_model_vision=True, local_model_tools=True)
+        _settings(
+            local_model_url="http://127.0.0.1:11434/v1",
+            local_model_name="qwen3-vl:8b",
+            local_model_vision=True,
+            local_model_tools=True,
+        )
     ).capabilities()
-    assert flagged.vision is True and flagged.tool_calling is True
+    assert flagged.vision is True and flagged.tool_calling is False
+    novision = LocalEndpointProvider(
+        _settings(local_model_name="qwen3:4b", local_model_vision=True)
+    ).capabilities()
+    assert novision.vision is False
 
 
 def test_providers_endpoint_lists_all_three() -> None:

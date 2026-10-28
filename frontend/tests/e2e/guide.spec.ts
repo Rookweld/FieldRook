@@ -84,3 +84,46 @@ test("provider and target switchers update the investigation", async ({ page }) 
   await expect(page.getByText("OTHER PC", { exact: true })).toBeVisible();
   await expect(page.getByText(/wrong computer/)).toBeVisible();
 });
+
+test("local connection test reports endpoint state honestly", async ({ page }) => {
+  await page.goto("/");
+  await page.getByPlaceholder(/vpn disconnects/i).fill("E2E guide probe: local provider visibility.");
+  await page.getByText("Advanced: fixture mode").click();
+  await page.getByText("Force fixture data").click();
+  await page.getByRole("button", { name: "Investigate", exact: true }).click();
+  await expect(page.getByRole("tab", { name: "Guide" })).toBeVisible({ timeout: 30000 });
+  await page.getByRole("tab", { name: "Guide" }).click();
+
+  // The E2E backend has no local model configured: profile panel + honest failure.
+  await page.getByLabel("Inference provider").selectOption("local");
+  await expect(page.getByText("processed on this computer")).toBeVisible();
+  await page.getByRole("button", { name: "Test local connection" }).click();
+  const result = page.getByTestId("local-test-result");
+  await expect(result).toBeVisible({ timeout: 30000 });
+  await expect(result).toContainText(/not reachable|not set|refused|no connection/i);
+});
+
+test("turn shows elapsed time and offers cancellation", async ({ page }) => {
+  await page.goto("/");
+  await page.getByPlaceholder(/vpn disconnects/i).fill("E2E guide probe: cancel path for a slow round.");
+  await page.getByText("Advanced: fixture mode").click();
+  await page.getByText("Force fixture data").click();
+  await page.getByRole("button", { name: "Investigate", exact: true }).click();
+  await expect(page.getByRole("tab", { name: "Guide" })).toBeVisible({ timeout: 30000 });
+  await page.getByRole("tab", { name: "Guide" }).click();
+
+  // Hold the turn response so the in-flight UI is observable.
+  await page.route("**/api/investigations/*/turn", async (route) => {
+    await new Promise((r) => setTimeout(r, 2500));
+    await route.continue();
+  });
+  await page.locator("#turn-input").fill("Still failing after a reboot.");
+  await page.getByRole("button", { name: "Send to FieldRook" }).click();
+  await expect(page.getByRole("button", { name: "Cancel this round" })).toBeVisible();
+  await expect(page.getByText(/elapsed \ds/i)).toBeVisible();
+  await page.getByRole("button", { name: "Cancel this round" }).click();
+  // The button flips only after the cancel endpoint accepts the request.
+  await expect(page.getByRole("button", { name: "Cancellation requested" })).toBeVisible();
+  await expect(page.getByText("Recommended next step")).toBeVisible({ timeout: 30000 });
+  await page.unroute("**/api/investigations/*/turn");
+});

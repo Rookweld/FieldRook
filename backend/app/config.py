@@ -66,6 +66,9 @@ class Settings:
     local_model_name: str = ""
     local_model_vision: bool = False
     local_model_tools: bool = False
+    # M017: local API style + thinking control. auto probes for Ollama.
+    local_api: str = "auto"  # "auto" | "openai" | "ollama"
+    local_think: str = "auto"  # "auto" | "on" | "off" (auto disables thinking for task calls)
 
 
 def load_settings() -> Settings:
@@ -81,6 +84,12 @@ def load_settings() -> Settings:
     provider = os.environ.get("FIELDROOK_MODEL_PROVIDER", "auto").strip().lower()
     if provider not in ("auto", "meta", "simulated", "local"):
         provider = "auto"
+    local_api = os.environ.get("FIELDROOK_LOCAL_API", "auto").strip().lower()
+    if local_api not in ("auto", "openai", "ollama"):
+        local_api = "auto"
+    local_think = os.environ.get("FIELDROOK_LOCAL_THINK", "auto").strip().lower()
+    if local_think not in ("auto", "on", "off"):
+        local_think = "auto"
     return Settings(
         model_api_key=raw_key or None,
         model_base_url=os.environ.get("MODEL_BASE_URL", DEFAULT_MODEL_BASE_URL).strip()
@@ -96,4 +105,6 @@ def load_settings() -> Settings:
         local_model_name=os.environ.get("FIELDROOK_LOCAL_MODEL_NAME", "").strip(),
         local_model_vision=_as_flag("FIELDROOK_LOCAL_MODEL_VISION"),
         local_model_tools=_as_flag("FIELDROOK_LOCAL_MODEL_TOOLS"),
+        local_api=local_api,
+        local_think=local_think,
     )

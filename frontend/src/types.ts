@@ -478,6 +478,20 @@ export interface ProviderInfo {
   tool_calling: boolean;
 }
 
+export interface LocalModelProfileView {
+  model: string;
+  context_window: number;
+  vision: boolean;
+  server_tools: boolean;
+  perf_class: string;
+  storage_gb: number | null;
+  params_b: number | null;
+  thinking: boolean;
+  notes: string;
+  source: string;
+  install_hint: string | null;
+}
+
 export interface ProviderOption {
   name: string;
   model: string;
@@ -486,6 +500,21 @@ export interface ProviderOption {
   tool_calling: boolean;
   available: boolean;
   reason: string;
+  profile?: LocalModelProfileView | null;
+  api_style?: string;
+}
+
+export interface LocalTestResult {
+  ok: boolean;
+  error?: string;
+  model: string;
+  api_style?: string;
+  latency_s?: number;
+  reply?: string;
+  reply_ok?: boolean;
+  profile?: LocalModelProfileView | null;
+  server_caps?: string[];
+  vision_warning?: string | null;
 }
 
 export type TurnKind = "answer" | "observation" | "test_result" | "correction" | "question";

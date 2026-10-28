@@ -1,4 +1,4 @@
-# FieldRook inference providers (M016)
+# FieldRook inference providers (M016-M017)
 
 FieldRook separates **inference provider** (where intelligence runs) from
 **diagnostic target** (which computer the evidence describes). The two are
@@ -52,6 +52,9 @@ $env:FIELDROOK_LOCAL_MODEL_NAME = "qwen3:4b"
 # Only enable what the model actually supports:
 $env:FIELDROOK_LOCAL_MODEL_VISION = "0"
 $env:FIELDROOK_LOCAL_MODEL_TOOLS = "0"
+# Optional API/thinking overrides (defaults are measured-good):
+$env:FIELDROOK_LOCAL_API = "auto"     # auto | ollama | openai
+$env:FIELDROOK_LOCAL_THINK = "auto"   # auto | on | off
 ```
 
 Rules:
@@ -66,6 +69,102 @@ Rules:
 
 No local model is required: FieldRook works fully without one, and nothing
 is downloaded automatically.
+
+## M017: task-appropriate local reasoning
+
+A small CPU model cannot afford the full-assessment call the cloud path
+uses (M016 measured >280s without completing on qwen3:4b). The local
+provider therefore runs a bounded task pipeline instead of one giant
+request (`app/analysis/local_tasks.py`):
+
+1. **triage** (220 tokens / 120s) — one clarifying question, tentative
+   hypotheses, one next check.
+2. **plan** (380 / 180s) — structured technician steps.
+3. **reassess** (220 / 120s, on new observations) — update hypotheses
+   without regenerating the case.
+
+Each task validates its JSON (extract, repair once, coerce unknowns
+with warnings) and degrades to the deterministic planner per task —
+never presented as model reasoning. Measured on Fury CPU-only:
+qwen3:4b triage ~2.5s warm, plan ~3.5s. Full numbers and quality
+grades: `backend/eval/LOCAL_BENCH_M017.md`.
+
+Engineering notes from measurement:
+
+- **Ollama native API is preferred** (probed once, then cached):
+  `/v1/chat/completions` ignores the think-off switch (103s thinking
+  burn vs 11s native on the same prompt). Override with
+  `FIELDROOK_LOCAL_API` only if probing misbehaves.
+- **Thinking defaults off for task calls** (`FIELDROOK_LOCAL_THINK=auto`).
+  Some models ignore the switch (qwen3-vl:8b always thinks); their
+  profiles carry a compensating token budget instead. Never assume a
+  universal disable flag — this one is Ollama-specific and verified.
+- **Context is capped at 8192 tokens** for task calls: uncapped KV
+  cache ballooned qwen3:4b to 14.4GB resident; capped it holds 3.3GB.
+- The local path never uses chat tool-calling; plans stay in the
+  validated technician-step schema (`TECHNICIAN_CHECK`,
+  `CLARIFYING_QUESTION`, `EXTERNAL_SYSTEM_CHECK`).
+
+## M017: capability profiles
+
+`GET /api/providers` now includes, for `local`, a `profile` object
+from `app/analysis/local_profiles.py` plus the probed `api_style`.
+Profiles record measured (not inferred) capabilities: vision,
+server tools, context window, performance class, storage, thinking
+behavior, install hints, and a notes field with benchmark findings.
+Unknown models get a conservative default (text-only, direct answers).
+
+Vision rule, enforced in the loop: screenshots are sent only when
+the operator flag is on **and** the profile or server capabilities
+support vision. A name alone never implies vision; a flag nothing
+supports produces a warning and screenshots stay withheld. Measured
+cautionary cases: gemma4:e4b advertises vision but returned null
+for a readable dialog 3/3; qwen3-coder:30b rejects images (HTTP 400).
+
+## M017: connection test and cancellation
+
+- `POST /api/providers/local/test` runs one tiny capped completion
+  ("Reply with exactly: OK", 30s) and reports reachability, API
+  style, latency, profile, server-advertised capabilities, and any
+  vision mismatch. It is **user-triggered only** — the Guide never
+  polls or preloads models.
+- `POST /api/investigations/{id}/cancel` sets a cancel flag
+  (persisted `cancel_flags` table) honored **between** model calls:
+  the in-flight call finishes, no further calls start, evidence is
+  kept, and the investigation stays resumable. The Guide shows live
+  elapsed time and the cancel control during a turn.
+
+## Deployment direction (ordinary laptops)
+
+Default FieldRook bundles no model and requires none. The M017
+recommendation, from measurement:
+
+- **Default local text model: qwen3:4b** (~2.5GB download, ~3.3GB
+  resident, ~90 tok/s CPU, valid JSON 12/12). Fits the 8-16GB,
+  no-GPU laptop target with headroom for Windows itself.
+- **Screenshot cases: qwen3-vl:8b** (~6GB) as an opt-in second
+  model for its exact dialog reads — not as the default.
+- **Alternative text: gemma4:e4b** (~9.6GB disk, ~3.2GB resident)
+  asked the best triage question measured, but its vision is
+  unreliable; text use only.
+- **Not recommended: qwen3-coder:30b** (19.2GB resident, ~26 tok/s)
+  — workstation reference only.
+
+Packaging stays out of M017 scope, but the shape is set: optional
+model packs over an existing Ollama install, hardware checks
+(memory/storage), and user-controlled install/remove. No silent
+downloads, no background model loading.
+
+## Meta open-weight note
+
+No Meta model is installed on this machine, so M017 claims no
+Meta-model measurements and no hackathon eligibility. The genuine
+lightweight candidates are Meta Llama 3.2 1B/3B Instruct (text-only;
+profiles + install hints ship in `local_profiles.py`, unmeasured).
+There is no official small Glimmer checkpoint — Glimmer 30B stays a
+workstation-class comparison target, not a laptop requirement.
+Measuring Llama 3.2 triage/plan quality on CPU is the obvious M018
+local-AI follow-up.
 
 ## M016 smoke test (measured 2026-10-28)
 

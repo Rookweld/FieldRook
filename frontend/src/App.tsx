@@ -99,7 +99,7 @@ export function App() {
         </ErrorBoundary>
       </main>
       <footer className="footer">
-        <span>FieldRook Milestone 015 · Diagnose. Verify. Resolve.</span>
+        <span>FieldRook Milestone 017 · Diagnose. Verify. Resolve.</span>
       </footer>
     </div>
   );

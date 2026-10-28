@@ -3514,6 +3514,16 @@ li.tl {
   margin: 0 0 0.5rem;
   font-size: 0.85rem;
 }
+.guide-provider p {
+  margin: 0.25rem 0;
+}
+.guide-test-row {
+  display: flex;
+  gap: 0.6rem;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 0.4rem;
+}
 .guide-answer-row,
 .guide-outcome-row,
 .guide-judge-row {

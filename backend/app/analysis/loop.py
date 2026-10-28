@@ -432,6 +432,168 @@ async def _run_live_no_tools(
     await _finalize_from_content(state, str(message.get("content") or ""), provider, model_name)
 
 
+def _attached_images(state: InvestigationState) -> list[str]:
+    """Screenshot bytes still held in memory (never persisted)."""
+    blobs: list[str] = []
+    for message in state.messages:
+        content = message.get("content")
+        if not isinstance(content, list):
+            continue
+        for part in content:
+            if not isinstance(part, dict) or part.get("type") != "image_url":
+                continue
+            url = ((part.get("image_url") or {}).get("url") or "")
+            if url.startswith("data:") and ";base64," in url:
+                blobs.append(url.split(";base64,", 1)[1])
+    return blobs
+
+
+def _cancel_requested(state: InvestigationState) -> bool:
+    try:
+        from ..investigations.persistence import cancel_requested
+    except Exception:  # noqa: BLE001 - cancel must never break a round
+        return False
+    try:
+        return cancel_requested(state.id, getattr(state, "rounds_used", 0))
+    except Exception:  # noqa: BLE001 - cancel must never break a round
+        return False
+
+
+def _clear_cancel(state: InvestigationState) -> None:
+    try:
+        from ..investigations.persistence import clear_cancel
+
+        clear_cancel(state.id)
+    except Exception:  # noqa: BLE001 - best effort
+        pass
+
+
+async def _run_local_tasks(
+    state: InvestigationState,
+    provider: ModelProvider,
+    settings: Settings,
+    is_followup: bool,
+) -> None:
+    """M017 local task pipeline: triage/reassess then plan, then assemble.
+
+    Small task calls with tight caps replace the single giant assessment
+    call that CPU models cannot finish. Parts are validated and assembled
+    into one assessment; every warning says which part failed so the UI can
+    label deterministic remainder honestly. Cancellation is honored between
+    task calls.
+    """
+    from .local_tasks import (
+        assemble_assessment,
+        evidence_digest,
+        plan_prompt,
+        reassess_prompt,
+        triage_prompt,
+    )
+
+    run_task = getattr(provider, "run_task", None)
+    if run_task is None:
+        await _run_live_no_tools(state, provider, provider.model_label())
+        return
+    label = provider.model_label()
+    caps = provider.capabilities()
+    images = _attached_images(state) if caps.vision else []
+    if state.has_image and not images and _has_image_parts(state.messages):
+        state.warnings.append(
+            "This local model cannot process images; the screenshot was withheld "
+            "and triage continued text-only. Describe what the screenshot shows "
+            "for a better assessment."
+        )
+        state.add_activity("note", "Screenshot withheld (no vision)", "Continuing text-only.")
+    if _cancel_requested(state):
+        _clear_cancel(state)
+        state.warnings.append("Round cancelled by the technician before any model call.")
+        state.add_activity("note", "Round cancelled", "No model calls were made.")
+        return
+
+    triage: dict[str, Any] | None = None
+    plan: dict[str, Any] | None = None
+    reassess: dict[str, Any] | None = None
+    digest = evidence_digest([item.model_dump() for item in state.evidence])
+    if is_followup and state.hypotheses:
+        observation = ""
+        for message in reversed(state.messages):
+            if message.get("role") == "user" and isinstance(message.get("content"), str):
+                observation = str(message["content"])
+                break
+        titles = [h.title for h in state.hypotheses if h.status == "active"]
+        reassess, task_warnings = await run_task(
+            "reassess", reassess_prompt(titles, observation)
+        )
+        state.warnings.extend(task_warnings)
+        state.add_activity(
+            "note", "Local reassessment",
+            "Reassessment answered." if reassess else "Reassessment unusable; keeping prior hypotheses.",
+        )
+    else:
+        triage, task_warnings = await run_task(
+            "triage",
+            triage_prompt(state.problem, digest, state.target)
+            + (" A screenshot is attached; say what it shows." if images else ""),
+            images=images or None,
+        )
+        state.warnings.extend(task_warnings)
+        state.add_activity(
+            "note", "Local triage",
+            "Triage answered." if triage else "Triage unusable; deterministic fallback fills in.",
+        )
+    if _cancel_requested(state):
+        _clear_cancel(state)
+        state.warnings.append("Round cancelled by the technician after the first model call.")
+        state.add_activity("note", "Round cancelled", "Plan generation skipped.")
+        return
+    context_bits: list[str] = []
+    if triage:
+        if triage.get("question"):
+            context_bits.append(f"Open question: {triage['question']}")
+        if triage.get("next_check"):
+            context_bits.append(f"Candidate check: {triage['next_check']}")
+    if reassess:
+        if reassess.get("verdict"):
+            context_bits.append(f"Reassessment: {reassess['verdict']}")
+        if reassess.get("next_step"):
+            context_bits.append(f"Candidate next: {reassess['next_step']}")
+    open_questions = [q for q in state.questions if q.status == "open"]
+    if open_questions:
+        context_bits.append(f"Already-asked questions (do not repeat): {[q.question[:80] for q in open_questions][:3]}")
+    plan, task_warnings = await run_task(
+        "plan", plan_prompt(state.problem, " ".join(context_bits) or digest, state.target)
+    )
+    state.warnings.extend(task_warnings)
+    state.add_activity(
+        "note", "Local plan",
+        "Plan answered." if plan else "Plan unusable; deterministic planner fills in.",
+    )
+    result, assembly_warnings, model_parts = assemble_assessment(
+        state.problem, list(state.evidence), triage, plan, reassess, label, state.target
+    )
+    state.warnings.extend(assembly_warnings)
+    if not model_parts:
+        _substitute_simulated(
+            state,
+            "Local model produced no usable output for any task; substituted "
+            "simulated analysis over collected evidence.",
+        )
+        return
+    _accept_assessment(state, result, label)
+    stats = getattr(provider, "last_stats", {}) or {}
+    if stats:
+        state.add_activity(
+            "note", "Local inference stats",
+            f"Last call: {stats.get('wall_s', '?')}s wall"
+            + (
+                f", {stats.get('eval_count', '?')} tokens in {stats.get('eval_duration_s', '?')}s"
+                if stats.get("eval_count")
+                else ""
+            )
+            + ".",
+        )
+
+
 async def _run_live(
     state: InvestigationState,
     provider: ModelProvider,
@@ -461,6 +623,11 @@ async def _run_live(
             "offered because they would describe the wrong computer.",
         )
     ctx = ToolContext(settings=settings, use_fixtures=use_fixtures)
+    if _cancel_requested(state):
+        _clear_cancel(state)
+        state.warnings.append("Round cancelled by the technician before any model call.")
+        state.add_activity("note", "Round cancelled", "No model calls were made.")
+        return
     text_only_retried = False
     stopped_early = False
     unproductive_rounds = 0
@@ -476,6 +643,11 @@ async def _run_live(
                 prior_signatures[signature] = item.id
     for _ in range(MAX_ROUNDS):
         usable_before = sum(1 for item in state.evidence if item.error is None)
+        if _cancel_requested(state):
+            _clear_cancel(state)
+            state.warnings.append("Round cancelled by the technician; collected evidence is kept.")
+            state.add_activity("note", "Round cancelled", "Stopping before the next model call.")
+            return
         try:
             message = await provider.chat(state.messages, tools=tools)
         except ModelAnalysisError as exc:
@@ -922,6 +1094,9 @@ async def run_rounds(
     if mode == "simulated":
         await _run_simulated(state, settings, use_fixtures, is_followup)
         maybe_create_proposal(state, live_check=False)
+    elif getattr(provider, "name", "") == "local":
+        await _run_local_tasks(state, provider, settings, is_followup)
+        maybe_create_proposal(state, live_check=True)
     else:
         await _run_live(state, provider, settings, use_fixtures, max_new_calls)
         maybe_create_proposal(state, live_check=True)

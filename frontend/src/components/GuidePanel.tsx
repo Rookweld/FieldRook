@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import {
   ApiError,
+  cancelRound,
   completePlanStep,
   impossiblePlanStep,
   listProviders,
@@ -8,12 +9,14 @@ import {
   setHypothesisStatus,
   setTarget,
   switchProvider,
+  testLocalProvider,
 } from "../api";
 import type {
   ClarifyingQuestion,
   DiagnosisTarget,
   Hypothesis,
   InvestigationResponse,
+  LocalTestResult,
   ProviderOption,
   TroubleshootStep,
   TurnKind,
@@ -387,6 +390,85 @@ function HypothesisCard({
   );
 }
 
+function ProviderDetail({
+  option,
+  providerName,
+  localTest,
+  testingLocal,
+  disabled,
+  onTest,
+}: {
+  option: ProviderOption | null;
+  providerName: string;
+  localTest: LocalTestResult | null;
+  testingLocal: boolean;
+  disabled: boolean;
+  onTest: () => void;
+}) {
+  if (providerName !== "local" && !option) return null;
+  const profile = option?.profile ?? localTest?.profile ?? null;
+  return (
+    <div className="guide-provider">
+      {option && (
+        <p className="muted">
+          <span className="runbook-label">{option.model} — </span>
+          {option.available ? option.reason : `unavailable: ${option.reason}`} · vision{" "}
+          {option.vision ? "yes" : "no"} · tool calling {option.tool_calling ? "yes" : "no"}
+        </p>
+      )}
+      {providerName === "local" && profile && (
+        <details className="guide-history">
+          <summary>
+            Local model profile{option?.api_style ? ` · ${option.api_style}` : ""}
+            {profile.perf_class ? ` · ${profile.perf_class}` : ""}
+          </summary>
+          <p className="muted">{profile.notes}</p>
+          <p className="muted">
+            context {profile.context_window.toLocaleString()} tokens
+            {profile.storage_gb ? ` · ${profile.storage_gb} GB on disk` : ""}
+            {profile.thinking ? " · extended thinking" : " · direct answers"}
+            {` · source: ${profile.source}`}
+          </p>
+          {profile.install_hint && (
+            <p className="muted">
+              <code className="mono">{profile.install_hint}</code>
+            </p>
+          )}
+        </details>
+      )}
+      {providerName === "local" && (
+        <div className="guide-test-row">
+          <button
+            type="button"
+            className="button button-small"
+            onClick={onTest}
+            disabled={disabled || testingLocal}
+          >
+            {testingLocal ? "Testing…" : "Test local connection"}
+          </button>
+          {localTest && (
+            <span role="status" data-testid="local-test-result" className="muted">
+              {localTest.ok
+                ? `Reachable via ${localTest.api_style ?? "?"} · ${localTest.latency_s ?? "?"}s · reply ${
+                    localTest.reply_ok ? "OK" : JSON.stringify(localTest.reply ?? "")
+                  }`
+                : `Not reachable: ${localTest.error ?? "unknown error"}`}
+            </span>
+          )}
+        </div>
+      )}
+      {providerName === "local" && localTest?.vision_warning && (
+        <p className="warn">{localTest.vision_warning}</p>
+      )}
+      {providerName === "local" && (localTest?.server_caps?.length ?? 0) > 0 && (
+        <p className="muted">
+          Server advertises: <code className="mono">{localTest?.server_caps?.join(", ")}</code>
+        </p>
+      )}
+    </div>
+  );
+}
+
 export function GuidePanel({
   investigation,
   onUpdate,
@@ -405,6 +487,10 @@ export function GuidePanel({
   const [turnConsent, setTurnConsent] = useState(false);
   const [confirmCloud, setConfirmCloud] = useState(false);
   const [working, setWorking] = useState<string | null>(null);
+  const [localTest, setLocalTest] = useState<LocalTestResult | null>(null);
+  const [testingLocal, setTestingLocal] = useState(false);
+  const [turnElapsed, setTurnElapsed] = useState(0);
+  const [cancelState, setCancelState] = useState<"idle" | "sending" | "requested">("idle");
 
   useEffect(() => {
     let cancelled = false;
@@ -433,6 +519,24 @@ export function GuidePanel({
   const budgetLeft = investigation.tool_calls_max - investigation.tool_calls_used;
   const providerName = investigation.provider_info?.name ?? "simulated";
   const sensitive = investigation.has_screenshot || investigation.evidence.length > 0 || investigation.notes.length > 0;
+
+  useEffect(() => {
+    setLocalTest(null);
+  }, [providerName]);
+
+  useEffect(() => {
+    if (working !== "turn") {
+      setTurnElapsed(0);
+      setCancelState("idle");
+      return;
+    }
+    const started = Date.now();
+    const timer = window.setInterval(
+      () => setTurnElapsed((Date.now() - started) / 1000),
+      500,
+    );
+    return () => window.clearInterval(timer);
+  }, [working]);
 
   const fail = (what: string) => (e: unknown) => {
     onError(e instanceof ApiError ? `${what} failed (HTTP ${e.status}): ${e.message}` : String(e));
@@ -464,6 +568,34 @@ export function GuidePanel({
       fail("Provider switch")(e);
     } finally {
       setWorking(null);
+    }
+  };
+
+  const runLocalTest = async () => {
+    if (testingLocal || working) return;
+    setTestingLocal(true);
+    try {
+      setLocalTest(await testLocalProvider());
+    } catch (e) {
+      setLocalTest({
+        ok: false,
+        model: "",
+        error: e instanceof ApiError ? `HTTP ${e.status}: ${e.message}` : String(e),
+      });
+    } finally {
+      setTestingLocal(false);
+    }
+  };
+
+  const cancelTurn = async () => {
+    if (cancelState !== "idle" || working !== "turn") return;
+    setCancelState("sending");
+    try {
+      onUpdate(await cancelRound(invId));
+      setCancelState("requested");
+    } catch (e) {
+      setCancelState("idle");
+      fail("Cancel")(e);
     }
   };
 
@@ -560,6 +692,14 @@ export function GuidePanel({
             )}
           </p>
         </div>
+        <ProviderDetail
+          option={providers.find((p) => p.name === providerName) ?? null}
+          providerName={providerName}
+          localTest={localTest}
+          testingLocal={testingLocal}
+          disabled={working !== null}
+          onTest={() => void runLocalTest()}
+        />
         <p className="muted">{TARGET_HELP[investigation.target]}</p>
         {providerName !== "meta" && sensitive && (
           <label className="check guide-confirm">
@@ -778,7 +918,27 @@ export function GuidePanel({
           </button>
           {working === "turn" && (
             <span className="muted" role="status">
-              Working — the page updates when the round completes.
+              Working — elapsed {turnElapsed.toFixed(0)}s. The page updates when the round
+              completes.
+            </span>
+          )}
+          {working === "turn" && (
+            <button
+              type="button"
+              className="button button-ghost button-small"
+              onClick={() => void cancelTurn()}
+              disabled={cancelState !== "idle"}
+            >
+              {cancelState === "idle"
+                ? "Cancel this round"
+                : cancelState === "sending"
+                  ? "Cancelling…"
+                  : "Cancellation requested"}
+            </button>
+          )}
+          {working === "turn" && cancelState === "requested" && (
+            <span className="muted">
+              The current model call finishes, then the round stops. Evidence is kept.
             </span>
           )}
         </div>

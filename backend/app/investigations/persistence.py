@@ -16,7 +16,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-DB_VERSION = 6
+DB_VERSION = 8
 
 _SCHEMA_V2 = """
 CREATE TABLE IF NOT EXISTS notes (
@@ -156,6 +156,15 @@ CREATE TABLE IF NOT EXISTS assist (
 """
 
 
+_SCHEMA_V7 = """
+CREATE TABLE IF NOT EXISTS cancel_flags (
+    inv_id TEXT PRIMARY KEY,
+    created_at TEXT NOT NULL,
+    round INTEGER NOT NULL DEFAULT 0
+);
+"""
+
+
 def db_path() -> Path:
     override = os.environ.get("FIELDROOK_DB_PATH")
     if override:
@@ -199,7 +208,55 @@ def _migrate(conn: sqlite3.Connection) -> None:
     if version < 6:
         conn.executescript(_SCHEMA_V6)
         conn.execute("PRAGMA user_version = 6")
+    if version < 7:
+        conn.executescript(_SCHEMA_V7)
+        conn.execute("PRAGMA user_version = 7")
+    if version < 8:
+        columns = {row[1] for row in conn.execute("PRAGMA table_info(cancel_flags)").fetchall()}
+        if "round" not in columns:
+            conn.execute("ALTER TABLE cancel_flags ADD COLUMN round INTEGER NOT NULL DEFAULT 0")
+        conn.execute("PRAGMA user_version = 8")
     conn.commit()
+
+
+def request_cancel(investigation_id: str, round_no: int = 0) -> None:
+    """Flag an investigation round for cancellation (honored between calls).
+
+    The flag is scoped to the round active when the technician asked, so a
+    flag no round consumed (e.g. a simulated round, which makes no model
+    calls) can never abort a later round.
+    """
+    from datetime import datetime, timezone
+
+    with _connect() as conn:
+        conn.execute(
+            "INSERT INTO cancel_flags (inv_id, created_at, round) VALUES (?, ?, ?)"
+            " ON CONFLICT(inv_id) DO UPDATE SET created_at=excluded.created_at,"
+            " round=excluded.round",
+            (investigation_id, datetime.now(timezone.utc).isoformat(), int(round_no)),
+        )
+        conn.commit()
+
+
+def cancel_requested(investigation_id: str, round_no: int = 0) -> bool:
+    """True only for a flag from this same round; reaps stale flags."""
+    with _connect() as conn:
+        row = conn.execute(
+            "SELECT round FROM cancel_flags WHERE inv_id = ?", (investigation_id,)
+        ).fetchone()
+        if row is None:
+            return False
+        if int(row["round"]) != int(round_no):
+            conn.execute("DELETE FROM cancel_flags WHERE inv_id = ?", (investigation_id,))
+            conn.commit()
+            return False
+        return True
+
+
+def clear_cancel(investigation_id: str) -> None:
+    with _connect() as conn:
+        conn.execute("DELETE FROM cancel_flags WHERE inv_id = ?", (investigation_id,))
+        conn.commit()
 
 
 def _iso(value: Any) -> str:
