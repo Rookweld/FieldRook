@@ -120,3 +120,18 @@ Cut from `forge/integration`; no push (awaiting authorization).
 - Note: evidence terms (W_EVIDENCE=2) can outrank problem match;
   GAMMA owns weight tuning, unchanged here.
 - Gates: backend 578, E2E 39/39, gauntlet 37/37, build clean.
+
+## M023 checkpoint (unified technician workstation)
+
+- Contextual dock: exactly one turn composer and one notes input on
+  screen at all times (guide hides dock composer, findings hides dock
+  notes, evidence/resolve show both). hideComposer/hideNotes flags on
+  RespondDock, forwarded by WorkspaceShell, derived from view.
+- Mobile overflow fixed: 390px scrollWidth was 759 (nowrap queue rows
+  forced grid min-content). min-width:0 on forge grid children +
+  wrap-on-mobile for queue rows (rule must trail the base nowrap
+  rule; first placement lost on source order, caught by screenshot).
+  Atmosphere svg boxes measured wide but are fixed/clipped decor.
+- Spec: contextual twin test + 390px no-overflow test (9 forge E2E).
+- Intake collector card verified coherent (no change needed).
+- Gates: E2E 41/41, tsc + build clean (backend 578 unchanged).

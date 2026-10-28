@@ -711,6 +711,8 @@ export function ProblemWorkstation({
             disabled={busy !== null}
             references={references}
             citations={citations}
+            hideDockComposer={view === "guide"}
+            hideDockNotes={view === "findings"}
           />
           <CollectorImportCard
             investigationId={investigation.investigation_id}

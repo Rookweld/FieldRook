@@ -114,6 +114,9 @@ export interface WorkspaceShellProps {
   onView?: (view: ForgeView) => void;
   onError?: (msg: string) => void;
   disabled?: boolean;
+  /** M023: hide the dock twin already visible in the active view. */
+  hideDockComposer?: boolean;
+  hideDockNotes?: boolean;
   /** Optional reference strip; absent by default (shell owns the four). */
   references?: ReferencePassage[];
   citations?: ReferenceCitation[];
@@ -156,6 +159,9 @@ export interface RespondDockProps {
   onError?: (msg: string) => void;
   disabled?: boolean;
   transport?: RespondDockTransport;
+  /** M023: hide one twin when its full view owns it (never both). */
+  hideComposer?: boolean;
+  hideNotes?: boolean;
 }
 
 export interface CollectorImportCardProps {

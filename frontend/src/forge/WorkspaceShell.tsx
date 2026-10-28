@@ -22,6 +22,8 @@ export function WorkspaceShell({
   onView,
   onError,
   disabled,
+  hideDockComposer,
+  hideDockNotes,
   references,
   citations,
 }: WorkspaceShellProps) {
@@ -43,6 +45,8 @@ export function WorkspaceShell({
         onUpdate={onUpdate}
         onError={onError}
         disabled={disabled}
+        hideComposer={hideDockComposer}
+        hideNotes={hideDockNotes}
       />
       {(citations ?? []).length > 0 && (
         <section className="card forge-cites" data-testid="forge-citations" aria-label="Reference citations">

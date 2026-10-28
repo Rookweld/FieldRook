@@ -27,7 +27,7 @@ const MAX_FILE_BYTES = 5 * 1024 * 1024;
  * full InvestigationResponse, which replaces state via onUpdate.
  * Transport is injectable for lead wiring; defaults call api.ts directly.
  */
-export function RespondDock({ investigation, onUpdate, onError, disabled, transport }: RespondDockProps) {
+export function RespondDock({ investigation, onUpdate, onError, disabled, transport, hideComposer, hideNotes }: RespondDockProps) {
   const [mode, setMode] = useState<"report" | "followup">("report");
   const [kind, setKind] = useState<TurnKind>("observation");
   const [text, setText] = useState("");
@@ -162,6 +162,7 @@ export function RespondDock({ investigation, onUpdate, onError, disabled, transp
         <h2>
           <span className="eyebrow">Respond</span>
         </h2>
+        {!hideComposer && (
         <div className="forge-mode" role="group" aria-label="Composer mode">
           <button
             type="button"
@@ -182,12 +183,15 @@ export function RespondDock({ investigation, onUpdate, onError, disabled, transp
             Ask follow-up
           </button>
         </div>
+        )}
       </div>
       {localError && (
         <p className="warn" role="alert">
           {localError}
         </p>
       )}
+      {!hideComposer && (
+      <>
       {mode === "report" && (
         <div className="forge-kindtabs" role="tablist" aria-label="Turn kind">
           {KIND_TABS.map((opt, i) => (
@@ -290,6 +294,9 @@ export function RespondDock({ investigation, onUpdate, onError, disabled, transp
           </span>
         )}
       </div>
+      </>
+      )}
+      {!hideNotes && (
       <div className="forge-notes">
         <h3 className="story-head">
           Technician notes{" "}
@@ -332,6 +339,7 @@ export function RespondDock({ investigation, onUpdate, onError, disabled, transp
           </button>
         </div>
       </div>
+      )}
     </section>
   );
 }

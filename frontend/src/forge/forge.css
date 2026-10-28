@@ -19,6 +19,12 @@
   gap: var(--space-3);
 }
 
+/* Grid children must shrink below content min-width (nowrap rows). */
+.forge-cols > *,
+.forge-now-cols > * {
+  min-width: 0;
+}
+
 @media (max-width: 860px) {
   .forge-cols {
     grid-template-columns: 1fr;
@@ -289,5 +295,13 @@ button.forge-cite:hover {
   .forge-collector *::after {
     animation: none !important;
     transition: none !important;
+  }
+}
+
+/* M023: clipped rows hide the queue on phones; wrap instead. This
+   block must stay after the base .forge-queue-detail rule. */
+@media (max-width: 860px) {
+  .forge-queue-detail {
+    white-space: normal;
   }
 }

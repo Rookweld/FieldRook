@@ -71,8 +71,9 @@ test("workspace shell composes happening-now, rail, queue, and dock", async ({ p
   await expect(page.getByTestId("forge-next-run")).toBeVisible();
 
   await expect(page.getByTestId("forge-respond-dock")).toBeVisible();
+  // M023: contextual dock — findings owns notes, so the dock shows the composer only.
   await expect(page.locator("#forge-respond-input")).toBeVisible();
-  await expect(page.locator("#forge-note-input")).toBeVisible();
+  await expect(page.locator("#forge-note-input")).toBeHidden();
   await page.screenshot({ path: "test-results/shot-forge-workspace.png" });
 });
 
@@ -116,6 +117,8 @@ test("respond dock sends a turn, a follow-up, and saves a note", async ({ page }
   await expect(page.locator("#forge-respond-input")).toHaveValue("", { timeout: 30000 });
 
   // Notes persist on the investigation and appear in the dock list.
+  // M023: the dock shows notes on the Guide view (findings owns its own card).
+  await page.getByRole("tab", { name: "Guide" }).click();
   await page.locator("#forge-note-input").fill("E2E forge note: user shown the error dialog.");
   await dock.getByRole("button", { name: "Save note" }).click();
   await expect(
@@ -156,4 +159,32 @@ test("reference citations render beside evidence when the corpus matches", async
   await investigateFixture(page, "E2E forge probe: DNS does not resolve on this workstation.");
   await expect(page.getByTestId("forge-citations")).toBeVisible({ timeout: 30000 });
   await page.screenshot({ path: "test-results/shot-forge-citations.png" });
+});
+
+test("respond dock shows one twin per view, both on evidence", async ({ page }) => {
+  await investigateFixture(page, "E2E forge probe: my VPN disconnects every 10 minutes.");
+  // Findings: composer only (notes card owns notes).
+  await expect(page.locator("#forge-respond-input")).toBeVisible();
+  await expect(page.locator("#forge-note-input")).toBeHidden();
+  // Guide: notes only (GuidePanel owns the composer).
+  await page.getByRole("tab", { name: "Guide" }).click();
+  await expect(page.locator("#forge-respond-input")).toBeHidden();
+  await expect(page.locator("#forge-note-input")).toBeVisible();
+  // Evidence: both (no twins in view).
+  await page.getByRole("tab", { name: /Evidence/ }).click();
+  await expect(page.locator("#forge-respond-input")).toBeVisible();
+  await expect(page.locator("#forge-note-input")).toBeVisible();
+});
+
+
+test("workspace shell fits a 390px phone without horizontal scroll", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await investigateFixture(page, "E2E forge probe: my VPN disconnects every 10 minutes.");
+  const overflow = await page.evaluate(
+    () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+  );
+  expect(overflow).toBeLessThanOrEqual(1);
+  await expect(page.getByTestId("forge-next-up")).toBeVisible();
+  await expect(page.getByTestId("forge-next-run")).toBeVisible();
+  await page.screenshot({ path: "test-results/shot-forge-mobile.png" });
 });
