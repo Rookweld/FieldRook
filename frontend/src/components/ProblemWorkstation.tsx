@@ -621,7 +621,7 @@ export function ProblemWorkstation({
                 reverifyDisabled={busy !== null}
               />
               <RefreshPanel refreshes={investigation.refreshes} onEvidenceClick={setSelectedEvidence} />
-              <Timeline activity={investigation.activity} />
+              <Timeline activity={investigation.activity} onEvidenceClick={setSelectedEvidence} />
             </div>
           )}
 

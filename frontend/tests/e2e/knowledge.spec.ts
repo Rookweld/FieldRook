@@ -8,7 +8,7 @@ test("remembered incident matches a later similar investigation", async ({ page 
   await page.getByText("Force fixture data").click();
   await page.getByRole("button", { name: "Investigate", exact: true }).click();
   await expect(page.getByText("Worked before")).toBeVisible({ timeout: 30000 });
-  await expect(page.getByText("No similar incidents remembered yet.")).toBeVisible();
+  await expect(page.getByText("No similar incidents remembered")).toBeVisible();
 
   await page.getByRole("button", { name: "Save to knowledge" }).click();
   await expect(page.getByText(/Saved as know-/)).toBeVisible({ timeout: 15000 });

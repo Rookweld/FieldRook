@@ -1,5 +1,6 @@
 import type { InvestigationResponse } from "../types";
 import { EvidenceChip } from "./EvidenceChip";
+import { headlineEvidence } from "./evidence/EvidenceVisual";
 import { resolutionOf } from "./WorkflowStage";
 
 export type InvestigationView = "findings" | "evidence" | "resolve";
@@ -92,9 +93,17 @@ export function OverviewPanel({
         : resolution.tone === "warn"
           ? "result-warn"
           : "";
-  const openCount =
-    (investigation.assessment?.uncertainties.length ?? 0) +
-    (investigation.assessment?.missing_evidence.length ?? 0);
+  const unknowns = [
+    ...(investigation.assessment?.uncertainties ?? []),
+    ...(investigation.assessment?.missing_evidence ?? []),
+  ];
+  const openCount = unknowns.length;
+  const observations = (lead?.evidence_ids ?? [])
+    .flatMap((eid) => {
+      const item = investigation.evidence.find((e) => e.id === eid);
+      return item ? [{ id: eid, item }] : [];
+    })
+    .slice(0, 3);
 
   return (
     <section className={`card overview result ${toneClass}`}>
@@ -150,7 +159,40 @@ export function OverviewPanel({
           ` · ${investigation.contradictions.length} contradiction${investigation.contradictions.length === 1 ? "" : "s"}`}
         .
       </p>
+      {observations.length > 0 && (
+        <div className="story-mod">
+          <h3 className="story-head">Key observations</h3>
+          <ul className="story-obs">
+            {observations.map((o) => {
+              const head = headlineEvidence(o.item);
+              return (
+                <li key={o.id}>
+                  <EvidenceChip id={o.id} onSelect={onEvidenceClick} />
+                  <span className="story-noun">{head.noun}</span>
+                  <span>{head.text}</span>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
+      {unknowns.length > 0 && (
+        <div className="story-mod">
+          <h3 className="story-head">
+            Still unknown <span className="muted">({unknowns.length})</span>
+          </h3>
+          <ul className="story-unknowns">
+            {unknowns.slice(0, 3).map((u, i) => (
+              <li key={i}>{u}</li>
+            ))}
+          </ul>
+          {unknowns.length > 3 && (
+            <p className="muted">+{unknowns.length - 3} more in the full diagnosis below.</p>
+          )}
+        </div>
+      )}
       <div className="result-context">
+        <span className="runbook-label">Checked — </span>
         {[...groups.entries()].map(([label, count]) => (
           <button
             key={label}

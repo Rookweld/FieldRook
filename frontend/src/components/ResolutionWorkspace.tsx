@@ -17,6 +17,7 @@ import type {
   ResolutionPlan,
   ToolInfo,
 } from "../types";
+import { EmptyState } from "./EmptyState";
 import { EvidenceChip } from "./EvidenceChip";
 
 const STATUS_CLASS: Record<PlanStatus, string> = {
@@ -430,6 +431,14 @@ function PlanCard({
     investigation.assessment?.next_actions[0] ??
     null;
 
+  // Plan exists from DRAFT on; each lifecycle step completes the next stage.
+  const doneCount =
+    plan.status === "DRAFT" ? 1 : plan.status === "BASELINED" ? 2 : plan.status === "INTERVENED" ? 3 : 5;
+  const stages = ["Plan", "Baseline", "Intervene", "Verify", "Verdict"].map((label, i) => ({
+    label,
+    state: i < doneCount ? "done" : i === doneCount ? "current" : "todo",
+  }));
+
   return (
     <article className="action-card">
       <div className="card-head">
@@ -438,6 +447,14 @@ function PlanCard({
         </h3>
         <span className={STATUS_CLASS[plan.status]}>{plan.status}</span>
       </div>
+      <ol className="stages" aria-label="Resolution progress">
+        {stages.map((s) => (
+          <li key={s.label} className={`stage stage-${s.state}`} aria-current={s.state === "current" ? "step" : undefined}>
+            <span className="stage-dot" aria-hidden="true" />
+            {s.label}
+          </li>
+        ))}
+      </ol>
       {error && (
         <p className="warn" role="alert">
           {error}
@@ -467,29 +484,34 @@ function PlanCard({
         </p>
       )}
 
-      <table className="criteria">
-        <thead>
-          <tr>
-            <th>Criterion</th>
-            <th>Check</th>
-            <th>Before</th>
-            <th>After</th>
-            <th>Result</th>
-          </tr>
-        </thead>
-        <tbody>
-          {plan.criteria.map((c) => {
-            const result = resultFor(c.criterion_id);
-            return (
-              <tr key={c.criterion_id}>
-                <td>{c.description}</td>
-                <td className="mono muted">
-                  {c.tool_name} · {c.path} {c.op} {fmtValue(c.expected)}
-                </td>
-                <td>
-                  {plan.baseline_values[c.criterion_id] !== undefined ? (
+      <ol className="criterion-cards">
+        {plan.criteria.map((c) => {
+          const result = resultFor(c.criterion_id);
+          const before = plan.baseline_values[c.criterion_id];
+          const hasBefore = before !== undefined;
+          const changed =
+            result !== null && hasBefore && fmtValue(before) !== fmtValue(result.observed);
+          return (
+            <li key={c.criterion_id} className="criterion-card">
+              <div className="criterion-head">
+                <strong>{c.description}</strong>
+                {result ? (
+                  <span className={RESULT_CLASS[result.outcome]} title={result.detail}>
+                    {result.outcome.toUpperCase()}
+                  </span>
+                ) : (
+                  <span className="verdict verdict-unmeasured">UNMEASURED</span>
+                )}
+              </div>
+              <p className="mono muted criterion-check">
+                {c.tool_name} · {c.path} {c.op} {fmtValue(c.expected)}
+              </p>
+              <div className="criterion-compare">
+                <div className="compare-col">
+                  <span className="compare-label">Before</span>
+                  {hasBefore ? (
                     <>
-                      <span className="mono">{fmtValue(plan.baseline_values[c.criterion_id])}</span>{" "}
+                      <span className="mono">{fmtValue(before)}</span>{" "}
                       {result?.before_evidence_id && (
                         <EvidenceChip id={result.before_evidence_id} onSelect={onEvidenceClick} />
                       )}
@@ -497,8 +519,12 @@ function PlanCard({
                   ) : (
                     <span className="muted">—</span>
                   )}
-                </td>
-                <td>
+                </div>
+                <span className="compare-arrow" aria-hidden="true">
+                  →
+                </span>
+                <div className={`compare-col${changed ? " compare-changed" : ""}`}>
+                  <span className="compare-label">After</span>
                   {result ? (
                     <>
                       <span className="mono">{fmtValue(result.observed)}</span>{" "}
@@ -509,21 +535,12 @@ function PlanCard({
                   ) : (
                     <span className="muted">—</span>
                   )}
-                </td>
-                <td>
-                  {result ? (
-                    <span className={RESULT_CLASS[result.outcome]} title={result.detail}>
-                      {result.outcome.toUpperCase()}
-                    </span>
-                  ) : (
-                    <span className="muted">—</span>
-                  )}
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+                </div>
+              </div>
+            </li>
+          );
+        })}
+      </ol>
       {plan.baseline_captured_at && (
         <p className="muted">
           Baseline captured {new Date(plan.baseline_captured_at).toLocaleString()} (
@@ -547,7 +564,9 @@ function PlanCard({
       )}
 
       {latest && (
-        <div className={`resolution resolution-${latest.outcome === "VERIFIED_RESOLVED" ? "good" : latest.outcome === "NOT_RESOLVED" ? "bad" : "warn"}`}>
+        <div
+          className={`resolution resolution-${latest.outcome === "VERIFIED_RESOLVED" ? "good resolution-confirm" : latest.outcome === "NOT_RESOLVED" ? "bad" : "warn"}`}
+        >
           {latest.outcome} — {latest.results.filter((r) => r.outcome === "pass").length}/
           {latest.results.length} criteria pass ·{" "}
           {new Date(latest.verified_at).toLocaleString()}
@@ -707,10 +726,11 @@ export function ResolutionWorkspace({
         </p>
       )}
       {investigation.plans.length === 0 && !showForm && (
-        <p className="muted">
-          No resolution plan yet. Draft one from the evidence above: measurable criteria,
-          a pre-fix baseline, then Confirm Fix.
-        </p>
+        <EmptyState
+          icon="◇"
+          title="No resolution plan yet"
+          body="Draft one from the evidence: measurable criteria, a pre-fix baseline, then Confirm Fix re-measures."
+        />
       )}
       {investigation.plans.map((plan) => (
         <PlanCard

@@ -1,6 +1,5 @@
-import { Fragment } from "react";
-import { summarizeEvidence } from "../evidenceSummary";
 import type { EvidenceItem, EvidenceRefresh } from "../types";
+import { EvidenceVisual } from "./evidence/EvidenceVisual";
 
 const CATEGORY_LABELS: Record<string, string> = {
   service_status: "Services",
@@ -128,14 +127,7 @@ export function EvidenceCards({
                   </details>
                 ) : (
                   <>
-                    <dl className="ev-summary">
-                      {summarizeEvidence(item).map((row, i) => (
-                        <Fragment key={`${row.label}-${i}`}>
-                          <dt>{row.label}</dt>
-                          <dd>{row.value}</dd>
-                        </Fragment>
-                      ))}
-                    </dl>
+                    <EvidenceVisual item={item} />
                     <details className="ev-json">
                       <summary>Raw JSON</summary>
                       <pre className="pre">{JSON.stringify(item.data, null, 2)}</pre>

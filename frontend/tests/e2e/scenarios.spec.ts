@@ -23,9 +23,9 @@ test("scenario A: phantom task finding stays suspicious-but-unverified", async (
   });
   await expect(overview.getByText(/matches the reported cadence/)).toBeVisible();
   await expect(
-    page.getByText(/FieldRookDemoPhantom.*has window-hiding text/),
+    diagnosis.getByText(/FieldRookDemoPhantom.*has window-hiding text/),
   ).toBeVisible();
-  await expect(page.getByText(/Suspicious but unverified/)).toBeVisible();
+  await expect(diagnosis.getByText(/Suspicious but unverified/)).toBeVisible();
   await expect(page.getByText(/UNRESOLVED — diagnosed/i)).toBeVisible();
   // Diagnosis only: no corrective action exists for scheduled tasks.
   await page.getByRole("tab", { name: "Resolve" }).click();

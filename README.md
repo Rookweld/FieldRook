@@ -29,12 +29,12 @@ IT diagnosis often means switching between service managers, Windows event logs,
 
 The example below uses a **clearly labeled synthetic fixture** based on a real class of recurring PowerShell-window issues. It is not a claim that the same issue is currently active.
 
-![FieldRook investigation findings](docs/assets/fieldrook-m014-investigation.png)
+![FieldRook investigation findings](docs/assets/fieldrook-m015-investigation.png)
 
 <details>
 <summary>View evidence-backed diagnosis screenshot</summary>
 
-![FieldRook evidence-backed assessment](docs/assets/fieldrook-m014-evidence.png)
+![FieldRook evidence-backed assessment](docs/assets/fieldrook-m015-evidence.png)
 
 </details>
 
@@ -62,21 +62,21 @@ Constrained execution -> fresh independent health check -> incident report
 ## What is available today?
 
 - **Investigate:** describe a symptom and collect targeted read-only Windows diagnostics for applications, services, events, network, processes and scheduled tasks.
-- **Findings:** read the result header — primary finding, honest status, one recommended next step — then the cited diagnosis, uncertainties, and historical matches.
-- **Evidence:** inspect readable per-category summaries with provenance and warnings; raw JSON stays one click away; re-check any reading without losing history.
+- **Findings:** read the investigation story — key observations, what remains unknown, what was checked — then the cited diagnosis, uncertainties, and historical matches.
+- **Evidence:** inspect category-specific visual diagnostics (services, network, crashes, event logs, tasks) with provenance and warnings; raw JSON stays one click away; re-check any reading without losing history.
 - **Resolve:** prepare measurable repair plans, require explicit technician approval for registered actions, then independently check the outcome. Only the application-owned demo worker has an implemented corrective action.
 - **Remember:** reopen investigations, add technician notes, and compare them with previously saved resolutions (no automatic reuse of old fixes).
 
-**Current stage:** M014 cinematic atmosphere. The workstation kept its Findings / Evidence / Resolve architecture and gained a living industrial environment: original atmospheric artwork, a material system, the SignalScope diagnostic instrument, per-view ambient light, and a coordinated motion language — see the [style direction](docs/audit/M014_STYLE.md), the [visual audit](docs/audit/M014_VISUAL.md), and the [product tour video](docs/assets/fieldrook-m014-tour.webm). Backend behavior is unchanged since the M011 live pilot: nine genuine Windows/live-model operations with valid evidence references, plus the fixture-based [gauntlet report](backend/eval/REPORT.md). See the [first-run guide](docs/FIRST_RUN.md), [manual acceptance checklist](docs/ACCEPTANCE.md), and [full milestone log](HACKATHON.md).
+**Current stage:** M015 living investigation. Findings became a visual story (key observations, open uncertainties, checked categories), evidence gained category-specific diagnostic components, the timeline became a round-grouped rail, Resolve grew a guided stepper with criterion cards, and motion now follows the data — see the [visual audit](docs/audit/M015_VISUAL.md) and the [product tour video](docs/assets/fieldrook-m015-tour.webm). Backend behavior is unchanged since the M011 live pilot: nine genuine Windows/live-model operations with valid evidence references, plus the fixture-based [gauntlet report](backend/eval/REPORT.md). See the [first-run guide](docs/FIRST_RUN.md), [manual acceptance checklist](docs/ACCEPTANCE.md), and [full milestone log](HACKATHON.md).
 
-![FieldRook findings view](docs/assets/fieldrook-m014-findings.png)
+![FieldRook findings view](docs/assets/fieldrook-m015-findings.png)
 
 <details>
 <summary>View Evidence and Resolve screenshots</summary>
 
-![FieldRook evidence view](docs/assets/fieldrook-m014-evidence-view.png)
+![FieldRook evidence view](docs/assets/fieldrook-m015-evidence-service.png)
 
-![FieldRook resolve view](docs/assets/fieldrook-m014-resolve.png)
+![FieldRook resolve view](docs/assets/fieldrook-m015-resolve.png)
 
 </details>
 

@@ -1,4 +1,5 @@
 import type { ActivityRecord } from "../types";
+import { EvidenceChip } from "./EvidenceChip";
 
 const KIND_MARK: Record<ActivityRecord["kind"], string> = {
   plan: "\u25B8",
@@ -16,6 +17,25 @@ const KIND_MARK: Record<ActivityRecord["kind"], string> = {
   verified: "\u25C9",
   done: "\u2714",
   error: "\u2716",
+};
+
+/** Visual family per activity kind: tool / evidence / human / verdict. */
+const KIND_FAMILY: Record<ActivityRecord["kind"], string> = {
+  plan: "tl-fam-tool",
+  tool_request: "tl-fam-tool",
+  tool_result: "tl-fam-tool",
+  evidence: "tl-fam-evidence",
+  note: "tl-fam-human",
+  reverify: "tl-fam-tool",
+  proposed: "tl-fam-human",
+  approval_requested: "tl-fam-human",
+  approved: "tl-fam-human",
+  rejected: "tl-fam-human",
+  executed: "tl-fam-human",
+  verification_started: "tl-fam-verdict",
+  verified: "tl-fam-verdict",
+  done: "tl-fam-verdict",
+  error: "tl-fam-error",
 };
 
 interface Round {
@@ -71,29 +91,42 @@ function groupRounds(activity: ActivityRecord[]): Round[] {
   return rounds;
 }
 
-function RecordItem({ record }: { record: ActivityRecord }) {
+function RecordItem({
+  record,
+  onEvidenceClick,
+}: {
+  record: ActivityRecord;
+  onEvidenceClick?: (id: string) => void;
+}) {
+  const showDuration =
+    record.duration_ms !== null &&
+    record.duration_ms !== undefined &&
+    // M011: several producers already end the title with "Nms".
+    !record.title.includes(`${record.duration_ms}ms`);
+  const longDetail = record.detail.length > 180;
   return (
-    <li className={`tl tl-${record.kind}`}>
+    <li className={`tl tl-${record.kind} ${KIND_FAMILY[record.kind]}`}>
       <span className="tl-mark" aria-hidden="true">
         {KIND_MARK[record.kind]}
       </span>
       <div className="tl-body">
         <div className="tl-title">
           <span className="tl-seq">#{record.seq}</span> {record.title}
-          {record.duration_ms !== null &&
-            record.duration_ms !== undefined &&
-            // M011: several producers already end the title with "Nms".
-            !record.title.includes(`${record.duration_ms}ms`) && (
-              <span className="muted"> ({record.duration_ms}ms)</span>
-            )}
+          {showDuration && <span className="tl-dur">{record.duration_ms}ms</span>}
         </div>
-        {record.detail && <p className="tl-detail">{record.detail}</p>}
+        {record.detail &&
+          (longDetail ? (
+            <details className="tl-detail-wrap">
+              <summary className="tl-detail">{record.detail.slice(0, 180)}…</summary>
+              <p className="tl-detail">{record.detail}</p>
+            </details>
+          ) : (
+            <p className="tl-detail">{record.detail}</p>
+          ))}
         {record.evidence_ids.length > 0 && (
           <div className="tl-refs">
             {record.evidence_ids.map((eid) => (
-              <code key={eid} className="chip">
-                {eid}
-              </code>
+              <EvidenceChip key={eid} id={eid} onSelect={onEvidenceClick} />
             ))}
           </div>
         )}
@@ -102,7 +135,13 @@ function RecordItem({ record }: { record: ActivityRecord }) {
   );
 }
 
-export function Timeline({ activity }: { activity: ActivityRecord[] }) {
+export function Timeline({
+  activity,
+  onEvidenceClick,
+}: {
+  activity: ActivityRecord[];
+  onEvidenceClick?: (id: string) => void;
+}) {
   if (activity.length === 0) return null;
   const rounds = groupRounds(activity);
   return (
@@ -118,7 +157,7 @@ export function Timeline({ activity }: { activity: ActivityRecord[] }) {
           {rounds.length > 1 && <h3 className="round-head">{round.label}</h3>}
           <ol className="timeline">
             {round.records.map((record) => (
-              <RecordItem key={record.seq} record={record} />
+              <RecordItem key={record.seq} record={record} onEvidenceClick={onEvidenceClick} />
             ))}
           </ol>
         </div>

@@ -12,6 +12,21 @@ function fmt(when: string | null): string {
   return new Date(when).toLocaleString();
 }
 
+/**
+ * Backend change lines look like "path: before -> after". Parse them
+ * into a structured before/after row; anything else renders verbatim.
+ */
+function parseChange(change: string): { path: string; before: string; after: string } | null {
+  const colon = change.indexOf(": ");
+  const arrow = change.indexOf(" -> ");
+  if (colon < 0 || arrow < 0 || arrow < colon) return null;
+  return {
+    path: change.slice(0, colon),
+    before: change.slice(colon + 2, arrow),
+    after: change.slice(arrow + 4),
+  };
+}
+
 export function RefreshPanel({
   refreshes,
   onEvidenceClick,
@@ -48,11 +63,23 @@ export function RefreshPanel({
             </p>
             {r.changes.length > 0 && (
               <ul className="refresh-changes">
-                {r.changes.map((change, j) => (
-                  <li key={j}>
-                    <code className="mono">{change}</code>
-                  </li>
-                ))}
+                {r.changes.map((change, j) => {
+                  const parsed = parseChange(change);
+                  return (
+                    <li key={j} className="change-row">
+                      {parsed ? (
+                        <>
+                          <code className="mono change-path">{parsed.path}</code>
+                          <span className="change-old">{parsed.before}</span>
+                          <span aria-hidden="true">→</span>
+                          <span className="change-new">{parsed.after}</span>
+                        </>
+                      ) : (
+                        <code className="mono">{change}</code>
+                      )}
+                    </li>
+                  );
+                })}
               </ul>
             )}
             {r.affected_causes.length > 0 && (

@@ -7,6 +7,7 @@ import {
   recordKnowledge,
 } from "../api";
 import type { InvestigationResponse, KnowledgeMatch } from "../types";
+import { EmptyState } from "./EmptyState";
 import { EvidenceChip } from "./EvidenceChip";
 
 const OUTCOME_CLASS: Record<string, string> = {
@@ -207,9 +208,11 @@ export function WorkedBefore({
       )}
       {matches === null && <p className="muted">Searching the local library…</p>}
       {matches !== null && matches.length === 0 && (
-        <p className="muted">
-          No similar incidents remembered yet. Resolve this one and save it below.
-        </p>
+        <EmptyState
+          icon="◇"
+          title="No similar incidents remembered"
+          body="Nothing in the local library matches this case yet. Resolve it and save the outcome below so the next one starts warmer."
+        />
       )}
       {matches?.slice(0, 1).map((match) => (
         <MatchCard
