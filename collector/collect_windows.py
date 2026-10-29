@@ -261,12 +261,20 @@ def powershell_available() -> bool:
 
 
 def _run_powershell(script: str, source: str, timeout_s: float) -> str:
+    # Frozen-compat (M025 ALPHA): CREATE_NO_WINDOW suppresses the child-console
+    # flash when the collector runs without a visible console. Under a console
+    # (normal use, frozen or not) the child already inherits the parent console,
+    # so stdout/stderr/exit codes are unchanged.
+    creationflags = 0
+    if os.name == "nt":
+        creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
     try:
         completed = subprocess.run(
             ["powershell", "-NoProfile", "-NonInteractive", "-Command", script],
             capture_output=True,
             text=True,
             timeout=timeout_s,
+            creationflags=creationflags,
         )
     except FileNotFoundError as exc:
         raise DiagnosticCommandError("PowerShell executable was not found.", source) from exc

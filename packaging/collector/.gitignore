@@ -1,0 +1,2 @@
+# M025 ALPHA: local freezer scratch (venv, PyInstaller work dir). Never committed.
+.build/
