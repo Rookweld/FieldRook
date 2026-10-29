@@ -193,3 +193,38 @@ Validation status after M024.1:
 | independent-hardware validation | NOT validated (Fury only) |
 | 8GB CPU-laptop interactivity | NOT validated (M019 true-CPU FAIL stands) |
 | standalone distribution | NOT delivered (route defined, dev launcher only) |
+
+## M024.2 hardening (knowledge relevance gate)
+
+- M024.1's blind eval caught retrieval priming (cad 9/9 -> 7/9 stable):
+  `ref-service-recovery` retrieved on generic filler (client/needs/
+  review). Fix: `backend/app/knowledge/relevance_gate.py`, a
+  conservative second-stage filter over unchanged ranking. A passage
+  is kept iff error-code match, discriminating title/heading topic,
+  discriminating evidence term, or >=2 distinct discriminating
+  problem/service terms (df<=3 + ~700-term generic vocabulary).
+  Ranking, scores, citations, and quoted-excerpt boundaries unchanged.
+- First revision (df<=2, single-term OR) over-filtered the genuinely
+  topical stopped-service query (F3 refs [] 3/3); the suite caught it
+  and the shipped revision keeps coherent common-term combinations.
+- Blind re-eval (`backend/eval/challenge/REPORT_M0242.md`, qwen3:4b,
+  loopback, same conditions): held-out 46/53, 46/53, 47/53 (M024.1:
+  45 x3; M019: 48, pre-fix spread 46-48); FORGE suite 45/50, 44/50,
+  47/50 (M024.1: 47, 44). CAD recovered 9/9, 8/9, 9/9 with zero
+  excerpts; gate-off ablation reproduces M024.1's 7/9 exactly
+  (causal proof). Relevant retrieval preserved: DNS guided 3/3,
+  collector-DNS narrowed 3 docs -> 1, required service retrieval 3/3
+  with no-service-cause 3/3.
+- Residuals: F3 also pulls weakly relevant ref-error-codes via a
+  common-term pair (no measured harm, same 9/10); frozen-window
+  contradiction/scoped disagreements unchanged; single-term topical
+  queries now yield silence (accepted).
+- Gates: pytest 607/607 (17 new), gauntlet 37/37 exit 0, E2E 42/42,
+  tsc + build clean, secret scan clean (grep fallback, benign
+  tokenizer prose only). No harness/rubric/scenario changes.
+- Validation-status deltas vs M024.1: blind FORGE re-evaluated post-
+  gate (Fury, GPU, qwen3:4b, 11 scenarios x3 + ablation); second
+  machine / independent hardware / 8GB laptop / standalone remain
+  NOT validated (unchanged). HACKATHON rows for M024.1+M024.2 stay
+  deferred to merge time. No push. Branch ready for merge pending
+  authorization (M024.2 verdict in REPORT_M0242.md section 10).

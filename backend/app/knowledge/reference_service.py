@@ -25,6 +25,7 @@ from .reference_index import (
     load_corpus,
     tokenize,
 )
+from .relevance_gate import document_frequencies, judge_passage
 
 # Display-only reliability ordering (no percentages). Higher rank = stronger.
 # MEASURED > TECH_CONFIRMED > VENDOR_DOC > COMMUNITY > INFERRED.
@@ -187,6 +188,7 @@ def match_references(
     limit: int = 5,
     manifest_path: Path | str | None = None,
     corpus: LoadedCorpus | None = None,
+    relevance_gate: bool = True,
 ) -> list[ReferencePassage]:
     """Rank reference spans for a problem. Never returns `KnowledgeMatch`.
 
@@ -197,10 +199,12 @@ def match_references(
         limit: Max passages (1..20); non-positive returns [].
         manifest_path: Test hook to load a custom gated corpus.
         corpus: Test hook with an already-loaded corpus (wins over manifest).
+        relevance_gate: Drop passages matched purely on generic filler (M024.2).
 
     Returns:
         Ranked `ReferencePassage` list, highest score first. [] when nothing
-        scores at threshold or the corpus fails closed.
+        scores at threshold, the corpus fails closed, or no passage passes
+        the relevance gate.
     """
     if limit is None or limit <= 0:
         return []
@@ -234,6 +238,7 @@ def match_references(
 
     query_all = problem_tokens | service_tokens | flattened_evidence
     ranked: list[ReferencePassage] = []
+    hit_sets: list[tuple[set[str], set[str], set[str], set[str]]] = []
     for span in corpus.spans:
         span_set = set(span.tokens)
         p_hit = _overlap(problem_tokens, span_set)
@@ -263,5 +268,25 @@ def match_references(
                 terms=matched,
             )
         )
-    ranked.sort(key=lambda p: (-p.score, p.doc_id, p.anchor, p.span[:64]))
+        hit_sets.append((p_hit, s_hit, e_hit, t_hit))
+    order = sorted(
+        range(len(ranked)),
+        key=lambda i: (
+            -ranked[i].score,
+            ranked[i].doc_id,
+            ranked[i].anchor,
+            ranked[i].span[:64],
+        ),
+    )
+    ranked = [ranked[i] for i in order]
+    hit_sets = [hit_sets[i] for i in order]
+    if relevance_gate:
+        # M024.2: ranking is unchanged; passages matched purely on generic
+        # shared vocabulary are withheld before they can enter model context.
+        df = document_frequencies(corpus)
+        ranked = [
+            passage
+            for passage, hits in zip(ranked, hit_sets)
+            if judge_passage(*hits, df).passed
+        ]
     return ranked[:bounded]
