@@ -76,8 +76,8 @@ export function ServiceWorkstation() {
             <strong>Error.</strong> <span>{error}</span>
           </div>
           <p className="hint">
-            Is the backend running at http://127.0.0.1:8000? See README for startup
-            commands.
+            Is the FieldRook desktop backend running on this machine? See the
+            Field Kit guide (docs/FIELD_KIT.md) for startup steps.
           </p>
         </div>
       )}

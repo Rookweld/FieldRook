@@ -7,6 +7,7 @@ import { History } from "./components/History";
 import { KnowledgeLibrary } from "./components/KnowledgeLibrary";
 import { ProblemWorkstation } from "./components/ProblemWorkstation";
 import { ServiceWorkstation } from "./components/ServiceWorkstation";
+import { FirstRunGate } from "./forge/FirstRunGate";
 import type { InvestigationResponse, StatusResponse } from "./types";
 
 export function App() {
@@ -72,6 +73,7 @@ export function App() {
         </button>
       </nav>
       <main className="main">
+        <FirstRunGate />
         <ErrorBoundary
           key={tab}
           onReset={() => {

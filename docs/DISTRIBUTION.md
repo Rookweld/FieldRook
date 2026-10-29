@@ -43,33 +43,52 @@ Consequences for anyone running the launcher:
    `backend/.venv/Scripts/python -m uvicorn app.main:app --host 127.0.0.1 --port 8000`
    or `cd frontend && pnpm run dev`.
 
-## Standalone packaging route (planned, NOT delivered)
+## Standalone packaging route (delivered by the M025 Field Kit track)
 
-Concrete route, in dependency order. None of this exists yet;
-do not claim otherwise.
+The M025 Field Kit replaces the two-server development launcher above
+with a single-process desktop runtime plus a frozen Collector
+executable. Technician-facing guide: `docs/FIELD_KIT.md`. Scope note:
+this section describes the integrated M025 runtime; it is written on
+the first-run/docs branch, and clean-machine runs are validated on the
+integrated branch by ZETA — nothing here claims a clean-machine result
+observed from this branch alone.
 
-1. Serve the built frontend from the backend. `vite build`
-   output mounted via `StaticFiles` removes the Node/pnpm
-   runtime requirement AND the two-window split-brain: one
-   process, one port, one health signal.
-2. Freeze the backend + collector. Evaluate PyInstaller
-   one-dir (or an equivalent) for `app.main` (server) and
-   the collector entry point. Success criteria: runs on a
-   machine with no Python/Node; `collector --help` works
-   from the frozen exe; package import round-trips.
-3. Per-user data dir. DB, imported packages, and logs live
-   under `%LOCALAPPDATA%/FieldRook`, never beside the exe
-   and never in the operator's dev checkout.
-4. Single-instance guard. If the port is taken, refuse with
-   a readable message instead of the 10048 flash-and-close.
-5. One bootstrapper. Starts the server, opens the browser,
-   first-run provider/consent choice, clean shutdown that
-   kills only its own child processes (PID-tracked).
-6. Release hygiene, carried over from M020: no API keys, no
-   `.env`, no personal investigation data in the artifact;
-   no model downloads without consent; no admin required;
-   localhost-only bind by default.
+Delivered shape (per `docs/M025_CONTRACTS.md`):
 
-Until (1)-(6) are built and tested on a clean machine, the
-supported way to run FieldRook remains a source checkout
-with the documented dev prerequisites.
+1. Frontend served from the backend. The Vite production `dist` is
+   mounted at `/` via `StaticFiles(html=True)` after all `/api/*`
+   routers: one process, one port, one health signal (`GET
+   /api/status`). `GET /` serves `index.html` when dist is present,
+   else the JSON tagline (dev-API mode).
+2. Frozen backend + collector. PyInstaller one-dir for both the
+   desktop backend and `FieldRook-Collector.exe` (same
+   `collect|validate` CLI, exit codes, and consent double-gate; the
+   ZIP format is frozen, so exe-produced packages pass the existing
+   roundtrip/verify tests). The collector is a console exe so the
+   consent screen stays visible. No Python/Node on the target
+   machine; no admin required; builds are unsigned (stated, not
+   hidden).
+3. Per-user data dir. DB, imported packages, and logs live under
+   `%LOCALAPPDATA%\FieldRook`, never beside the exe and never in a
+   dev checkout. `FIELDROOK_DB_PATH` / `FIELDROOK_DEMO_STATE`
+   overrides are preserved; the dev database is never defaulted to
+   or migrated.
+4. Single-instance guard. A second launch reports "already running"
+   instead of the old 10048 flash-and-close.
+5. One bootstrapper. Starts the server on the single localhost port
+   (`127.0.0.1:8000` by default, `FIELDROOK_PORT` override; a
+   non-loopback bind is refused at startup), opens the browser,
+   offers the first-run provider/consent tour, and shuts down cleanly
+   — PID-tracked, killing only its own tree, stopping the detached
+   demo worker via the existing fenced kill path.
+6. Release hygiene, carried over from M020: no API keys, no `.env`,
+   no personal investigation data in the artifacts; no model
+   downloads without consent; no admin required; localhost-only bind
+   by default.
+
+The M024.1 failure-mode table above stays as the historical record
+for `start-fieldrook.bat` (source-checkout development path). For
+the Field Kit runtime the corresponding checks are: exactly one
+localhost port answers (`/api/status`), and startup/shutdown errors
+are both visible on screen and logged to
+`%LOCALAPPDATA%\FieldRook\logs`.

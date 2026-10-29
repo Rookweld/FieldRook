@@ -1,0 +1,92 @@
+/* =====================================================================
+   First-run guide skin (M025 GAMMA). Same cinematic language as
+   forge.css: App.css tokens and primitives (.card, .button, .badge,
+   .muted, .warn, .story-head); everything below is additive under
+   .firstrun* so mounting cannot restyle existing views. Non-modal and
+   never focus-trapped: the page behind stays usable while open.
+   ===================================================================== */
+
+.firstrun {
+  border-color: #4a3d22;
+}
+
+/* Forge-gold eyebrow rule, matching .forge-shell card headers. */
+.firstrun .card-head h2 {
+  border-left: 3px solid var(--gold);
+  padding-left: 0.6rem;
+}
+
+.firstrun-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+  margin: 0.4rem 0 0.6rem;
+}
+
+.firstrun-grid > * {
+  min-width: 0;
+}
+
+.firstrun-grid p {
+  margin: 0.3rem 0;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 860px) {
+  .firstrun-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.firstrun-providers {
+  list-style: none;
+  margin: 0.4rem 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.firstrun-providers li {
+  overflow-wrap: anywhere;
+}
+
+.firstrun-actions {
+  flex-wrap: wrap;
+}
+
+.firstrun-reset {
+  color: var(--faint);
+}
+
+/* Compact reopen control rendered while the guide is dismissed. */
+.firstrun-reopen {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: var(--space-2);
+}
+
+.firstrun-reopen-btn {
+  font-size: 0.85rem;
+  padding: 0.3rem 0.7rem;
+}
+
+.firstrun a:focus-visible,
+.firstrun button:focus-visible,
+.firstrun-reopen button:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .firstrun *,
+  .firstrun *::before,
+  .firstrun *::after,
+  .firstrun-reopen *,
+  .firstrun-reopen *::before,
+  .firstrun-reopen *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
