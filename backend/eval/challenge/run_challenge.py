@@ -40,6 +40,7 @@ from fastapi.testclient import TestClient  # noqa: E402
 
 from app.main import app  # noqa: E402
 from eval.challenge.heldout_scenarios import HELDOUT_SCENARIOS  # noqa: E402
+from eval.challenge.forge_scenarios import FORGE_SCENARIOS  # noqa: E402
 from eval.challenge.scenarios import SCENARIOS, Scenario  # noqa: E402
 from eval.challenge.simulator import evaluate, render_transcript, run_scenario  # noqa: E402
 
@@ -173,7 +174,7 @@ def main() -> int:
     parser.add_argument("--model", required=True, help="local model name (e.g. qwen3:4b)")
     parser.add_argument("--provider", default="local")
     parser.add_argument("--scenarios", default="", help="comma-separated IDs (default: all)")
-    parser.add_argument("--suite", default="main", choices=["main", "heldout", "all"],
+    parser.add_argument("--suite", default="main", choices=["main", "heldout", "forge", "all"],
                         help="M019: main = original 20 (comparison baseline); heldout = 6 unseen cases")
     parser.add_argument("--url", default="http://127.0.0.1:11434/v1")
     parser.add_argument("--vision", action="store_true", help="enable local vision flag")
@@ -211,8 +212,10 @@ def main() -> int:
     pool: list[Scenario] = list(SCENARIOS)
     if args.suite == "heldout":
         pool = list(HELDOUT_SCENARIOS)
+    elif args.suite == "forge":
+        pool = list(FORGE_SCENARIOS)
     elif args.suite == "all":
-        pool = list(SCENARIOS) + list(HELDOUT_SCENARIOS)
+        pool = list(SCENARIOS) + list(HELDOUT_SCENARIOS) + list(FORGE_SCENARIOS)
     selected = [s for s in pool if not wanted or s.id in wanted]
     if not selected:
         print("no scenarios selected")
@@ -239,6 +242,15 @@ def main() -> int:
                 recovery = run_recovery_flow(client, run["investigation_id"])
                 run["recovery"] = recovery
             final = client.get(f"/api/investigations/{run['investigation_id']}").json()
+            try:  # M024.1: record retrieved reference docs for grading
+                ref = client.get(
+                    f"/api/investigations/{run['investigation_id']}/knowledge/references"
+                )
+                final["_forge_references"] = sorted({
+                    c.get("doc_id", "") for c in ref.json().get("citations", [])
+                } - {""}) if ref.status_code == 200 else []
+            except Exception:  # noqa: BLE001 - eval-only enrichment
+                final["_forge_references"] = []
             checks = evaluate(scenario, run, final, recovery)
             entry.update(
                 {
@@ -252,6 +264,7 @@ def main() -> int:
                     "total": len(checks),
                     "deliveries": run["deliveries"],
                     "recovery": recovery,
+                    "references": final.get("_forge_references", []),
                     "intake_latency_s": run.get("intake_latency_s", 0.0),
                     "withheld_repeats": run.get("withheld_repeats", 0),
                     "stall_notes": run.get("stall_notes", 0),

@@ -153,3 +153,43 @@ Cut from `forge/integration`; no push (awaiting authorization).
 - NOT re-run: full blind challenge on FORGE turns (budget); M019
   challenge numbers stand; knowledge context is additive quoted
   text with byte-identical defaults when absent.
+
+## M024.1 hardening (target isolation, blind eval, readiness)
+
+- Reverify boundary: collector-imported / remote-target evidence
+  can no longer trigger host-local remeasurement (422/409 at the
+  backend, UI mirrors); static `interpret_error_code` stays
+  available. Regression tests in
+  `backend/tests/test_m0241_target_isolation.py` + E2E no-recheck.
+- Single-target import: a second computer's package into an
+  associated case is rejected (409), not warned-and-mixed.
+- Real collector run on Fury (read-only, safe out dir): 10
+  entries, 0 errors, VALID, 8KB, no raw-hostname leak; import +
+  recollect-all-unchanged verified live, incl. chunk slice c1.
+  NOTE: the collector needs a Python interpreter on the target
+  (stdlib-only). No standalone exe exists; see
+  `docs/DISTRIBUTION.md` for the route.
+- Blind eval on integrated FORGE (`backend/eval/challenge/
+  REPORT_M0241.md`): held-out 45/53 x3 (M019: 48/53) with one
+  systematic retrieval-priming regression (cad 9/9 -> 7/9); new
+  FORGE suite 47/50 + 44/50. CORRECTION to the M024 note above:
+  knowledge context is NOT behavior-neutral - irrelevant
+  retrievals measurably distract the small model. Relevance
+  gating is recommended future work.
+- Launcher: `start-fieldrook.bat` documented as a DEVELOPMENT
+  launcher (`docs/DISTRIBUTION.md`); failure modes verified via
+  a test-port replica (missing venv/deps errors, pnpm/python
+  absence, occupied-port split-brain with success message).
+
+Validation status after M024.1:
+
+| claim | status |
+|---|---|
+| reverify refuses wrong-computer rechecks | Implemented; unit + E2E tests; live Fury backend |
+| single-target import association | Implemented; unit tests incl. live-host case |
+| collector package validity/redaction | Tested on fixtures; tested on Fury (real run) |
+| collector on a second machine | NOT validated (no second Windows box) |
+| blind FORGE behavior beyond fixtures | Tested on Fury (GPU, qwen3:4b, 11 scenarios) |
+| independent-hardware validation | NOT validated (Fury only) |
+| 8GB CPU-laptop interactivity | NOT validated (M019 true-CPU FAIL stands) |
+| standalone distribution | NOT delivered (route defined, dev launcher only) |

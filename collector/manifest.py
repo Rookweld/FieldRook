@@ -68,6 +68,7 @@ __all__ = [
     "new_package_id",
     "build_entry",
     "build_manifest",
+    "finalize_entries",
     "validate_manifest",
     "manifest_sha256",
 ]
@@ -370,6 +371,23 @@ def _validate_entry(
         errors.append(f"{where} refresh_of must be an evidence id or null.")
     return errors, warnings
 
+
+def finalize_entries(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Stamp ``sha256``/``size`` on entries that lack them (M024.1).
+
+    Collection emits raw entries and chunking preserves them; this runs
+    last, after ``chunker.chunk_entries``, so live payloads over 12KB
+    are split before they are ever hashed. Chunk outputs already carry
+    hashes and pass through untouched.
+    """
+    finalized: list[dict[str, Any]] = []
+    for entry in entries:
+        if "sha256" in entry and "size" in entry:
+            finalized.append(entry)
+            continue
+        sha256, size = entry_hash(entry.get("data", {}))
+        finalized.append({**entry, "sha256": sha256, "size": size})
+    return finalized
 
 def validate_manifest(manifest: Any) -> tuple[list[str], list[str]]:
     """Validate a manifest; returns ``(errors, warnings)``.

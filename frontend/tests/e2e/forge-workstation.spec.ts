@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import fs from "node:fs";
 
 /**
  * FORGE workstation spec (EPSILON). Written against the documented props
@@ -187,4 +188,23 @@ test("workspace shell fits a 390px phone without horizontal scroll", async ({ pa
   await expect(page.getByTestId("forge-next-up")).toBeVisible();
   await expect(page.getByTestId("forge-next-run")).toBeVisible();
   await page.screenshot({ path: "test-results/shot-forge-mobile.png" });
+});
+
+test("imported collector evidence offers no host re-check", async ({ page }) => {
+  await investigateFixture(page, "E2E forge probe: DNS does not resolve on this workstation.");
+  const card = page.getByTestId("forge-collector-import");
+  const sample = new URL("../../../collector/samples/sample_basic.zip", import.meta.url);
+  await card.locator('input[type="file"]').setInputFiles({
+    name: "sample_basic.zip",
+    mimeType: "application/zip",
+    buffer: fs.readFileSync(sample),
+  });
+  await card.getByRole("checkbox").check();
+  await card.getByRole("button", { name: "Import package" }).click();
+  await page.getByRole("tab", { name: /Evidence/ }).click();
+  // Imported items carry the recollect hint instead of a Re-check button.
+  const gated = page.locator("article", { has: page.getByTestId("recheck-unavailable") });
+  await expect(gated.first()).toBeVisible({ timeout: 15000 });
+  await expect(gated.getByRole("button", { name: "Re-check", exact: true })).toHaveCount(0);
+  await expect(page.getByText(/import a fresh collector package/i).first()).toBeVisible();
 });

@@ -49,10 +49,11 @@ def _collect(**overrides):
 def _package(result, tmp_path, name="pkg.zip", payloads=None):
     payloads = payloads or {"notes/note.txt": b"roundtrip note\n"}
     chunked, chunk_warnings = chunker.chunk_entries(result.entries)
+    finalized = manifest.finalize_entries(chunked)
     mani = manifest.build_manifest(
         hostname_hash=result.hostname_hash,
         os_info=result.os_info,
-        evidence=chunked,
+        evidence=finalized,
         file_hashes={k: hashlib.sha256(v).hexdigest() for k, v in payloads.items()},
         target_hint=result.target_hint,
         duration_ms=result.duration_ms,
@@ -120,10 +121,11 @@ def test_chunked_doc_reassembles(tmp_path):
     for chunk in chunks:
         assert chunker.data_size_bytes(chunk["data"]) <= chunker.MAX_DATA_BYTES
     chunked, _ = chunker.chunk_entries([*result.entries, raw_entry])
+    finalized = manifest.finalize_entries(chunked)
     mani = manifest.build_manifest(
         hostname_hash=result.hostname_hash,
         os_info=result.os_info,
-        evidence=chunked,
+        evidence=finalized,
         file_hashes={},
     )
     errors, _ = manifest.validate_manifest(mani)
@@ -243,3 +245,30 @@ def test_manifest_json_is_deterministic_shape(tmp_path):
         "warnings", "evidence", "file_hashes",
     }
     assert json.loads(json.dumps(mani)) == mani
+
+def test_oversize_live_entry_flows_through_chunk_finalize(tmp_path):
+    """M024.1: Fury c-8 (>12KB live tasks) must chunk, not abort collection."""
+    big = {"tasks": [{"name": f"task-{i:04d}", "detail": "x" * 200} for i in range(200)]}
+    assert chunker.data_size_bytes(big) > chunker.MAX_DATA_BYTES
+    raw_entry = {
+        "id": "c-live",
+        "category": "scheduled_tasks",
+        "source_suffix": "live",
+        "collected_at": manifest.utc_now_iso(),
+        "data": big,
+        "tool_name": "get_scheduled_tasks",
+        "tool_args": {},
+    }
+    chunked, warnings = chunker.chunk_entries([raw_entry])
+    assert len(chunked) > 1
+    assert warnings and "pre-chunked" in warnings[0]
+    finalized = manifest.finalize_entries(chunked)
+    assert all("sha256" in e and "size" in e for e in finalized)
+    mani = manifest.build_manifest(
+        hostname_hash="dd" * 32,
+        os_info={"platform": "win32", "version": "11", "build": "26100"},
+        evidence=finalized,
+    )
+    errors, _ = manifest.validate_manifest(mani)
+    assert errors == []
+    assert chunker.unchunk_data(finalized) == big

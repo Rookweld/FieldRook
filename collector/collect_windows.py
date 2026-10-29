@@ -36,7 +36,7 @@ import time
 from dataclasses import dataclass, field
 from typing import Any
 
-from .manifest import build_entry, utc_now_iso
+from .manifest import utc_now_iso
 from .redact_import import build_identity, redact_data
 
 __all__ = [
@@ -1041,18 +1041,24 @@ def collect_all(
         redacted, count = redact_data(item["data"], host, hint, username)
         assert isinstance(redacted, dict)
         redacted.setdefault("provenance", {})["redaction_count"] = count
-        entries.append(
-            build_entry(
-                entry_id=f"c-{position}",
-                category=item["category"],
-                data=redacted,
-                source_suffix=suffix,
-                tool_name=item.get("tool_name"),
-                tool_args=item.get("tool_args"),
-                collected_at=utc_now_iso(),
-                error=item.get("error"),
-            )
-        )
+        # M024.1: emit RAW entries (no sha256/size). Live data can exceed
+        # 12KB (e.g. Fury's task list); build_entry would raise here,
+        # before __main__ gets to pre-chunk (D3a). Hashing happens in
+        # manifest.finalize_entries after chunking.
+        raw_entry: dict[str, Any] = {
+            "id": f"c-{position}",
+            "category": item["category"],
+            "source_suffix": suffix,
+            "collected_at": utc_now_iso(),
+            "data": redacted,
+        }
+        if item.get("tool_name") is not None:
+            raw_entry["tool_name"] = item["tool_name"]
+        if item.get("tool_args") is not None:
+            raw_entry["tool_args"] = item["tool_args"]
+        if item.get("error") is not None:
+            raw_entry["error"] = item["error"]
+        entries.append(raw_entry)
     duration_ms = int((time.monotonic() - started) * 1000)
     return CollectionResult(
         entries=entries,

@@ -1,4 +1,4 @@
-import type { EvidenceItem, EvidenceRefresh } from "../types";
+import type { DiagnosisTarget, EvidenceItem, EvidenceRefresh } from "../types";
 import { EvidenceVisual } from "./evidence/EvidenceVisual";
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -35,6 +35,27 @@ function dataWarnings(item: EvidenceItem): string[] {
   return w.filter((x): x is string => typeof x === "string");
 }
 
+/**
+ * M024.1: mirror of the backend reverify boundary (the backend enforces;
+ * this only decides whether to offer an actionable control). Imported
+ * collector evidence describes another computer; non-local cases must
+ * not trigger host measurements. interpret_error_code is a static
+ * computation, safe anywhere.
+ */
+function canReverify(item: EvidenceItem, target: DiagnosisTarget | undefined): boolean {
+  if (item.source.startsWith("collector:")) return false;
+  if (item.tool_name === "interpret_error_code") return true;
+  return target === undefined || target === "local";
+}
+
+function recheckUnavailableReason(item: EvidenceItem, target: DiagnosisTarget | undefined): string {
+  if (item.source.startsWith("collector:")) {
+    return "Imported evidence cannot be re-measured from this host — import a fresh collector package to compare readings.";
+  }
+  return `Re-check unavailable: this case targets ${target ?? "another computer"}, not the FieldRook host.`;
+}
+
+
 export function EvidenceCards({
   evidence,
   selectedId,
@@ -43,6 +64,7 @@ export function EvidenceCards({
   onReverify,
   reverifyingId,
   reverifyDisabled,
+  target,
 }: {
   evidence: EvidenceItem[];
   selectedId: string | null;
@@ -51,6 +73,7 @@ export function EvidenceCards({
   onReverify?: (id: string) => void;
   reverifyingId?: string | null;
   reverifyDisabled?: boolean;
+  target?: DiagnosisTarget;
 }) {
   const groups = new Map<string, EvidenceItem[]>();
   for (const item of evidence) {
@@ -112,7 +135,7 @@ export function EvidenceCards({
                       {superseded.get(item.id)?.verdict.toUpperCase()})
                     </span>
                   )}
-                  {onReverify && item.tool_name && (
+                  {onReverify && item.tool_name && canReverify(item, target) && (
                     <button
                       type="button"
                       className="link-button"
@@ -122,6 +145,11 @@ export function EvidenceCards({
                     >
                       {reverifyingId === item.id ? "Re-checking…" : "Re-check"}
                     </button>
+                  )}
+                  {onReverify && item.tool_name && !canReverify(item, target) && (
+                    <p className="muted ev-norecheck" data-testid="recheck-unavailable">
+                      {recheckUnavailableReason(item, target)}
+                    </p>
                   )}
                 </div>
                 {dataWarnings(item).map((w, i) => (

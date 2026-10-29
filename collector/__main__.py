@@ -28,7 +28,7 @@ from pathlib import Path
 from .archive import ArchiveError, create_package, extract_and_verify
 from .chunker import chunk_entries
 from .collect_windows import CATEGORIES, collect_all, format_consent_screen
-from .manifest import build_manifest, new_package_id, utc_now_iso
+from .manifest import build_manifest, finalize_entries, new_package_id, utc_now_iso
 
 ALLOWED_NOTE_SUFFIXES = frozenset({".json", ".txt", ".md", ".log"})
 
@@ -100,6 +100,7 @@ def cmd_collect(argv: list[str]) -> int:
         return 2
     payloads = _load_notes(args.note)
     chunked, chunk_warnings = chunk_entries(result.entries)
+    finalized = finalize_entries(chunked)
     warnings = list(result.warnings) + chunk_warnings
     file_hashes = {
         rel: hashlib.sha256(blob).hexdigest() for rel, blob in payloads.items()
@@ -107,7 +108,7 @@ def cmd_collect(argv: list[str]) -> int:
     manifest = build_manifest(
         hostname_hash=result.hostname_hash,
         os_info=result.os_info,
-        evidence=chunked,
+        evidence=finalized,
         file_hashes=file_hashes,
         package_id=new_package_id(),
         target_hint=result.target_hint,
@@ -120,7 +121,7 @@ def cmd_collect(argv: list[str]) -> int:
     except ArchiveError as exc:
         print(f"error: {exc}")
         return 1
-    print(f"wrote {dest} ({len(chunked)} evidence entries, {len(payloads)} notes).")
+    print(f"wrote {dest} ({len(finalized)} evidence entries, {len(payloads)} notes).")
     for warning in warnings:
         print(f"warning: {warning}")
     return 0

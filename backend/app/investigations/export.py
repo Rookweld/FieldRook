@@ -228,6 +228,10 @@ def build_markdown(state: Any) -> str:
         add(f"Latest assistant message: {data['assistant_message']}")
     add("")
     add("## 18. Collector package provenance")
+    identity = data.get("target_identity") or {}
+    if identity.get("hostname_hash"):
+        hint = identity.get("hint") or "(no label)"
+        add(f"Case computer: {hint} (host hash {identity['hostname_hash'][:12]}...)")
     for pkg in data.get("collector_packages", []):
         add(f"### {pkg['package_id']} (collector {pkg.get('collector_version', '?')}, {pkg.get('collector_lang', '?')})")
         add(f"Manifest SHA-256: {pkg.get('manifest_sha256', '-')}")

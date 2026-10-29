@@ -213,7 +213,8 @@ def test_import_chunked_document_links_refresh_chain(tmp_path: Path) -> None:
         assert item["refresh_of"] is not None
 
 
-def test_import_wrong_host_warns_and_keeps_target(tmp_path: Path) -> None:
+def test_import_wrong_host_rejected_atomically(tmp_path: Path) -> None:
+    """M024.1: the warn-and-mix contract is revoked; one case, one computer."""
     first = colmanifest.build_entry("local-1", "service_status", {"a": 1})
     package_a = _make_package(tmp_path, [first], hostname_hash="aa" * 32)
     inv_id = _new_investigation()
@@ -224,6 +225,7 @@ def test_import_wrong_host_warns_and_keeps_target(tmp_path: Path) -> None:
             data={"share_consent": "true"},
         )
     assert first_response.status_code == 200
+    n_evidence = len(first_response.json()["evidence"])
     second = colmanifest.build_entry("local-1", "service_status", {"a": 2})
     package_b = _make_package(tmp_path, [second], hostname_hash="bb" * 32)
     with package_b.open("rb") as handle:
@@ -232,12 +234,12 @@ def test_import_wrong_host_warns_and_keeps_target(tmp_path: Path) -> None:
             files={"file": ("b.zip", handle, "application/zip")},
             data={"share_consent": "true"},
         )
-    assert response.status_code == 200
-    body = response.json()
+    assert response.status_code == 409
+    assert "one case holds one computer" in response.json()["detail"]
+    body = client.get(f"/api/investigations/{inv_id}").json()
     assert body["target_identity"]["hostname_hash"] == "aa" * 32
-    assert len(body["collector_packages"]) == 2
-    assert any("differs from this case's target" in w for w in body["warnings"])
-
+    assert len(body["collector_packages"]) == 1
+    assert len(body["evidence"]) == n_evidence
 
 def test_import_rejects_oversize_unchunked_entry(tmp_path: Path) -> None:
     manifest = colmanifest.build_manifest(

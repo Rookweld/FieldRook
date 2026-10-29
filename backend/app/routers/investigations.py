@@ -13,6 +13,7 @@ from ..analysis.loop import (
     MAX_TOOL_CALLS,
     affected_cause_titles,
     build_investigation_messages,
+    HOST_MEASUREMENT_TOOLS,
     reference_excerpts_for,
     run_rounds,
 )
@@ -265,6 +266,29 @@ async def reverify_evidence(
             detail=(
                 f"Evidence {old.id} ({old.category}) has no re-runnable tool provenance "
                 "(screenshots and legacy items cannot be re-collected)."
+            ),
+        )
+    # M024.1: target isolation at the authorization boundary. Imported
+    # collector evidence describes another computer: re-running its tool
+    # refs on this host would silently substitute wrong-computer data.
+    if (old.source or "").startswith("collector:"):
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                f"Evidence {old.id} was imported from a collector package and cannot be "
+                "re-measured from this host. Import a fresh package from the affected "
+                "computer to compare readings."
+            ),
+        )
+    # Non-local cases must never trigger host measurements — including
+    # historical local readings after the target changed. Static
+    # computations outside HOST_MEASUREMENT_TOOLS stay available.
+    if (state.target or "local") != "local" and old.tool_name in HOST_MEASUREMENT_TOOLS:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"Case target is {state.target!r}; host tool '{old.tool_name}' cannot be "
+                "re-run for another computer. Collect on the affected machine instead."
             ),
         )
     if state.tool_calls_made >= MAX_TOOL_CALLS:

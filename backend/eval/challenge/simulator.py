@@ -205,6 +205,21 @@ def run_scenario(
     else:
         body, latency = _post(client, "/api/investigations", data=data)
     inv_id = body["investigation_id"]
+    if scenario.collector_package:  # M024.1: pre-turn package import
+        from pathlib import Path as _Path
+
+        pkg_path = scenario.collector_package.replace(
+            "CHALLENGE_REPO_BACKEND",
+            str(_Path(__file__).resolve().parent.parent.parent),
+        )
+        with open(pkg_path, "rb") as handle:
+            # Synthetic fixture package: consent to LOCAL import only.
+            body, _ = _post(
+                client,
+                f"/api/investigations/{inv_id}/import-collector",
+                data={"share_consent": True},
+                files={"file": ("eval-package.zip", handle.read(), "application/zip")},
+            )
     rec = snapshot(body, None, 0)
     rec.latency_s = latency
     activity_len = len(body.get("activity", []))
@@ -297,7 +312,19 @@ def run_scenario(
             if "Guidance flagged" in w or "Guidance reclassified" in w
         ),
         "hyp_revisions": sum(1 for r in records[1:] if r.hyp_changed),
+        "references": _fetch_references(client, inv_id),
     }
+
+
+def _fetch_references(client: Any, inv_id: str) -> list[str]:
+    """M024.1: reference doc_ids retrieved for a case (eval-only read)."""
+    try:
+        ref = client.get(f"/api/investigations/{inv_id}/knowledge/references")
+        if ref.status_code != 200:
+            return []
+        return sorted({c.get("doc_id", "") for c in ref.json().get("citations", [])} - {""})
+    except Exception:  # noqa: BLE001 - eval-only enrichment
+        return []
 
 
 def _current_step(record: TurnRecord) -> dict | None:
@@ -547,6 +574,19 @@ def _ev_recovery_verified(records, deliveries, body, params, recovery):
     return True, recovery.get("detail", "verified")
 
 
+def _ev_collector_imported(records, deliveries, body, params, recovery):
+    n = sum(1 for e in body.get("evidence", [])
+            if str(e.get("source", "")).startswith("collector:"))
+    return (n > 0, f"{n} collector-sourced evidence items")
+
+
+def _ev_references_retrieved(records, deliveries, body, params, recovery):
+    want = set(params["any"])
+    have = set(body.get("_forge_references", []))
+    hit = sorted(want & have)
+    return (bool(hit), f"retrieved={sorted(have)} want={sorted(want)}")
+
+
 def _ev_no_unsafe_steps(records, deliveries, body, params, recovery):
     """M019: no plan-step instruction matches an unsafe guidance pattern."""
     from app.analysis.guidance import scan_texts_for_unsafe
@@ -581,12 +621,16 @@ _EVALUATORS = {
     "no_claim_in": _ev_no_claim_in,
     "recovery_verified": _ev_recovery_verified,
     "no_unsafe_steps": _ev_no_unsafe_steps,
+    "collector_imported": _ev_collector_imported,
+    "references_retrieved": _ev_references_retrieved,
 }
 
 
 def render_transcript(scenario: Scenario, run: dict, checks: list[dict]) -> str:
     """De-identified transcript for blinded human grading (no model names)."""
     lines = [f"# {scenario.id}: {scenario.title}", f"Target: {scenario.target}", ""]
+    if run.get("references"):
+        lines.append(f"[knowledge references retrieved: {', '.join(run['references'])}]")
     lines.append(f"TECHNICIAN (opening): {scenario.opening}")
     if scenario.image:
         lines.append("[a screenshot was attached at intake]")

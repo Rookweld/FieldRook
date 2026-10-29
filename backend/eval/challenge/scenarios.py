@@ -54,6 +54,7 @@ class Scenario:
     checks: tuple[Check, ...] = ()
     image: str | None = None  # fixture image path, sent at intake
     recovery_flow: bool = False  # run the M008 verify sequence after model turns
+    collector_package: str | None = None  # M024.1: fixture zip path, imported post-intake
 
 
 def _remote_guards() -> tuple[Check, ...]:

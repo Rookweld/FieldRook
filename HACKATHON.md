@@ -38,6 +38,12 @@ timestamps preserved; history has not been rewritten):
 | `acb334c` | 2026-10-28 | feat(fieldrook): milestone 016 the real technician |
 | `f8636ca` | 2026-10-28 | feat(fieldrook): milestone 017 lightweight local intelligence |
 | `bcb80ef` | 2026-10-28 | feat(fieldrook): milestone 018 unknown problem challenge |
+| `9284952` | 2026-10-28 | feat(fieldrook): milestone 019 technician loop |
+| `0610d16` | 2026-10-28 | feat(fieldrook): milestone 020 collector foundation (forge checkpoint) |
+| `69238e1` | 2026-10-28 | feat(fieldrook): milestone 021 diagnostic expansion (forge checkpoint) |
+| `dc22992` | 2026-10-28 | feat(fieldrook): milestone 022 knowledge-backed investigation (forge checkpoint) |
+| `17b632c` | 2026-10-28 | feat(fieldrook): milestone 023 unified workstation (forge checkpoint) |
+| `f6a52cf` | 2026-10-28 | feat(fieldrook): milestone 024 validation and distribution (forge checkpoint) |
 
 Milestone 001 (first diagnosis slice), Milestone 002 (natural-language
 intake, screenshot understanding, tool-calling investigations, follow-ups),
@@ -70,8 +76,8 @@ guide and acceptance checklist, 47-case gauntlet re-measured), and Milestone 012
 UX overhaul: Findings / Evidence / Resolve views, three-second result
 header, readable evidence summaries, summary-first evidence preview,
 honest pending states, error boundary, token design system, 21-test
-Playwright suite) were all
-designed and implemented during the event.
+Playwright suite), Milestones 013-019, and FORGE checkpoints
+M020-M024 were all designed and implemented during the event (see the table; M024.1 hardening is recorded in the commit history and `docs/FORGE_LEDGER.md`).
 
 ## Meta Muse Spark integration
 

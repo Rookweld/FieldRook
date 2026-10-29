@@ -848,6 +848,7 @@ export function ProblemWorkstation({
                 onReverify={(id) => void reverify(id)}
                 reverifyingId={reverifyingId}
                 reverifyDisabled={busy !== null}
+                target={investigation.target}
               />
               <RefreshPanel refreshes={investigation.refreshes} onEvidenceClick={setSelectedEvidence} />
               <Timeline activity={investigation.activity} onEvidenceClick={setSelectedEvidence} />
