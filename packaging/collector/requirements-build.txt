@@ -1,0 +1,4 @@
+# M025 ALPHA: pinned freezer toolchain for FieldRook-Collector.exe.
+# Single source of the PyInstaller pin; Build-Collector.ps1 reads this file
+# (override with -PyInstallerVersion only for experiments, never releases).
+PyInstaller==6.22.3
