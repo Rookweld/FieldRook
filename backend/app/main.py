@@ -183,10 +183,54 @@ def read_instance_lock() -> dict[str, Any] | None:
     return data if isinstance(data, dict) else None
 
 
+# Minimal Win32 probe rights: SYNCHRONIZE | PROCESS_QUERY_LIMITED_INFORMATION.
+# SYNCHRONIZE lets WaitForSingleObject test the process; QUERY_LIMITED is the
+# least privilege that still opens most processes. Kept module-level so tests
+# can mirror the exact mask.
+_WINDOWS_PROBE_ACCESS = 0x00100000 | 0x1000
+_WINDOWS_ERROR_ACCESS_DENIED = 5
+_WINDOWS_WAIT_TIMEOUT = 0x102
+
+
+def _windows_pid_is_alive(pid: int) -> bool:
+    """Non-signaling liveness probe for Windows (never calls os.kill).
+
+    CPython routes ``os.kill(pid, 0)`` through GenerateConsoleCtrlEvent,
+    SIGINTing every process sharing the console. OpenProcess + a zero-timeout
+    wait observes without signaling.
+    """
+    import ctypes
+    from ctypes import wintypes
+
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    kernel32.OpenProcess.restype = wintypes.HANDLE
+    kernel32.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+    kernel32.WaitForSingleObject.restype = wintypes.DWORD
+    kernel32.WaitForSingleObject.argtypes = [wintypes.HANDLE, wintypes.DWORD]
+    kernel32.CloseHandle.restype = wintypes.BOOL
+    kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
+    kernel32.GetLastError.restype = wintypes.DWORD
+    kernel32.GetLastError.argtypes = []
+    handle = kernel32.OpenProcess(_WINDOWS_PROBE_ACCESS, False, pid)
+    if not handle:
+        # Access-denied proves the PID exists (a live process we may not
+        # open); any other failure (invalid PID, no such process) is dead.
+        return bool(kernel32.GetLastError() == _WINDOWS_ERROR_ACCESS_DENIED)
+    try:
+        waited = kernel32.WaitForSingleObject(handle, 0)
+        if waited == _WINDOWS_WAIT_TIMEOUT:
+            return True
+        return False  # signaled (exited); WAIT_FAILED also reads dead
+    finally:
+        kernel32.CloseHandle(handle)
+
+
 def pid_is_alive(pid: object) -> bool:
     """True when pid names a live process (portable existence check)."""
     if not isinstance(pid, int) or isinstance(pid, bool) or pid <= 0:
         return False
+    if os.name == "nt":
+        return _windows_pid_is_alive(pid)
     try:
         os.kill(pid, 0)
     except PermissionError:
