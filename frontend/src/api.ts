@@ -521,3 +521,55 @@ export function executeProposal(
     },
   );
 }
+
+/* ------------------------------------------------------------------ */
+/* M026 GAMMA extensions (append-only). No existing signature above is  */
+/* modified: every export below is NEW. Views built by BETA consume     */
+/* these through frontend/src/signalforge/hooks/**.                    */
+/* ------------------------------------------------------------------ */
+
+export type ExportFormat = "markdown" | "json";
+
+/** Status plus the M025 Z1 desktop-identity field the backend returns. */
+export type DesktopStatusResponse = StatusResponse & { runtime: string };
+
+export function getDesktopStatus(): Promise<DesktopStatusResponse> {
+  return request<DesktopStatusResponse>("/api/status");
+}
+
+export function investigationExportUrl(id: string, format: ExportFormat): string {
+  return `/api/investigations/${encodeURIComponent(id)}/export?format=${format}`;
+}
+
+async function requestText(path: string, init?: RequestInit): Promise<string> {
+  let res: Response;
+  try {
+    res = await fetch(path, init);
+  } catch (e) {
+    throw new ApiError(0, e instanceof Error ? `Network error: ${e.message}` : "Network error");
+  }
+  if (!res.ok) {
+    let detail = res.statusText;
+    try {
+      const body = (await res.json()) as { detail?: unknown };
+      if (typeof body.detail === "string") detail = body.detail;
+    } catch {
+      /* error body is not JSON; keep statusText */
+    }
+    throw new ApiError(res.status, detail);
+  }
+  return res.text();
+}
+
+/** Fetch the report body as text (for the desktop save dialog path). */
+export function fetchInvestigationExport(id: string, format: ExportFormat): Promise<string> {
+  return requestText(investigationExportUrl(id, format));
+}
+
+/** Fetch a knowledge entry export as text (for the desktop save path). */
+export function fetchKnowledgeExport(
+  entryId: string,
+  format: ExportFormat,
+): Promise<string> {
+  return requestText(knowledgeExportUrl(entryId, format));
+}
