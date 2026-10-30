@@ -393,6 +393,8 @@
 
 .sf-rail-toggle {
   display: none;
+  position: relative;
+  z-index: 41; /* stay clickable above the open overlay rail */
   align-self: flex-end;
   margin: 10px 16px 0;
   border: 1px solid var(--line);
