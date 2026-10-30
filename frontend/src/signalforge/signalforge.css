@@ -69,7 +69,10 @@
 .app.sf-app {
   position: relative;
   max-width: 1560px;
-  min-height: min(920px, calc(100vh - 52px));
+  /* Definite height: fr tracks need it, otherwise the middle row grows
+     with content and the status bar sinks below the fold. */
+  height: min(920px, calc(100vh - 52px));
+  min-height: 0; /* beat legacy .app min-height:100vh so height rules */
   margin: auto;
   background: linear-gradient(
     135deg,
@@ -210,6 +213,14 @@
 .sf-body {
   display: grid;
   grid-template-columns: 202px minmax(0, 1fr) 294px;
+  min-height: 0;
+}
+
+/* Grid items must shrink below content height so the middle row keeps
+   its 1fr size and the main column scrolls internally. */
+.sf-nav,
+.sf-main,
+.sf-rail {
   min-height: 0;
 }
 
@@ -396,6 +407,13 @@
 
 .sf-rail-toggle:hover {
   border-color: var(--coral);
+}
+
+/* First-run guide sits above the active view as a sibling card. */
+.sf-main > .firstrun,
+.sf-main > .firstrun-reopen {
+  margin: 18px 24px 0;
+  flex-shrink: 0;
 }
 
 /* ---------- Evidence rail ---------- */
@@ -774,6 +792,13 @@
   color: var(--offwhite);
 }
 
+/* Short viewports (e.g. 1280x720): keep the frame inside the stage. */
+@media (max-height: 760px) {
+  .app.sf-app {
+    grid-template-rows: 52px minmax(400px, 1fr) 43px;
+  }
+}
+
 /* ---------- Responsive: rail collapses first ---------- */
 
 @media (max-width: 1400px) {
@@ -855,6 +880,7 @@
 @media (max-width: 700px) {
   .app.sf-app {
     grid-template-rows: 52px 1fr 43px;
+    height: auto;
     min-height: calc(100vh - 24px);
   }
 

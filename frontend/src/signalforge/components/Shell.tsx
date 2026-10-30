@@ -90,7 +90,7 @@ function ribbonText(view: SignalView, hasCase: boolean): string {
   }
 }
 
-export function EvidenceRail({ investigation, onGoEvidence, onGoWorkbench }: EvidenceRailProps) {
+export function EvidenceRail({ view, investigation, onGoEvidence, onGoWorkbench }: EvidenceRailProps) {
   const evidence = investigation?.evidence ?? [];
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const effectiveId = selectedId ?? evidence[0]?.id ?? null;
@@ -172,21 +172,25 @@ export function EvidenceRail({ investigation, onGoEvidence, onGoWorkbench }: Evi
             ) : (
               <p>Record held; open the full evidence view for raw detail.</p>
             )}
-            <p>
-              <button type="button" className="sf-btn sf-btn-dark sf-btn-sm" onClick={onGoEvidence}>
-                Full evidence view ↗
-              </button>
-            </p>
+            {view !== "evidence" && (
+              <p>
+                <button type="button" className="sf-btn sf-btn-dark sf-btn-sm" onClick={onGoEvidence}>
+                  Full evidence view ↗
+                </button>
+              </p>
+            )}
           </>
         ) : (
           <>
             <div className="sf-badge-line">NO RECORD SELECTED</div>
             <h4>Nothing to inspect</h4>
-            <p>
-              <button type="button" className="sf-btn sf-btn-dark sf-btn-sm" onClick={onGoWorkbench}>
-                Go to Workbench ↗
-              </button>
-            </p>
+            {view !== "workbench" && (
+              <p>
+                <button type="button" className="sf-btn sf-btn-dark sf-btn-sm" onClick={onGoWorkbench}>
+                  Go to Workbench ↗
+                </button>
+              </p>
+            )}
           </>
         )}
       </div>
@@ -226,12 +230,12 @@ export function SignalFrame({
 
   return (
     <div className="sf-stage">
-      {/* DELTA mounts the CircuitVeins ambient background here. */}
+      <a className="sf-skip" href="#sf-main">
+        Skip to main content
+      </a>
+      {/* DELTA mounts the CircuitVeins ambient background here (stage-level, like the prototype). */}
       <div className="sf-veins-slot" data-motion-slot="circuit-veins" aria-hidden="true" />
       <div className="app sf-app">
-        <a className="sf-skip" href="#sf-main">
-          Skip to main content
-        </a>
         <header className="sf-topbar">
           <div className="sf-mark" aria-hidden="true">
             R
@@ -263,6 +267,7 @@ export function SignalFrame({
                   key={item.view}
                   type="button"
                   className={view === item.view ? "sf-navbtn sf-active" : "sf-navbtn"}
+                  aria-label={item.label}
                   aria-current={view === item.view ? "page" : undefined}
                   onClick={() => onNavigate(item.view)}
                 >
@@ -314,6 +319,7 @@ export function SignalFrame({
             aria-label="Evidence and signal inspector"
           >
             <EvidenceRail
+              view={view}
               investigation={investigation}
               onGoEvidence={onGoEvidence}
               onGoWorkbench={onGoWorkbench}

@@ -3,7 +3,9 @@
 
 .sf-hero {
   position: relative;
-  flex: 0 0 285px;
+  /* Grows with long problem statements; details flow below the headline. */
+  flex: 0 0 auto;
+  min-height: 285px;
   overflow: hidden;
   background: radial-gradient(
     circle at 85% 35%,
@@ -84,9 +86,9 @@
 .sf-hero-details {
   display: flex;
   gap: 14px;
-  position: absolute;
+  position: relative;
   z-index: 3;
-  bottom: 18px;
+  margin-top: 18px;
   font-size: 10px;
   font-weight: 750;
   color: var(--peach);

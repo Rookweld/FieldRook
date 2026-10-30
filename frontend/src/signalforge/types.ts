@@ -57,6 +57,7 @@ export type SettingsViewProps = {
 };
 
 export type EvidenceRailProps = {
+  view: SignalView;
   investigation: InvestigationResponse | null;
   onGoEvidence: () => void;
   onGoWorkbench: () => void;
