@@ -366,8 +366,11 @@ body[data-motion="quiet"] .sf-signal-dot {
 /* ---------- off mode: kill all decor, static fallbacks ---------- */
 
 body[data-motion="off"] .sf-motion-decor,
+body[data-motion="off"] .sf-motion-decor *,
 body[data-motion="off"] .sf-motion-decor::before,
-body[data-motion="off"] .sf-motion-decor::after {
+body[data-motion="off"] .sf-motion-decor::after,
+body[data-motion="off"] .sf-motion-decor *::before,
+body[data-motion="off"] .sf-motion-decor *::after {
   animation: none;
   transition: none;
 }
@@ -446,8 +449,11 @@ body[data-focus="work"] .sf-signal-dot {
 
 @media (prefers-reduced-motion: reduce) {
   body:not([data-motion]) .sf-motion-decor,
+  body:not([data-motion]) .sf-motion-decor *,
   body:not([data-motion]) .sf-motion-decor::before,
-  body:not([data-motion]) .sf-motion-decor::after {
+  body:not([data-motion]) .sf-motion-decor::after,
+  body:not([data-motion]) .sf-motion-decor *::before,
+  body:not([data-motion]) .sf-motion-decor *::after {
     animation: none;
     transition: none;
   }
