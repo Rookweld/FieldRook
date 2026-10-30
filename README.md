@@ -1,275 +1,232 @@
 <div align="center">
 
-# 🐦‍⬛ FieldRook
-### Diagnose. Verify. Resolve.
+# FIELDROOK
 
-**Evidence-driven AI troubleshooting for Windows technicians.**
+### DIAGNOSE. VERIFY. RESOLVE.
 
-Turn a reported symptom into an investigation with traceable evidence, technician-controlled recovery, and independently verified outcomes.
+**LESS GUESSING. MORE EVIDENCE.**
 
-[![CI](https://github.com/Rookweld/FieldRook/actions/workflows/validate.yml/badge.svg)](https://github.com/Rookweld/FieldRook/actions/workflows/validate.yml)
-[![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](LICENSE)
-![Meta AI Hackathon 2026](https://img.shields.io/badge/Meta_AI_Hackathon-2026-orange)
+**A native Windows diagnostic workstation for technicians who want evidence, not guesswork.**
 
-**[Quickstart](#quickstart) · [Demo walkthrough](docs/demo/DEMO_SCRIPT.md) · [How it works](#how-it-works) · [Safety](#safety)**
+Built by **[ROOKWELD](https://rookweld.com)** · Open source · Designed for real investigations
 
-![FieldRook technician workstation](docs/assets/fieldrook-m014-landing.png)
+[![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-725070?style=flat-square)](LICENSE)
+![Platform: Windows](https://img.shields.io/badge/Platform-Windows%2010%2F11-ef725e?style=flat-square)
+![Release candidate: v0.5.0](https://img.shields.io/badge/Release%20candidate-v0.5.0-ccf46a?style=flat-square)
+![Local-first](https://img.shields.io/badge/Approach-Local--first-75465d?style=flat-square)
+
+[**See the workstation**](#the-workstation) · [**How it works**](#from-symptom-to-evidence) · [**Get started**](#get-started) · [**Safety**](#safety-is-part-of-the-product) · [**What comes next**](#whats-next-the-field-kit)
+
+![FieldRook 0.5.0 native Windows Launchpad](docs/assets/m026/launchpad-native.png)
+
+**An actual WPF + WebView2 Windows application. Not a browser tab.**
 
 </div>
 
-## Why FieldRook?
+---
 
-IT diagnosis often means switching between service managers, Windows event logs, scheduled tasks, network tools, and documentation. FieldRook brings the investigation into one local-first workstation. **Meta Muse Spark chooses from bounded diagnostic tools; FieldRook collects evidence and enforces the safety boundary.** The model does not get unrestricted shell access or final authority over whether a fix worked.
+## Built for the moment when "it's not working" is all you have
 
-| Investigate | Understand | Resolve |
-| :-- | :-- | :-- |
-| Describe symptoms, optionally provide a screenshot. | Inspect real tool activity, evidence IDs, and clearly labeled uncertainty. | Review a proposed action, approve explicitly, and compare independent before/after checks. |
+FieldRook turns an unfamiliar Windows problem into a structured investigation. It helps a technician capture observations, run bounded diagnostics, examine traceable evidence, test competing explanations, and record whether a resolution was *actually verified*.
 
-### A real investigation, not a mockup
+The AI is an assistant to the technician—not an unrestricted shell, a source of invented facts, or an authority that can silently declare a machine fixed.
 
-The example below uses a **clearly labeled synthetic fixture** based on a real class of recurring PowerShell-window issues. It is not a claim that the same issue is currently active.
+<table>
+<tr><th>Investigate</th><th>Understand</th><th>Verify</th></tr>
+<tr>
+<td>Describe the issue and select the affected computer.</td>
+<td>Inspect observations, provenance, hypotheses, and the next useful question.</td>
+<td>Record what changed, distinguish claims from measurements, and export the case.</td>
+</tr>
+</table>
 
-![FieldRook investigation findings](docs/assets/fieldrook-m015-investigation.png)
+## The workstation
+
+### A real desktop app, with a distinct identity
+
+FieldRook 0.5.0 introduces **SIGNALFORGE**: a retro-futuristic instrument-inspired interface, with deep plum surfaces, coral highlights, selective acid-lime signals, and restrained circuit-trace motion.
+
+Its new **native WPF shell** embeds the existing React workstation through WebView2 and manages the packaged local FastAPI server. The usual experience is one Windows window, not a manually launched backend plus a browser tab.
+
+![FieldRook active investigation workbench](docs/assets/m026/workbench-case.png)
+
+*The SIGNALFORGE Workbench — actual FieldRook 0.5.0 UI capture, not concept art.*
 
 <details>
-<summary>View evidence-backed diagnosis screenshot</summary>
+<summary><strong>More real application screenshots — evidence, import, and motion settings</strong></summary>
 
-![FieldRook evidence-backed assessment](docs/assets/fieldrook-m015-evidence.png)
+#### Examine evidence
+
+![FieldRook evidence interface](docs/assets/m026/evidence.png)
+
+#### Import a Collector package
+
+![FieldRook Collector import](docs/assets/m026/import.png)
+
+#### Tune the living interface
+
+![FieldRook motion preferences](docs/assets/m026/settings-motion.png)
 
 </details>
 
-## How it works
+### Watch the investigation flow
+
+**[Watch the FieldRook 0.5.0 UI journey (WebM)](docs/assets/m026/demo-journey.webm)**
+
+> **Capture note:** This video records the production React UI in Chromium, using the same frontend build hosted by the native shell. It is not footage of the sealed WPF/WebView2 window. The screenshots above include actual application captures.
+
+The background motion is deliberately subtle. The interface offers **Alive**, **Quiet**, and **Off** preferences and supports reduced-motion behavior. Decorative activity is not presented as a real hardware measurement.
+
+## From symptom to evidence
 
 ```text
-Technician reports symptoms
-          |
-          v
-Meta Muse Spark plans and requests approved diagnostic tools
-          |
-          v
-Read-only Windows collectors -> timestamped evidence -> cited hypotheses
-          |
-          v
-Optional registered corrective action -> explicit technician approval
-          |
-          v
-Constrained execution -> fresh independent health check -> incident report
+Technician describes an issue
+          │
+          ▼
+Choose target: this PC / another PC / not yet known
+          │
+          ▼
+Run approved local diagnostics or import a Collector package
+          │
+          ▼
+Timestamped evidence + provenance + visible uncertainty
+          │
+          ▼
+Review hypotheses and the next useful check
+          │
+          ▼
+Technician observes, confirms, or supplies new evidence
+          │
+          ▼
+Document outcomes and export a case report
 ```
 
-**Built during the Meta Global AI Developer Hackathon 2026.** See [HACKATHON.md](HACKATHON.md) for the development timeline and [technical highlights](docs/demo/TECHNICAL_HIGHLIGHTS.md) for the implementation boundaries. The only corrective action currently supported targets FieldRook's own demo worker; real Windows diagnostics are read-only.
+### What works today
 
+| Capability | What it does |
+| :--- | :--- |
+| **Native Windows workstation** | Opens in its own WPF/WebView2 window with the SIGNALFORGE interface. |
+| **Guided investigations** | Keeps the problem, current questions, evidence, and investigation history together. |
+| **Windows diagnostics** | Uses registered, bounded diagnostics with explicit target and tool boundaries. |
+| **Portable Collector** | Gathers read-only evidence on a Windows computer and exports a versioned, hash-verified ZIP for import. |
+| **Evidence and provenance** | Shows where observations came from and distinguishes collected measurements from user reports and model interpretations. |
+| **Knowledge support** | Retrieves relevant technical references as quoted context with citations; irrelevant matches are filtered conservatively. |
+| **AI provider choice** | Supports optional local-model inference and configured cloud inference; simulated operation remains labeled. |
+| **Technician-controlled actions** | Keeps proposals, approvals, execution, and verification separate. The only implemented corrective execution targets FieldRook's own demo worker. |
+| **Case persistence and export** | Reopen investigations and produce technician-readable case reports. |
+| **Motion preferences** | Tune the ambient UI between Alive, Quiet, and Off. |
 
-## What is available today?
+**Important:** An imported Collector package does *not* give FieldRook remote command execution. Host-local measurements cannot be silently substituted for a different machine, and a remote reading cannot be rechecked against the operator's own PC.
 
-- **Investigate:** describe a symptom and collect targeted read-only Windows diagnostics for applications, services, events, network, processes and scheduled tasks.
-- **Findings:** read the investigation story — key observations, what remains unknown, what was checked — then the cited diagnosis, uncertainties, and historical matches.
-- **Evidence:** inspect category-specific visual diagnostics (services, network, crashes, event logs, tasks) with provenance and warnings; raw JSON stays one click away; re-check any reading without losing history.
-- **Resolve:** prepare measurable repair plans, require explicit technician approval for registered actions, then independently check the outcome. Only the application-owned demo worker has an implemented corrective action.
-- **Remember:** reopen investigations, add technician notes, and compare them with previously saved resolutions (no automatic reuse of old fixes).
-- **Collect (FORGE):** run the Python-based collector on the affected computer (needs a Python interpreter there; stdlib-only, no third-party packages) and import its versioned, hash-verified package as cited evidence — no host measurements are ever substituted for another machine.
-- **Consult (FORGE):** matched technical references appear as quoted, display-only excerpts beside the evidence; turns receive the same excerpts as quoted context, never as instructions.
-- **Workstation (FORGE):** one workspace above the Guide/Findings/Evidence/Resolve views — what is happening, what was discovered, what is next, and one contextual respond dock.
+## The portable Collector
 
-**Current stage:** FORGE checkpoints M020-M024 on `forge/integration` (collector foundation, diagnostic expansion, knowledge-backed turns, unified workstation, validation and distribution, plus M024.1 target-isolation hardening and M024.2 knowledge relevance gating), built on the M019 technician loop. One technician interaction now costs one model decision (~4.7x fewer calls than M018 with blind-challenge scores of 127/142 vs M018's 132/142 (within observed run-to-run spread, not a proven hold; see the M019 report) and 48/53 on 6 unseen held-out cases): better scoping questions with a real lifecycle, a current-focus Guide, a 6-tier manual-guidance safety filter, mid-flight cancel, and placement-verified CPU profiles that honestly report the interactivity gap — see the [M019 report](backend/eval/challenge/REPORT_M019.md), the [technician-loop demo](docs/assets/fieldrook-m019-tour.webm), the [provider guide](docs/PROVIDERS.md), and the [M018 challenge report](backend/eval/challenge/REPORT_M018.md). Backend behavior is unchanged since the M011 live pilot except the M018 evidence sweep for local targets: nine genuine Windows/live-model operations with valid evidence references, plus the fixture-based [gauntlet report](backend/eval/REPORT.md). See the [first-run guide](docs/FIRST_RUN.md), [manual acceptance checklist](docs/ACCEPTANCE.md), and [full milestone log](HACKATHON.md).
+The Collector is a separate Windows executable. It is designed to run on an affected computer without requiring a Python installation, gather selected read-only diagnostics with consent, and create a package that FieldRook can validate and import.
 
-![FieldRook Guide leading with one current question](docs/assets/fieldrook-m019-guide-focus.png)
-
-<details>
-<summary>View Findings, Evidence and Resolve screenshots</summary>
-
-![FieldRook findings view](docs/assets/fieldrook-m016-findings.png)
-
-![FieldRook evidence view](docs/assets/fieldrook-m015-evidence-service.png)
-
-![FieldRook resolve view](docs/assets/fieldrook-m015-resolve.png)
-
-![FORGE workstation with reference citations](docs/assets/fieldrook-forge-citations.png)
-
-![FORGE collector import joining the evidence](docs/assets/fieldrook-forge-import.png)
-
-</details>
-
-> **Operator note:** when updating the source while a local backend is still running, restart the Python API server too. An older backend process may return an incompatible response to a newer frontend. The UI now surfaces this mismatch instead of crashing.
-
-
-## Layout
-
-- `backend/` — Python + FastAPI: strict tool registry (services, event logs,
-  application crashes, processes, OS, network, scheduled tasks, demo-worker
-  health, error codes — all read-only except one bounded active DNS test),
-  Meta tool-calling loop with symptom triage, corrective-action subsystem
-  (`app/actions/`: registry, policies, approval, executor, verification,
-  audit), SQLite persistence, incident export, pytest suite.
-- `backend/eval/` — the diagnostic gauntlet: 47 reproducible cases plus the
-  evaluation report (`REPORT.md`).
-- `demo_worker/` — application-owned background process with a heartbeat health
-  check plus a failure simulator for the controlled-fix demonstration.
-- `frontend/` — React + TypeScript + Vite: problem workstation (preset
-  templates, intake, result header with one next action, Findings / Evidence
-  / Resolve views, evidence summaries with on-demand JSON, runbook assessment,
-  technician notes, follow-ups), Action Center (approve/reject, before/after,
-  executions), incident history with export, plus the original Milestone 001
-  service lookup tab. Playwright e2e suite under `frontend/tests/e2e/`.
-- `scripts/demo/` — demo operations: preflight, worker start, failure
-  injection, health checks, and reset (no admin rights needed).
-- `docs/demo/` — three-minute demo script, demo-day checklist, technical
-  highlights, and judging notes.
-- `docs/TOOLS.md` — diagnostic tool reference (14 tools, schemas, bounds).
-
-## Prerequisites
-
-- Windows 10/11 with PowerShell (live diagnostics; fixtures work anywhere)
-- Python 3.12+
-- Node.js 20+ with pnpm (recommended) or npm
-
-## Quickstart
-
-### 1. Backend
-
-```powershell
-cd C:\dev\FieldRook\backend
-python -m venv .venv
-.\.venv\Scripts\python -m pip install -r requirements.txt
-Copy-Item ..\.env.example ..\.env   # optional; set MODEL_API_KEY for live model calls
-.\.venv\Scripts\python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+```text
+Affected Windows PC                           Technician's FieldRook
+┌─────────────────────┐                        ┌─────────────────────┐
+│ FieldRook Collector │─── evidence ZIP ────▶ │  Import + validate  │
+│  read-only capture  │                        │  investigate        │
+└─────────────────────┘                        └─────────────────────┘
 ```
 
-### 2. Frontend
+Collection is not silently uploaded. Some elevated collection categories have not yet been validated in the release candidate; permissions and unavailable measurements must be reported honestly.
 
-```powershell
-cd C:\dev\FieldRook\frontend
-pnpm install
-pnpm run dev
-```
+## Get started
 
-(`npm install` / `npm run dev` are an alternative if you prefer npm.)
+### Windows desktop release candidate · v0.5.0
 
-Open <http://localhost:5173>. The Vite dev server proxies `/api` to the backend.
+The native Desktop and portable Collector have been packaged and validated on the development machine. **A public binary download has not been published yet.** Until a release is explicitly published, do not treat a local build path or this README as an installer download.
 
-### 3. Demo operations (Scenario B)
+Once a release artifact is available:
 
-```powershell
-cd C:\dev\FieldRook
-powershell -ExecutionPolicy Bypass -File scripts/demo/preflight.ps1     # readiness
-powershell -ExecutionPolicy Bypass -File scripts/demo/start-worker.ps1  # healthy worker
-powershell -ExecutionPolicy Bypass -File scripts/demo/inject-failure.ps1 # inject the fault
-powershell -ExecutionPolicy Bypass -File scripts/demo/check-health.ps1  # worker + backend
-powershell -ExecutionPolicy Bypass -File scripts/demo/reset-demo.ps1    # healthy again
-```
+1. Extract the complete `FieldRook-0.5.0` distribution. Keep its bundled files together.
+2. Run `FieldRook.exe` to open the native Windows application.
+3. Complete the first-run setup and select the desired inference mode.
+4. Start an investigation or import an existing Collector package.
 
-Set `$env:FIELDROOK_PYTHON` to override the interpreter if the venv lives
-elsewhere. See `docs/demo/DEMO_SCRIPT.md` for the three-minute run.
+**Runtime notes:** Windows and a suitable WebView2 Runtime are required. Builds are currently unsigned, so Windows may display an unverified-publisher warning. No model is bundled by default. Offline investigation and evidence workflows do not depend on a paid cloud model.
 
-### 4. Tests
+For build provenance, validation details, and current limitations, see [M026 delivery notes](docs/M026_DELIVERY.md). For inference setup, see [Provider configuration](docs/PROVIDERS.md).
 
-```powershell
-cd C:\dev\FieldRook\backend
-.\.venv\Scripts\python -m pytest -q
-cd ..\frontend
-pnpm run test:e2e   # Playwright: real backend (fixtures, no key) + real UI
-```
+### Building from source
 
-## Modes
+This repository contains the Python/FastAPI backend, React/TypeScript frontend, native Windows shell, and packaging scripts. Development requires the corresponding build tools; **end users of the packaged Desktop do not need Python or Node.js installed separately**.
 
-- **Diagnostics:** live PowerShell collection on Windows; deterministic fixtures
-  when unavailable, or forced with `FIELDROOK_FIXTURES=always`.
-- **Analysis:** live Meta Model API (`muse-spark-1.3`, tool calling + vision)
-  when `MODEL_API_KEY` is set; otherwise clearly labeled simulated analysis.
-  Simulated output is never presented as a live model call. An optional
-  loopback-only local endpoint (Ollama / llama.cpp) can be selected per
-  investigation; see [docs/PROVIDERS.md](docs/PROVIDERS.md).
+From a Windows development checkout with Python, Node.js/pnpm, and .NET 10 SDK, follow [the desktop build documentation](packaging/desktop/README-SHELL.md) and [the M026 delivery manifest](docs/M026_DELIVERY.md). The native shell and backend are packaged separately, then assembled into the complete distribution. Do not confuse the older browser-based development launcher with the native 0.5.0 application.
 
-## API
+## Safety is part of the product
 
-| Method | Path | Description |
-| ------ | ---- | ----------- |
-| GET | `/api/status` | Backend status, platform, active modes |
-| GET | `/api/tools` | Read-only diagnostic tool registry |
-| GET | `/api/services` | List Windows services (live or fixture) |
-| GET | `/api/services/{name}/diagnostics` | Evidence bundle for one service |
-| POST | `/api/incidents/analyze` | M001 assessment: `{"service_name": "...", "use_fixtures": null}` |
-| POST | `/api/investigations` | Start NL investigation (multipart: `problem`, optional `service_name`, `screenshot` + `share_consent`, `use_fixtures`, `target`, `provider`) |
-| GET | `/api/investigations` | Incident history (persisted, `?limit=`) |
-| GET | `/api/investigations/{id}` | Current investigation state |
-| POST | `/api/investigations/{id}/followup` | Continue: `{"message": "..."}` |
-| POST | `/api/investigations/{id}/notes` | Technician note: `{"text": "..."}` (max 2000 chars, persisted, exported) |
-| POST | `/api/investigations/{id}/turn` | Conversation turn (multipart: `kind`, `text`, optional `question_id`, `screenshot` + `share_consent`) → labeled evidence + reassessment round |
-| POST | `/api/investigations/{id}/plan/steps/{step}/complete` | Record a step outcome: `{"outcome": "..."}`; plan advances, history kept |
-| POST | `/api/investigations/{id}/plan/steps/{step}/impossible` | Mark a step impossible: `{"reason": "..."}`; replans or records BLOCKED |
-| POST | `/api/investigations/{id}/hypotheses/{hyp}/status` | Technician judgment: `{"status": "ruled_out", "reason": "..."}` (never model-overridden) |
-| POST | `/api/investigations/{id}/provider` | Switch inference provider: `{"provider": "local", "confirm_cloud": false}` (cloud switches need confirmation) |
-| POST | `/api/investigations/{id}/target` | Set diagnostic target: `{"target": "remote"}` (local/remote/unknown) |
-| GET | `/api/providers` | Inference providers with capabilities and availability |
-| POST | `/api/investigations/{id}/reverify` | Re-run one observation: `{"evidence_id": "ev-2"}` → new item + `changed/unchanged/unavailable` comparison; history preserved |
-| GET | `/api/plans/template?action_id=...` | Suggested measurable criteria for a registered action |
-| POST | `/api/investigations/{id}/plans` | Draft a resolution plan (evidence, intended state, criteria, remediation) |
-| POST | `/api/plans/{id}/baseline` | Capture pre-fix measurements (rejects unmeasurable criteria) |
-| POST | `/api/plans/{id}/interventions/manual` | Record a manual fix (claim only, never proof) |
-| POST | `/api/plans/{id}/interventions/link-execution` | Link an authorized execution |
-| POST | `/api/plans/{id}/verify` | Confirm Fix: re-measure and grade `VERIFIED_RESOLVED` / `NOT_RESOLVED` / `INCONCLUSIVE` |
-| POST | `/api/investigations/{id}/knowledge` | Remember an incident (redacted snapshot; merges exact repeats) |
-| GET | `/api/knowledge?q=&category=&outcome=` | Search the local library |
-| GET/DELETE | `/api/knowledge/{entry}` | Inspect or delete one entry |
-| GET | `/api/knowledge/{entry}/export?format=` | Export a single entry (no leakage) |
-| GET | `/api/investigations/{id}/knowledge/matches` | Similar incidents with signals + differences |
-| POST | `/api/investigations/{id}/knowledge/{entry}/recheck` | Re-run verified criteria: `CONFIRMED` / `REGRESSION` / `INCONCLUSIVE` |
-| GET | `/api/investigations/{id}/export?format=markdown\|json` | Ticket-ready incident report |
-| POST | `/api/investigations/{id}/proposals` | Propose a registered action (never executes) |
-| POST | `/api/proposals/{id}/approve` | Human approval → single-use token (5 min TTL) |
-| POST | `/api/proposals/{id}/reject` | Human rejection → system left unchanged |
-| POST | `/api/proposals/{id}/execute` | Run approved action: `{"approval_token": "...", "args": {...}}` |
+FieldRook deliberately makes certain operations harder to do by accident.
 
-## Safety
+- **Read-only by default.** Windows diagnostics use registered capabilities and bounded inputs, not arbitrary model-authored PowerShell.
+- **Target-aware evidence.** Collector imports are tied to the affected computer; mismatched identities are not silently mixed.
+- **Human control.** An AI suggestion is not permission to execute it. Corrective actions require explicit approval and a registered execution path.
+- **Measured verification.** An intervention being attempted or reported does not mean the problem was resolved.
+- **Local-first processing.** The packaged service binds to loopback and uses application-owned local storage. Cloud-provider use requires deliberate configuration and consent.
+- **Provenance and privacy.** Collector archives are integrity-checked, and diagnostic data is not automatically transmitted elsewhere.
+- **Separation of fact and inference.** Model explanations and confidence language never replace measured evidence.
 
-Diagnostics are strictly read-only with one labeled exception: services,
-event logs (System/Application), application crashes, processes, OS info,
-network state, scheduled task definitions, demo-worker health, and error
-codes are only ever read through predefined, schema-validated tools
-(bounded budget: 8 initial + 4 per follow-up tool calls, 12 total including re-checks; per-tool
-timeouts; truncated results). `test_dns_resolution` is an explicitly labeled ACTIVE
-TEST (one A/AAAA query, changes nothing). The model can never send
-executable commands, and full process command lines are never collected
-(executable path only).
+Security documentation: [FORGE privacy](docs/FORGE_PRIVACY.md) · [Tool boundaries](docs/TOOLS.md) · [Technical highlights](docs/demo/TECHNICAL_HIGHLIGHTS.md)
 
-The one corrective capability — `recover_demo_worker` on the
-application-owned `demo-worker` — is fenced by: registry-only actions, target
-allowlist, schema-validated arguments, live preconditions, explicit human
-approval (single-use token, 5-minute TTL, exact-argument binding, invalidated
-if the investigation changes), single-flight execution with timeout,
-fenced worker-process verification, independent post-action verification
-(`VERIFIED_RESOLVED` etc., never overridable by the model), localhost binding,
-cross-origin mutation blocking, and a full audit trail persisted in SQLite.
-Rejection leaves the system unchanged. Set `FIELDROOK_ACTIONS_ENABLED=0` to
-disable all corrective actions while keeping diagnostics.
+## Inside FieldRook
 
-No arbitrary shell execution, service control, network resets, registry edits,
-installations, or privilege escalation exist. Screenshots are validated
-(PNG/JPEG, magic bytes, 5MB cap), require explicit sharing consent, are sent to
-the Meta API only with that consent, and are never stored by FieldRook.
-Approval tokens are stored as hashes only; the database and demo state live in
-gitignored local paths (`backend/data/`, `demo_worker/state/`).
+| Layer | Implementation |
+| :--- | :--- |
+| Desktop host | .NET WPF + Microsoft Edge WebView2 |
+| Frontend | React + TypeScript + Vite, SIGNALFORGE design system |
+| Local API and investigation engine | Python + FastAPI |
+| Case persistence | SQLite in per-user application data |
+| Windows evidence | Allowlisted diagnostic toolpacks and portable Collector |
+| Inference | Optional configured local or cloud providers; no unrestricted shell authority |
+| Validation | Pytest, Playwright, .NET tests, diagnostic gauntlet, frozen-app smoke tests |
 
-## Local-only security notice
+FieldRook was developed as part of the **[Meta Global AI Developer Hackathon 2026](https://dev.meta.ai/events/global-hackathon)**. This project is independent; participation is not an endorsement by Meta.
 
-FieldRook binds to localhost (`127.0.0.1:8000` backend, `localhost:5173` UI)
-and rejects cross-origin browser mutations. Do not expose either service to a
-network, do not run the corrective-action endpoints on shared infrastructure,
-and never commit a real `.env` containing `MODEL_API_KEY`.
-## Known limitations
+## Validation and known limits
 
-- One corrective action only (`recover_demo_worker` on the application-owned
-  demo worker); the registry is intentionally minimal.
-- No per-user authentication; localhost binding is the access boundary.
-- Browser end-to-end tests cover key flows via Playwright; live model calls remain separate smoke tests.
-- Large investigation histories can approach the 60s model timeout.
-- Process `ExecutablePath` reads return empty without elevation (graceful
-  degradation, not an error); name-based lookups over many matches
-  (e.g. `svchost.exe`) can take ~15s.
-- Fixture mirrors are per-tool snapshots, not one consistent machine state;
-  live readings are authoritative.
-- Model output is advisory: verification outcomes are computed by backend
-  diagnostics and can never be overridden by the model.
-## License
+For the M026 local release-candidate gate, the delivery report records:
 
-Copyright 2026 ROOKWELD (Pontus Lindh). Licensed under the Apache License,
-Version 2.0 -- see [LICENSE](LICENSE) for the full text.
+| Gate | Reported result |
+| :--- | :--- |
+| Backend | 684 passed, 4 environment-dependent skips |
+| Playwright end-to-end | 47 / 47 passed |
+| .NET tests | 66 / 66 passed |
+| Diagnostic gauntlet | 37 / 37 passed |
+| Native packaged journey | Investigation, Collector import, export, and persistence exercised |
+| Security probes | 11 / 11 passed |
+
+These are **local release-candidate validation results**, not a claim that every user environment, Windows machine, AI provider, or troubleshooting problem has been certified.
+
+**Still to validate:** unsigned-binary reputation and antivirus behavior across vendors; Windows machines without WebView2; multi-machine field trials; upgrade-over-existing installation; selected elevated Collector categories; lower-end CPU-only local-model responsiveness; some performance combinations on other GPUs.
+
+## What's next: The Field Kit
+
+The next major **prototype direction** is a modular, context-aware technician toolbox integrated into the right-hand dock:
+
+**Network Lab · Process Watch · Event Decoder · Evidence Lens · Command Deck · Field Notes**
+
+The separate **Field Kit Lab** is currently an **interactive design prototype**. These six modules are **NOT shipped 0.5.0 features**. The plan is to turn useful concepts into evidence-backed instruments, with bounded diagnostics and clear local-versus-remote behavior.
+
+The most promising concept: **Evidence Lens** — compare two Collector snapshots, highlight meaningful differences, and show which hypotheses deserve another look.
+
+## Project and development history
+
+- [M026 native desktop delivery](docs/M026_DELIVERY.md)
+- [Hackathon build log](HACKATHON.md)
+- [Provider documentation](docs/PROVIDERS.md)
+- [Diagnostic tool reference](docs/TOOLS.md)
+- [Security and privacy](docs/FORGE_PRIVACY.md)
+- [License](LICENSE)
+
+---
+
+<div align="center">
+
+### LESS GUESSING. MORE EVIDENCE.
+
+**FIELDROOK** · **DIAGNOSE. VERIFY. RESOLVE.**
+
+Made at **ROOKWELD** — *FORGE. BUILD. IMAGINE.*
+
+</div>

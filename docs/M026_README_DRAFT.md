@@ -58,7 +58,7 @@ ornamental interface motion is never presented as telemetry.
 
 1. Run the portable `FieldRook-Collector.exe` on the affected machine
    (authorized, read-only categories).
-2. It writes a signed `.zip` package after a consent screen.
+2. It writes a hash-verified `.zip` package after a consent screen.
 3. Import it at intake, mid-investigation, or by dropping it on the app
    window. Validation is atomic: any failure rejects the whole import.
 4. Imported evidence is never executed and never re-measured from

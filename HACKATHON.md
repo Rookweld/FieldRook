@@ -44,6 +44,8 @@ timestamps preserved; history has not been rewritten):
 | `dc22992` | 2026-10-28 | feat(fieldrook): milestone 022 knowledge-backed investigation (forge checkpoint) |
 | `17b632c` | 2026-10-28 | feat(fieldrook): milestone 023 unified workstation (forge checkpoint) |
 | `f6a52cf` | 2026-10-28 | feat(fieldrook): milestone 024 validation and distribution (forge checkpoint) |
+| `8870d19` | 2026-10-30 | M025 field kit: standalone Desktop + portable Collector release candidate |
+| `e185200` | 2026-10-30 | M026 native desktop (WPF/WebView2), SIGNALFORGE redesign, motion system |
 
 Milestone 001 (first diagnosis slice), Milestone 002 (natural-language
 intake, screenshot understanding, tool-calling investigations, follow-ups),
@@ -77,7 +79,7 @@ UX overhaul: Findings / Evidence / Resolve views, three-second result
 header, readable evidence summaries, summary-first evidence preview,
 honest pending states, error boundary, token design system, 21-test
 Playwright suite), Milestones 013-019, and FORGE checkpoints
-M020-M024 were all designed and implemented during the event (see the table; M024.1 hardening is recorded in the commit history and `docs/FORGE_LEDGER.md`).
+M020-M024 were all designed and implemented during the event (see the table; M024.1 hardening is recorded in the commit history and `docs/FORGE_LEDGER.md`). M025 delivered the standalone Desktop + portable Collector field kit (`docs/M025_DELIVERY.md`); M026 rebuilt it as a native WPF/WebView2 desktop app with the SIGNALFORGE visual system and motion profiles (`docs/M026_DELIVERY.md`). Both shipped within the event window.
 
 ## Meta Muse Spark integration
 
