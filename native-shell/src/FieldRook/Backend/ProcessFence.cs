@@ -130,7 +130,7 @@ public sealed class JobObject : IDisposable
 
 internal static partial class NativeMethods
 {
-    [LibraryImport("kernel32.dll", SetLastError = true, StringMarshalling = StringMarshalling.Utf16)]
+    [LibraryImport("kernel32.dll", EntryPoint = "CreateJobObjectW", SetLastError = true, StringMarshalling = StringMarshalling.Utf16)]
     internal static partial nint CreateJobObject(nint attributes, string? name);
 
     [LibraryImport("kernel32.dll", SetLastError = true)]
