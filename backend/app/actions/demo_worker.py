@@ -11,10 +11,11 @@ from __future__ import annotations
 import json
 import os
 import subprocess
-import sys
 import time
 from pathlib import Path
 from typing import Any
+
+from ..paths import WORKER_EXE_NAME, default_demo_state_dir, worker_command, worker_script_path
 
 HEARTBEAT_MAX_AGE_S = 10.0
 WORKER_ID = "demo-worker"
@@ -29,14 +30,17 @@ def repo_root() -> Path:
 
 
 def state_dir() -> Path:
-    override = os.environ.get("FIELDROOK_DEMO_STATE")
-    if override:
-        return Path(override)
-    return repo_root() / "demo_worker" / "state"
+    # Override wins; frozen defaults to the user data dir (never the dev checkout).
+    return default_demo_state_dir()
 
 
 def worker_script() -> Path:
-    return repo_root() / "demo_worker" / "worker.py"
+    """Demo worker `.py` script (M025: `FIELDROOK_WORKER_SCRIPT` override).
+
+    Kept for direct `[sys.executable, script]` spawns (tests, dev). Frozen
+    bundles spawn the worker exe instead — see `spawn_worker()`.
+    """
+    return worker_script_path()
 
 
 def read_health() -> dict[str, Any]:
@@ -109,14 +113,20 @@ def _pid_cmdline(pid: int) -> str | None:
 
 
 def is_own_worker_process(pid: object) -> bool:
-    """True only when the live command line proves pid is our worker script."""
+    """True only when the live command line proves pid is our worker.
+
+    Accepts the dev `.py` spawn AND the frozen worker exe (same fence:
+    the exact bundled exe name must appear in the live command line).
+    """
     if not isinstance(pid, int) or pid <= 0 or isinstance(pid, bool):
         return False
     cmdline = _pid_cmdline(pid)
     if not cmdline:
         return False
     lowered = cmdline.lower()
-    return "demo_worker" in lowered and "worker.py" in lowered
+    if "demo_worker" in lowered and "worker.py" in lowered:
+        return True
+    return WORKER_EXE_NAME.lower() in lowered
 
 
 def terminate_verified_worker(pid: int) -> None:
@@ -136,8 +146,12 @@ def terminate_verified_worker(pid: int) -> None:
 
 
 def spawn_worker() -> int:
-    script = worker_script()
-    if not script.is_file():
+    # M025: frozen bundles have no interpreter, so this spawns the bundled
+    # worker exe there; dev keeps [sys.executable, worker.py]. Detached by
+    # design — the desktop launcher stops it via terminate_verified_worker.
+    command = worker_command()
+    target = Path(command[-1])
+    if not target.is_file():
         raise WorkerError("Demo worker script is missing.")
     directory = state_dir()
     directory.mkdir(parents=True, exist_ok=True)
@@ -149,8 +163,8 @@ def spawn_worker() -> int:
                 subprocess, "CREATE_NEW_PROCESS_GROUP", 0
             )
         proc = subprocess.Popen(
-            [sys.executable, str(script)],
-            cwd=str(script.parent),
+            command,
+            cwd=str(target.parent if target.suffix.lower() == ".py" else directory),
             stdout=log_handle,
             stderr=subprocess.STDOUT,
             stdin=subprocess.DEVNULL,
