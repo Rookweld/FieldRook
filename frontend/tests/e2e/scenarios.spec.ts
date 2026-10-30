@@ -11,17 +11,20 @@ test("scenario A: phantom task finding stays suspicious-but-unverified", async (
   await page.getByText("Force fixture data").click();
   await page.getByRole("button", { name: "Investigate", exact: true }).click();
 
-  const diagnosis = page.locator("section", {
-    has: page.getByRole("heading", { name: "Diagnosis", exact: true }),
-  });
-  await expect(diagnosis.getByText(/matches the reported cadence/)).toBeVisible({
+  // Nearest enclosing section of the Diagnosis heading: the Workbench
+  // frame nests engine sections inside outer <section>s, so a `has` scope
+  // would span tiles + overview + diagnosis and multi-match echoes.
+  const diagnosis = page
+    .getByRole("heading", { name: "Diagnosis", exact: true })
+    .locator("xpath=ancestor::section[1]");
+  await expect(diagnosis.getByText("A periodic PowerShell task matches the reported cadence", { exact: true })).toBeVisible({
     timeout: 30000,
   });
   // The incident overview surfaces the same leading hypothesis.
   const overview = page.locator("section", {
     has: page.getByRole("heading", { name: "Incident overview", exact: true }),
   });
-  await expect(overview.getByText(/matches the reported cadence/)).toBeVisible();
+  await expect(overview.getByText("Leading hypothesis \u2014 A periodic PowerShell task matches the reported cadence", { exact: true })).toBeVisible();
   await expect(
     diagnosis.getByText(/FieldRookDemoPhantom.*has window-hiding text/),
   ).toBeVisible();

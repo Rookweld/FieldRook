@@ -26,7 +26,7 @@ test("guided remote investigation answers questions and works the plan", async (
   const history = page.getByText(/Earlier questions/);
   await expect(history).toBeVisible({ timeout: 30000 });
   await history.click();
-  await expect(page.getByText("The user's laptop in room 3.")).toBeVisible({ timeout: 30000 });
+  await expect(page.locator(".view-panel").getByText("The user's laptop in room 3.")).toBeVisible({ timeout: 30000 });
 
   // Report an observation through the turn composer.
   await page.locator("#turn-input").fill("Local files open fine; only Teams files fail.");
@@ -59,7 +59,7 @@ test("hypothesis judgment and blocked flow stay honest", async ({ page }) => {
 
   // Marking every step impossible converges to an honest BLOCKED state.
   for (let i = 0; i < 10; i++) {
-    if (await page.getByText("Blocked", { exact: true }).isVisible()) break;
+    if (await page.getByRole("heading", { name: "Blocked" }).isVisible()) break;
     const impossible = page.getByRole("button", { name: "Can't do this" }).first();
     if (!(await impossible.isVisible())) break;
     await impossible.click();
@@ -67,7 +67,7 @@ test("hypothesis judgment and blocked flow stay honest", async ({ page }) => {
     await page.getByRole("button", { name: "Mark impossible" }).click();
     await expect(page.getByText("No access to that machine.").first()).toBeVisible();
   }
-  await expect(page.getByText("Blocked", { exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Blocked" })).toBeVisible();
   await expect(page.getByText("No access to that machine.").first()).toBeVisible();
 });
 
