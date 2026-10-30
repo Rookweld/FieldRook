@@ -113,6 +113,19 @@ $sums += "$shellHash  FieldRook.exe"
 $sums | Set-Content $sumsPath
 $zipName = "FieldRook-" + $Version + ".zip"
 
+# Refresh the archive FIRST so the BOM shell block below can record the
+# final zip hash (lead: BOM must not carry build.ps1 pre-shell zip line
+# as the only zip checksum).
+$zipPath = Join-Path $OutDir $zipName
+if (Test-Path $zipPath) { Remove-Item -Force $zipPath }
+Compress-Archive -Path $AssembleDir -DestinationPath $zipPath
+# The re-zip invalidates build.ps1 zip hash: refresh that line (ours now).
+$zipHash = Get-Sha256Hex -Path $zipPath
+$sums = @(Get-Content $sumsPath | Where-Object { $_ -notmatch [regex]::Escape($zipName) + "$" })
+$sums = @("$zipHash  $zipName") + $sums
+$sums | Set-Content $sumsPath
+Write-Host "Archive refreshed: $zipPath"
+
 $runtimeReq = if ($selfContained) {
     "WebView2 Runtime only (evergreen); NO .NET runtime required (self-contained)."
 } else {
@@ -133,16 +146,7 @@ shell provenance (M026 ALPHA):
   publish mode:      $PublishMode (win-x64, single file)
   required runtimes: $runtimeReq
   shell exe sha256:  $shellHash
+  refreshed zip:     $zipName (sha256 $zipHash; supersedes build.ps1 checksums zip line)
 "@ | Add-Content $bomPath
-
-$zipPath = Join-Path $OutDir $zipName
-if (Test-Path $zipPath) { Remove-Item -Force $zipPath }
-Compress-Archive -Path $AssembleDir -DestinationPath $zipPath
-# The re-zip invalidates build.ps1's zip hash: refresh that line (ours now).
-$zipHash = Get-Sha256Hex -Path $zipPath
-$sums = @(Get-Content $sumsPath | Where-Object { $_ -notmatch [regex]::Escape($zipName) + "$" })
-$sums = @("$zipHash  $zipName") + $sums
-$sums | Set-Content $sumsPath
-Write-Host "Archive refreshed: $zipPath"
 Write-Host ""
 Write-Host "Shell build OK: $(Join-Path $AssembleDir 'FieldRook.exe')"
