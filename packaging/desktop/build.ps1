@@ -134,9 +134,22 @@ if (Test-Path $zipPath) { Remove-Item -Force $zipPath }
 Compress-Archive -Path $AssembleDir -DestinationPath $zipPath
 
 # ------------------------------------------------- checksums + release BOM --
+function Get-Sha256Hex {
+    # .NET hashing (works on PS 5.1/7+, incl. constrained hosts without Get-FileHash).
+    param([string]$Path)
+    $sha = [Security.Cryptography.SHA256]::Create()
+    try {
+        $stream = [IO.File]::OpenRead($Path)
+        try {
+            $bytes = $sha.ComputeHash($stream)
+        } finally { $stream.Dispose() }
+    } finally { $sha.Dispose() }
+    return ([BitConverter]::ToString($bytes)).Replace("-", "").ToLower()
+}
+
 $artifacts = @($zipPath, (Join-Path $AssembleDir "server\FieldRook-Server.exe"), $bundledWorker.Replace($serverDist, (Join-Path $AssembleDir "server")))
 $checksums = foreach ($file in $artifacts) {
-    $hash = (Get-FileHash -Algorithm SHA256 $file).Hash.ToLower()
+    $hash = Get-Sha256Hex -Path $file
     "$hash  $(Split-Path -Leaf $file)"
 }
 $checksums | Set-Content (Join-Path $OutDir "SHA256SUMS.txt")
