@@ -62,6 +62,7 @@ $selfContained = $PublishMode -eq "SelfContained"
 & dotnet publish $ShellProject -c $Configuration -r win-x64 `
     --self-contained:$($selfContained.ToString().ToLower()) `
     /p:Version=$Version /p:InformationalVersion=$Version `
+    /p:SourceControlInformationFeatureSupported=false `
     /p:PublishSingleFile=true /p:IncludeNativeLibrariesForSelfExtract=true `
     -o $PublishDir
 if ($LASTEXITCODE -ne 0) { throw "dotnet publish failed." }
@@ -110,6 +111,7 @@ if (Test-Path $sumsPath) {
 }
 $sums += "$shellHash  FieldRook.exe"
 $sums | Set-Content $sumsPath
+$zipName = "FieldRook-" + $Version + ".zip"
 
 $runtimeReq = if ($selfContained) {
     "WebView2 Runtime only (evergreen); NO .NET runtime required (self-contained)."
@@ -117,6 +119,12 @@ $runtimeReq = if ($selfContained) {
     "WebView2 Runtime + .NET 10 Desktop Runtime x64 (per-user install is enough)."
 }
 $bomPath = Join-Path $OutDir "BOM.txt"
+if (Test-Path $bomPath) {
+    # Idempotent re-runs: drop our previous block before appending.
+    $kept = Get-Content $bomPath -Raw
+    $kept = [regex]::Replace($kept, "\r?\n\r?\nshell provenance \(M026 ALPHA\):.*$", "", [System.Text.RegularExpressions.RegexOptions]::Singleline)
+    $kept.TrimEnd() | Set-Content $bomPath
+}
 @"
 
 shell provenance (M026 ALPHA):
@@ -127,9 +135,14 @@ shell provenance (M026 ALPHA):
   shell exe sha256:  $shellHash
 "@ | Add-Content $bomPath
 
-$zipPath = Join-Path $OutDir ("FieldRook-" + $Version + ".zip")
+$zipPath = Join-Path $OutDir $zipName
 if (Test-Path $zipPath) { Remove-Item -Force $zipPath }
 Compress-Archive -Path $AssembleDir -DestinationPath $zipPath
+# The re-zip invalidates build.ps1's zip hash: refresh that line (ours now).
+$zipHash = Get-Sha256Hex -Path $zipPath
+$sums = @(Get-Content $sumsPath | Where-Object { $_ -notmatch [regex]::Escape($zipName) + "$" })
+$sums = @("$zipHash  $zipName") + $sums
+$sums | Set-Content $sumsPath
 Write-Host "Archive refreshed: $zipPath"
 Write-Host ""
 Write-Host "Shell build OK: $(Join-Path $AssembleDir 'FieldRook.exe')"
