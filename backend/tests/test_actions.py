@@ -376,6 +376,10 @@ def test_reject_accepts_bodiless_calls(monkeypatch: pytest.MonkeyPatch, tmp_path
         f"/api/proposals/{proposal_id}/reject", headers={"Origin": "https://evil.example"}
     )
     assert refused.status_code == 403
+    # M025: headerless POSTs stay allowed ON PURPOSE — non-browser clients
+    # (curl, TestClient, desktop launcher) send no Origin/Referer and no
+    # Sec-Fetch-Site. Cross-site *browser* requests are still blocked because
+    # browsers attach Sec-Fetch-Site: cross-site (see test_desktop_security).
     bodiless = client.post(f"/api/proposals/{proposal_id}/reject")
     assert bodiless.status_code == 200
     assert bodiless.json()["proposals"][-1]["status"] == "REJECTED"
@@ -402,6 +406,9 @@ def test_cross_origin_mutations_rejected(monkeypatch: pytest.MonkeyPatch, tmp_pa
         headers=evil,
     )
     assert refused.status_code == 403
+    # M025: no-Origin headerless posts are the non-browser allowance (curl /
+    # TestClient / launcher); real cross-site browsers send Sec-Fetch-Site
+    # and are rejected (see test_desktop_security.py).
     created = client.post(
         f"/api/investigations/{inv_id}/proposals",
         json={"action_id": "recover_demo_worker", "target": "demo-worker", "reason": "CSRF test."},

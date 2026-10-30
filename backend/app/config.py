@@ -76,8 +76,8 @@ def load_settings() -> Settings:
     offline_mode = offline_requested()
     # In offline mode never even consult the operator's root .env.
     if not offline_mode:
-        project_root = Path(__file__).resolve().parents[2]
-        _load_dotenv_file(project_root / ".env")
+        from .paths import dotenv_path  # frozen: user-data .env, never repo root
+        _load_dotenv_file(dotenv_path())
     fixtures_mode = os.environ.get("FIELDROOK_FIXTURES", "auto").strip().lower()
     if fixtures_mode not in ("auto", "always", "never"):
         fixtures_mode = "auto"

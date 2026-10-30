@@ -29,11 +29,24 @@ from ..schemas import (
 )
 from ..tools.registry import REGISTRY, ToolCallError, prepare_call
 
-# The collector is a standalone stdlib package at the repo root (portable by
-# design). Import it by path; the backend never depends on it at install time.
-_REPO_ROOT = Path(__file__).resolve().parents[3]
-if str(_REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(_REPO_ROOT))
+# The collector is a standalone stdlib package (portable by design). Import
+# it by path; the backend never depends on it at install time. M025: insert
+# only when the import actually fails, and only the frozen bundle dir (which
+# ships collector as data) or the dev repo root — never a blind insert.
+from ..paths import collector_search_path  # noqa: E402
+
+
+def _ensure_collector_importable() -> None:
+    try:
+        import collector  # noqa: F401
+    except ImportError:
+        search = collector_search_path()
+        if (search / "collector").is_dir() and str(search) not in sys.path:
+            sys.path.insert(0, str(search))
+        # Else: the `from collector import ...` below raises ImportError.
+
+
+_ensure_collector_importable()
 
 from collector import archive, chunker, hashverify  # noqa: E402
 from collector import manifest as colmanifest  # noqa: E402
