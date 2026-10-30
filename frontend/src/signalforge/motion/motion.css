@@ -1,0 +1,510 @@
+/* FieldRook signalforge motion primitives (M026 DELTA).
+ *
+ * Extracted from FieldRookDesign/fieldrook_motion_lab/index.html — keyframes
+ * and budgets only, never pasted wholesale. All decor is CSS/SVG with
+ * composited transforms (transform/opacity) plus SVG stroke-dashoffset;
+ * there are NO JS animation loops anywhere in signalforge/motion.
+ *
+ * Palette comes ONLY from signalforge/tokens.css (BETA-owned). This file
+ * declares zero hex colors: every var() sits on top of a system-color or
+ * currentColor base declaration so components still render pre-integration.
+ *
+ * Switches:
+ *   body[data-motion="alive"]  full motion (prototype name was "ambient")
+ *   body[data-motion="quiet"]  lengthened + dimmed motion
+ *   body[data-motion="off"]    no decor animation, static fallbacks
+ *   body[data-focus="work"]    work-heavy view: ambient decor auto-damped
+ *   .sf-reading                reading container: decor never renders inside
+ */
+
+/* ---------- keyframes (budgets from DESIGN_HANDOFF.md) ---------- */
+
+/* Circuit pulses: 13s / 18s loops. Paths using .sf-vein-lit MUST carry
+ * pathLength="704" so dasharray 4 700 / offset -704 resolve exactly. */
+@keyframes sf-charge {
+  to {
+    stroke-dashoffset: -704;
+  }
+}
+
+/* Circuit nodes: opacity + scale ONLY (prototype animated r; r is a
+ * geometry repaint, so DELTA uses composited transform instead). */
+@keyframes sf-node-pulse {
+  0%,
+  100% {
+    opacity: 0.2;
+    transform: scale(0.7);
+  }
+  50% {
+    opacity: 0.9;
+    transform: scale(1.15);
+  }
+}
+
+/* Instrument orbits: 20s / 70s hairline rotation (transform only). */
+@keyframes sf-slowspin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Signal trace: 4.8s ECG travel. Paths using .sf-trace-active MUST carry
+ * pathLength="535" so dasharray 145 390 / offset -535 resolve exactly. */
+@keyframes sf-beat-travel {
+  to {
+    stroke-dashoffset: -535;
+  }
+}
+
+/* One-shot activity sweep for SignalTrace (retriggered by React key
+ * change on bounded activity; each run is a single CSS animation). */
+@keyframes sf-pulse-once {
+  from {
+    stroke-dashoffset: 0;
+    opacity: 0.95;
+  }
+  to {
+    stroke-dashoffset: -535;
+    opacity: 0.95;
+  }
+}
+
+/* Activity dot: 3s glow (opacity + scale only). */
+@keyframes sf-signal-glow {
+  0%,
+  100% {
+    opacity: 0.4;
+    transform: scale(0.75);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.4);
+  }
+}
+
+/* Toast/confirm entrance: 230ms, transform + opacity only. */
+@keyframes sf-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(15px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ---------- CircuitVeins ---------- */
+
+.sf-circuit {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  overflow: visible;
+  opacity: 0.85;
+}
+
+.sf-vein-base {
+  stroke: currentColor;
+  stroke: var(--line);
+  stroke-width: 1.6;
+  fill: none;
+  opacity: 0.28;
+}
+
+.sf-vein-lit {
+  stroke: currentColor;
+  stroke: var(--coral);
+  stroke-width: 2;
+  fill: none;
+  stroke-linecap: round;
+  stroke-dasharray: 4 700;
+  animation: sf-charge 13s linear infinite;
+}
+
+.sf-vein-lit.sf-alt {
+  stroke: var(--lime);
+  animation-duration: 18s;
+  animation-delay: -8s;
+  opacity: 0.68;
+}
+
+.sf-vein-node {
+  fill: currentColor;
+  fill: var(--coral);
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: sf-node-pulse 5.5s ease-in-out infinite;
+}
+
+.sf-vein-node.sf-alt {
+  fill: var(--lime);
+  animation-delay: -2s;
+}
+
+/* ---------- SignalTrace ---------- */
+
+.sf-trace {
+  display: block;
+  width: 100%;
+  height: 56px;
+  overflow: hidden;
+}
+
+.sf-trace[data-tone="coral"] .sf-trace-active {
+  stroke: var(--coral);
+}
+
+.sf-trace-grid {
+  stroke: currentColor;
+  stroke: var(--line);
+  stroke-width: 1;
+  stroke-dasharray: 3 6;
+  opacity: 0.8;
+}
+
+.sf-trace-ghost {
+  stroke: currentColor;
+  stroke: var(--light-line);
+  stroke-width: 2;
+  fill: none;
+  opacity: 0.55;
+}
+
+.sf-trace-active {
+  stroke: currentColor;
+  stroke: var(--lime);
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  fill: none;
+  stroke-dasharray: 145 390;
+  animation: sf-beat-travel 4.8s linear infinite;
+}
+
+.sf-trace-pulse {
+  stroke: currentColor;
+  stroke: var(--peach);
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  fill: none;
+  stroke-dasharray: 145 390;
+  animation: sf-pulse-once 1.2s linear 1;
+}
+
+.sf-signal-dot {
+  background-color: currentColor;
+  background-color: var(--lime);
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  animation: sf-signal-glow 3s ease-in-out infinite;
+}
+
+/* ---------- InstrumentOrbit ---------- */
+
+.sf-orbit {
+  position: relative;
+  pointer-events: none;
+}
+
+.sf-orbit-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 1px dashed currentColor;
+  border-color: var(--peach);
+  opacity: 0.45;
+  animation: sf-slowspin 70s linear infinite;
+}
+
+.sf-orbit-scan {
+  position: absolute;
+  inset: 8%;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  border-color: var(--peach);
+  border-top-color: transparent;
+  border-left-color: transparent;
+  opacity: 0.5;
+  animation: sf-slowspin 20s linear infinite;
+}
+
+.sf-orbit-core {
+  position: absolute;
+  inset: 30%;
+  border-radius: 50%;
+  background-color: currentColor;
+  background-color: var(--coral);
+  opacity: 0.85;
+}
+
+/* ---------- interaction feedback (150-200ms budget) ---------- */
+
+.sf-pressable {
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.sf-pressable:hover {
+  transform: translateY(-2px);
+}
+
+.sf-pressable:active {
+  transform: translateY(0);
+}
+
+.sf-toast-in {
+  animation: sf-toast-in 0.23s ease-out;
+}
+
+/* ---------- MotionSwitcher ---------- */
+
+.sf-motion-switcher {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid currentColor;
+  border-color: var(--light-line);
+  border-radius: 10px;
+  background-color: ButtonFace;
+  background-color: var(--base);
+  max-width: 100%;
+}
+
+.sf-motion-option {
+  position: relative;
+  display: inline-flex;
+  flex: 1 1 auto;
+}
+
+.sf-motion-option input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  margin: 0;
+  cursor: pointer;
+}
+
+.sf-motion-label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  min-width: 64px;
+  width: 100%;
+  padding: 6px 14px;
+  border-radius: 7px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  line-height: 1.2;
+  white-space: nowrap;
+  color: ButtonText;
+  color: var(--muted);
+  transition:
+    transform 0.18s ease,
+    background-color 0.18s ease,
+    color 0.18s ease;
+}
+
+.sf-motion-option input:checked + .sf-motion-label {
+  background-color: Highlight;
+  background-color: var(--peach);
+  color: HighlightText;
+  color: var(--void);
+}
+
+.sf-motion-option input:not(:checked) + .sf-motion-label:hover {
+  transform: translateY(-1px);
+  color: ButtonText;
+  color: var(--offwhite);
+}
+
+.sf-motion-option input:focus-visible + .sf-motion-label {
+  outline: 3px solid currentColor;
+  outline-color: var(--lime);
+  outline-offset: 2px;
+}
+
+/* ---------- quiet mode: lengthen + dim ---------- */
+
+body[data-motion="quiet"] .sf-vein-lit {
+  animation-duration: 32s;
+  opacity: 0.48;
+}
+
+body[data-motion="quiet"] .sf-trace-active {
+  animation-duration: 9s;
+  opacity: 0.75;
+}
+
+body[data-motion="quiet"] .sf-orbit-ring {
+  animation-duration: 120s;
+  opacity: 0.3;
+}
+
+body[data-motion="quiet"] .sf-orbit-scan {
+  animation-duration: 65s;
+  opacity: 0.35;
+}
+
+body[data-motion="quiet"] .sf-vein-node {
+  opacity: 0.35;
+}
+
+body[data-motion="quiet"] .sf-signal-dot {
+  animation-duration: 6s;
+  opacity: 0.6;
+}
+
+/* ---------- off mode: kill all decor, static fallbacks ---------- */
+
+body[data-motion="off"] .sf-motion-decor,
+body[data-motion="off"] .sf-motion-decor::before,
+body[data-motion="off"] .sf-motion-decor::after {
+  animation: none;
+  transition: none;
+}
+
+body[data-motion="off"] .sf-vein-lit {
+  stroke-dasharray: none;
+  opacity: 0.08;
+}
+
+body[data-motion="off"] .sf-trace-active {
+  stroke-dasharray: none;
+  opacity: 0.45;
+}
+
+body[data-motion="off"] .sf-trace-pulse {
+  display: none;
+}
+
+body[data-motion="off"] .sf-orbit-ring,
+body[data-motion="off"] .sf-orbit-scan {
+  opacity: 0.25;
+}
+
+body[data-motion="off"] .sf-signal-dot {
+  opacity: 0.7;
+}
+
+body[data-motion="off"] .sf-pressable:hover,
+body[data-motion="off"] .sf-pressable:active {
+  transform: none;
+}
+
+/* ---------- work-heavy auto-damp ---------- */
+/* Views doing sustained troubleshooting set body[data-focus="work"]
+ * (see setWorkHeavy); ambient circuits fade out, orbits slow, the trace
+ * dims. Explicit data-motion="off" still wins via the rules above. */
+
+body[data-focus="work"] .sf-circuit {
+  opacity: 0.12;
+}
+
+body[data-focus="work"] .sf-vein-lit {
+  animation-duration: 32s;
+}
+
+body[data-focus="work"] .sf-orbit-ring {
+  animation-duration: 140s;
+}
+
+body[data-focus="work"] .sf-orbit-scan {
+  animation-duration: 65s;
+}
+
+body[data-focus="work"] .sf-trace-active {
+  opacity: 0.6;
+}
+
+body[data-focus="work"] .sf-signal-dot {
+  animation-play-state: paused;
+  opacity: 0.5;
+}
+
+/* ---------- reading guard ---------- */
+/* Animated decor MUST never sit behind long-form reading. Placement is
+ * the primary enforcement (see MOTION.md); this guard hides any decor
+ * that ends up inside a reading container. */
+
+.sf-reading .sf-motion-decor {
+  display: none;
+}
+
+/* ---------- reduced motion ---------- */
+/* JS (initMotionPreference) defaults to off under reduced-motion. This
+ * pre-hydration guard freezes decor when body[data-motion] is not set
+ * yet, unless the author explicitly opted into alive markup. */
+
+@media (prefers-reduced-motion: reduce) {
+  body:not([data-motion]) .sf-motion-decor,
+  body:not([data-motion]) .sf-motion-decor::before,
+  body:not([data-motion]) .sf-motion-decor::after {
+    animation: none;
+    transition: none;
+  }
+}
+
+/* ---------- forced colors / high contrast ---------- */
+
+@media (forced-colors: active) {
+  .sf-motion-decor {
+    display: none;
+  }
+
+  .sf-motion-switcher {
+    border-color: ButtonText;
+    background-color: Canvas;
+  }
+
+  .sf-motion-label {
+    color: ButtonText;
+  }
+
+  .sf-motion-option input:checked + .sf-motion-label {
+    background-color: Highlight;
+    color: HighlightText;
+    forced-color-adjust: none;
+  }
+
+  .sf-motion-option input:focus-visible + .sf-motion-label {
+    outline-color: Highlight;
+  }
+}
+
+/* ---------- narrow viewports ---------- */
+/* Switcher wraps to one option per row; decor never forces overflow. */
+
+@media (max-width: 480px) {
+  .sf-motion-switcher {
+    display: flex;
+    width: 100%;
+  }
+
+  .sf-motion-option {
+    flex: 1 1 100%;
+  }
+
+  .sf-motion-label {
+    min-height: 44px;
+  }
+
+  .sf-circuit,
+  .sf-orbit {
+    max-width: 100%;
+  }
+}
+
+/* Decor must never create a scrollbar on its own. */
+.sf-circuit,
+.sf-orbit {
+  overflow: clip;
+}
