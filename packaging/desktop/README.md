@@ -49,10 +49,14 @@ worker console is OFF (detached by design; it logs to the demo-state dir).
   `FIELDROOK_DEMO_STATE` default into `%LOCALAPPDATA%\FieldRook` — explicit
   operator values always win, and the desktop NEVER defaults to a dev DB.
 - Single instance: lock file (`fieldrook.lock`, launcher-owned) + TCP probe
-  + `/api/status` identity check. A live FieldRook answers "already running"
-  (browser reopens, exit 0); a foreign listener is a readable port conflict
-  (exit 2, suggests `-Port`). The bind itself is authoritative if two
-  launchers race: the loser fails loudly, never split-brain.
+  + `/api/status` identity check (service + runtime + version). Only a
+  frozen Desktop runtime answers "already running" (browser reopens,
+  exit 0). A dev server on the port is a readable conflict (exit 2, says
+  "development server", suggests `-Port`); a foreign listener is a
+  readable port conflict (exit 2). One Desktop per machine: a live
+  Desktop on another port refuses ("already running on port N"). The bind
+  itself is authoritative if two launchers race: the loser fails loudly,
+  never split-brain.
 - Health: polls `/api/status` (THE health signal) up to 90s, then opens the
   browser. On timeout it prints the server error-log tail and exits 1.
 - Shutdown: kills ONLY its own server PID after a command-line fence check,

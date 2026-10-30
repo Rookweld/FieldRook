@@ -6,6 +6,8 @@ with `packaging/desktop/FieldRook-Launcher.ps1`, including live launcher
 probe runs (`-CheckOnly`) when PowerShell is available.
 """
 
+import contextlib
+import ctypes
 import json
 import os
 import shutil
@@ -13,6 +15,7 @@ import socket
 import subprocess
 import sys
 import threading
+from collections.abc import Iterator
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 
@@ -151,10 +154,13 @@ POWERSHELL = shutil.which("powershell") or shutil.which("pwsh")
 needs_powershell = pytest.mark.skipif(POWERSHELL is None, reason="PowerShell not available")
 
 
-def _check_only(port: int, data_dir: Path, timeout_s: float = 90.0) -> subprocess.CompletedProcess[str]:
+def _check_only(
+    port: int, data_dir: Path, timeout_s: float = 90.0, server_exe: str | None = None
+) -> subprocess.CompletedProcess[str]:
     assert LAUNCHER_PS1.is_file(), f"launcher missing: {LAUNCHER_PS1}"
     env = dict(os.environ)
     env["LOCALAPPDATA"] = str(data_dir)
+    server_exe_args: list[str] = ["-ServerExe", server_exe] if server_exe else []
     return subprocess.run(
         [
             str(POWERSHELL),
@@ -167,6 +173,7 @@ def _check_only(port: int, data_dir: Path, timeout_s: float = 90.0) -> subproces
             "-CheckOnly",
             "-Port",
             str(port),
+            *server_exe_args,
         ],
         capture_output=True,
         text=True,
@@ -177,6 +184,21 @@ def _check_only(port: int, data_dir: Path, timeout_s: float = 90.0) -> subproces
 
 
 @needs_powershell
+@contextlib.contextmanager
+def _status_server(payload: dict[str, object]) -> Iterator[int]:
+    """Serve `payload` at /api/status on a free loopback port; yields the port."""
+    _StatusHandler.payload = payload
+    server = HTTPServer(("127.0.0.1", 0), _StatusHandler)
+    port = int(server.server_address[1])
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        yield port
+    finally:
+        server.shutdown()
+        thread.join(timeout=10)
+
+
 def test_launcher_probe_free_port_is_ready(tmp_path: Path) -> None:
     port = _free_port()
     # Hold the probe race shut: nothing listens on `port` right now.
@@ -201,9 +223,17 @@ def test_launcher_probe_occupied_port_is_conflict(tmp_path: Path) -> None:
 
 
 class _StatusHandler(BaseHTTPRequestHandler):
+    # Served /api/status body; tests overwrite per case (one request each).
+    payload: dict[str, object] = {
+        "service": "fieldrook-api",
+        "runtime": "desktop",
+        "version": "9.9.9-test",
+        "model_mode": "simulated",
+    }
+
     def do_GET(self) -> None:  # noqa: N802
         if self.path == "/api/status":
-            body = json.dumps({"service": "fieldrook-api", "model_mode": "simulated"}).encode()
+            body = json.dumps(_StatusHandler.payload).encode()
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self.send_header("Content-Length", str(len(body)))
@@ -219,7 +249,13 @@ class _StatusHandler(BaseHTTPRequestHandler):
 
 @needs_powershell
 def test_launcher_probe_live_fieldrook_is_already_running(tmp_path: Path) -> None:
-    """A /api/status that answers fieldrook-api means 'already running'."""
+    """A /api/status answering Desktop identity means 'already running'."""
+    _StatusHandler.payload = {
+        "service": "fieldrook-api",
+        "runtime": "desktop",
+        "version": "9.9.9-test",
+        "model_mode": "simulated",
+    }
     server = HTTPServer(("127.0.0.1", 0), _StatusHandler)
     port = int(server.server_address[1])
     thread = threading.Thread(target=server.serve_forever, daemon=True)
@@ -231,3 +267,82 @@ def test_launcher_probe_live_fieldrook_is_already_running(tmp_path: Path) -> Non
         thread.join(timeout=10)
     assert completed.returncode == 3, completed.stdout + completed.stderr
     assert "already running" in (completed.stdout + completed.stderr).lower()
+    assert "9.9.9-test" in (completed.stdout + completed.stderr)
+
+
+@needs_powershell
+def test_launcher_probe_dev_server_is_conflict(tmp_path: Path) -> None:
+    """A FieldRook dev server (e.g. the operator's checkout) is a conflict."""
+    payload = {
+        "service": "fieldrook-api",
+        "runtime": "dev",
+        "version": "0.4.0",
+        "model_mode": "simulated",
+    }
+    with _status_server(payload) as port:
+        completed = _check_only(port, tmp_path)
+    assert completed.returncode == 2, completed.stdout + completed.stderr
+    assert "development server" in (completed.stdout + completed.stderr).lower()
+
+
+@needs_powershell
+def test_launcher_probe_legacy_fieldrook_without_runtime_is_conflict(tmp_path: Path) -> None:
+    """Unknown identity degrades safe: no runtime field means NOT Desktop."""
+    with _status_server({"service": "fieldrook-api", "model_mode": "simulated"}) as port:
+        completed = _check_only(port, tmp_path)
+    assert completed.returncode == 2, completed.stdout + completed.stderr
+    assert "unknown" in (completed.stdout + completed.stderr).lower()
+
+
+@needs_powershell
+def test_launcher_probe_desktop_on_other_port_is_already_running(tmp_path: Path) -> None:
+    """Single instance per machine: a live fenced lock on another port refuses."""
+    if sys.platform != "win32":
+        pytest.skip("PID-fence probe is Windows-only")
+    get_cmdline = ctypes.windll.kernel32.GetCommandLineW
+    get_cmdline.restype = ctypes.c_wchar_p
+    own_cmdline = str(get_cmdline())
+    if "python.exe" not in own_cmdline.lower():
+        pytest.skip("fence probe needs a python.exe command line (runs under python -m pytest)")
+    lock_dir = tmp_path / "FieldRook"
+    lock_dir.mkdir(parents=True)
+    other_port = _free_port()
+    (lock_dir / "fieldrook.lock").write_text(
+        json.dumps({"pid": os.getpid(), "port": other_port, "service": "fieldrook-api"}),
+        encoding="utf-8",
+    )
+    probe_port = _free_port()
+    if probe_port == other_port:
+        probe_port = _free_port()
+    assert probe_port != other_port
+    # -ServerExe "python.exe": the fence leaf matches this pytest process,
+    # proving the live+fenced refuse path without a real Desktop running.
+    completed = _check_only(probe_port, tmp_path, server_exe="python.exe")
+    assert completed.returncode == 3, completed.stdout + completed.stderr
+    assert f"already running on port {other_port}" in (completed.stdout + completed.stderr).lower()
+
+
+@needs_powershell
+def test_launcher_probe_dead_lock_on_other_port_is_ready_and_cleared(tmp_path: Path) -> None:
+    """A dead-PID lock is stale: cleared, and the probe reports ready."""
+    lock_dir = tmp_path / "FieldRook"
+    lock_dir.mkdir(parents=True)
+    lock_path = lock_dir / "fieldrook.lock"
+    lock_path.write_text(
+        json.dumps({"pid": _reaped_pid(), "port": _free_port(), "service": "fieldrook-api"}),
+        encoding="utf-8",
+    )
+    completed = _check_only(_free_port(), tmp_path)
+    assert completed.returncode == 0, completed.stdout + completed.stderr
+    assert not lock_path.exists()
+
+
+@needs_powershell
+@pytest.mark.parametrize("content", ["{not json", '{"pid": "abc", "port": "xyz"}'])
+def test_launcher_probe_corrupt_lock_never_crashes(tmp_path: Path, content: str) -> None:
+    """Corrupt locks (non-JSON or garbage fields) probe ready, never crash."""
+    lock_dir = tmp_path / "FieldRook"
+    lock_dir.mkdir(parents=True)
+    (lock_dir / "fieldrook.lock").write_text(content, encoding="utf-8")
+    completed = _check_only(_free_port(), tmp_path)
+    assert completed.returncode == 0, completed.stdout + completed.stderr

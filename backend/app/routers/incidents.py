@@ -15,7 +15,9 @@ from ..diagnostics import fixtures as fx
 from ..diagnostics.collector import collect_diagnostics
 from ..diagnostics.service_allowlist import InvalidServiceNameError
 from ..diagnostics.windows_tools import powershell_available
+from ..paths import is_frozen
 from ..schemas import AnalyzeRequest, IncidentAssessment, StatusResponse
+from ..version import get_version
 
 router = APIRouter(tags=["incidents"])
 
@@ -30,6 +32,8 @@ def get_status() -> StatusResponse:
         mode = "simulated"
         model_name = SIMULATED_MODEL_NAME
     return StatusResponse(
+        version=get_version(),
+        runtime="desktop" if is_frozen() else "dev",
         platform=sys.platform,
         live_diagnostics_available=powershell_available(),
         model_mode=mode,

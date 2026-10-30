@@ -7,6 +7,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
+from .version import get_version
+
 Likelihood = Literal["high", "medium", "low"]
 BundleMode = Literal["live", "fixture"]
 AnalysisMode = Literal["live", "simulated"]
@@ -202,7 +204,12 @@ class AnalyzeRequest(BaseModel):
 
 class StatusResponse(BaseModel):
     service: str = "fieldrook-api"
-    version: str = "0.1.0"
+    # Single release-version source: the VERSION file via get_version().
+    # runtime tells the Desktop launcher what answers: "desktop" (frozen
+    # packaged app) vs "dev" (source checkout, e.g. the operator's server).
+    # The default is the safe side: unknown means NOT the Desktop app.
+    version: str = Field(default_factory=get_version)
+    runtime: str = "dev"
     platform: str
     live_diagnostics_available: bool
     model_mode: AnalysisMode

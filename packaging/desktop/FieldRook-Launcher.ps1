@@ -5,6 +5,10 @@ env setup -> already-running/port-conflict UX -> start server -> wait for
 /api/status -> open browser -> PID-tracked shutdown (server + detached
 demo worker via the server's fenced --stop-demo-worker path).
 
+Instance identity comes from /api/status (service + runtime + version):
+only a frozen Desktop runtime counts as "already running" — a FieldRook
+development server on the port is a port conflict, never "already running".
+
 Runs on Windows PowerShell 5.1+ (ships with Windows; no new dependency).
 Start it via FieldRook.bat (handles the execution policy).
 
@@ -77,12 +81,20 @@ function Test-TcpPort([string]$HostName, [int]$TcpPort, [int]$TimeoutMs = 1000) 
     finally { $client.Close() }
 }
 
-function Get-StatusService([int]$StatusPort) {
+function Get-StatusIdentity([int]$StatusPort) {
+    # Instance identity of whoever answers /api/status: service + runtime
+    # ("desktop" = frozen packaged app, "dev" = source checkout) + version.
+    # Anything unreadable degrades to empty strings (never counts as Desktop).
+    $empty = @{ Service = ""; Runtime = ""; Version = "" }
     try {
         $res = Invoke-RestMethod -Uri "http://127.0.0.1:${StatusPort}/api/status" -TimeoutSec 5
-        if ($null -ne $res -and $null -ne $res.service) { return [string]$res.service }
-        return ""
-    } catch { return "" }
+        if ($null -eq $res) { return $empty }
+        return @{
+            Service = [string]$res.service
+            Runtime = [string]$res.runtime
+            Version = [string]$res.version
+        }
+    } catch { return $empty }
 }
 
 function Read-Lock {
@@ -91,52 +103,81 @@ function Read-Lock {
     catch { return $null }
 }
 
-function Test-PidAlive([int]$Pid) {
-    try { return $null -ne (Get-Process -Id $Pid -ErrorAction Stop) }
+function Get-LockInt($Lock, [string]$Field) {
+    # The lock is launcher-written JSON, but a corrupt file must never crash
+    # the probe: unparseable fields read as 0 so the lock is cleared as stale.
+    try { return [int]$Lock.$Field } catch { return 0 }
+}
+
+function Test-PidAlive([int]$ProcessId) {
+    try { return $null -ne (Get-Process -Id $ProcessId -ErrorAction Stop) }
     catch { return $false }
 }
 
-function Get-ProcessCommandLine([int]$Pid) {
+function Get-ProcessCommandLine([int]$ProcessId) {
     try {
-        $proc = Get-CimInstance -ClassName Win32_Process -Filter "ProcessId=$Pid" -ErrorAction Stop
+        $proc = Get-CimInstance -ClassName Win32_Process -Filter "ProcessId=$ProcessId" -ErrorAction Stop
         return [string]$proc.CommandLine
     } catch { return "" }
 }
 
 # Probe result: @{ State = 'ready'|'already'|'conflict'; Detail = ... }
 function Get-RuntimeState {
-    $tcpOpen = Test-TcpPort "127.0.0.1" $Port
+    $exeLeaf = Split-Path -Leaf $ServerExe
     $lock = Read-Lock
+    if ($null -ne $lock) {
+        $lockPort = Get-LockInt $lock "port"
+        $lockPid = Get-LockInt $lock "pid"
+        if ($lockPort -ne $Port) {
+            if ($lockPort -gt 0 -and (Test-PidAlive $lockPid) -and ((Get-ProcessCommandLine $lockPid) -like "*${exeLeaf}*")) {
+                return @{ State = "already"; Detail = "FieldRook Desktop is already running on port $lockPort (single instance). Stop it or omit -Port." }
+            }
+            Remove-Item -Force $LockFile -ErrorAction SilentlyContinue
+            Write-Log "Removed stale lock (pid $lockPid, port $lockPort)."
+        }
+    }
+    $tcpOpen = Test-TcpPort "127.0.0.1" $Port
     if ($tcpOpen) {
-        $service = Get-StatusService $Port
-        if ($service -eq "fieldrook-api") {
-            return @{ State = "already"; Detail = "FieldRook is already running on port $Port." }
+        $identity = Get-StatusIdentity $Port
+        if ($identity.Service -eq "fieldrook-api" -and $identity.Runtime -eq "desktop") {
+            $ver = $identity.Version
+            if ([string]::IsNullOrWhiteSpace($ver)) { $ver = "unknown" }
+            return @{ State = "already"; Detail = "FieldRook is already running on port $Port (Desktop v$ver)." }
+        }
+        if ($identity.Service -eq "fieldrook-api") {
+            $rt = $identity.Runtime
+            if ([string]::IsNullOrWhiteSpace($rt)) { $rt = "unknown (older than Desktop identity)" }
+            return @{
+                State  = "conflict"
+                Detail = "Port $Port is in use by a FieldRook development server (runtime '$rt'), not the Desktop app. Stop it or start with -Port <free-port>."
+            }
         }
         return @{
             State  = "conflict"
             Detail = "Port $Port is in use by another application (not FieldRook). Stop it or start with -Port <free-port>."
         }
     }
-    if ($null -ne $lock) {
+    $stale = Read-Lock
+    if ($null -ne $stale) {
         # Port is free: any lock is stale (previous crash/kill). Clear it.
         Remove-Item -Force $LockFile -ErrorAction SilentlyContinue
-        Write-Log "Removed stale lock (pid $($lock.pid), port $($lock.port))."
+        Write-Log "Removed stale lock (pid $($stale.pid), port $($stale.port))."
     }
     return @{ State = "ready"; Detail = "Ready: port $Port is free." }
 }
 
-function Stop-VerifiedProcess([int]$Pid, [string]$MustContain) {
-    $cmdline = Get-ProcessCommandLine $Pid
+function Stop-VerifiedProcess([int]$ProcessId, [string]$MustContain) {
+    $cmdline = Get-ProcessCommandLine $ProcessId
     if ([string]::IsNullOrWhiteSpace($cmdline)) {
-        Write-Log "pid $Pid already exited."
+        Write-Log "pid $ProcessId already exited."
         return
     }
     if ($cmdline -notlike "*$MustContain*") {
-        Write-Log "Refusing to kill pid ${Pid}: command line does not match '${MustContain}'."
-        throw "Kill fence refused pid $Pid."
+        Write-Log "Refusing to kill pid ${ProcessId}: command line does not match '${MustContain}'."
+        throw "Kill fence refused pid $ProcessId."
     }
-    Stop-Process -Id $Pid -Force
-    Write-Log "Stopped pid $Pid ($MustContain)."
+    Stop-Process -Id $ProcessId -Force
+    Write-Log "Stopped pid $ProcessId ($MustContain)."
 }
 
 function Stop-DemoWorker {
@@ -151,7 +192,7 @@ function Stop-DemoWorker {
 
 function Remove-OwnLock([int]$ServerPid) {
     $lock = Read-Lock
-    if ($null -ne $lock -and [int]$lock.pid -eq $ServerPid) {
+    if ($null -ne $lock -and (Get-LockInt $lock "pid") -eq $ServerPid) {
         Remove-Item -Force $LockFile -ErrorAction SilentlyContinue
     }
 }
@@ -163,7 +204,7 @@ if ($Stop) {
         Write-Log "FieldRook is not running (no lock file)."
         exit 0
     }
-    $pidToStop = [int]$lock.pid
+    $pidToStop = Get-LockInt $lock "pid"
     if (-not (Test-PidAlive $pidToStop)) {
         Remove-Item -Force $LockFile -ErrorAction SilentlyContinue
         Write-Log "Removed stale lock (pid $pidToStop is dead)."
@@ -242,7 +283,7 @@ try {
     $healthy = $false
     while ((Get-Date) -lt $deadline) {
         if (-not (Test-PidAlive $serverPid)) { break }
-        if ((Get-StatusService $Port) -eq "fieldrook-api") { $healthy = $true; break }
+        if ((Get-StatusIdentity $Port).Service -eq "fieldrook-api") { $healthy = $true; break }
         Start-Sleep -Seconds 1
     }
     if (-not $healthy) {
