@@ -1,0 +1,930 @@
+/* =====================================================================
+   SIGNALFORGE shell (M026 BETA). App frame ported from the Motion Lab
+   composition: stage, top bar, side nav, ribbon, evidence rail, status
+   bar, and shared sun/rook instrument art. Colors reach tokens.css only
+   through var() / color-mix(): no hex, rgb(), or hsl() in this file.
+   Motion is DELTA-owned: this sheet is static (no transitions or
+   keyframes). Mount points for DELTA primitives carry data-motion-slot.
+   Responsive: the evidence rail collapses FIRST (<=1180px, toggleable
+   overlay), then the nav compresses to an icon rail (<=900px), then the
+   frame stacks (<=700px). 1920x1080 and 1280x720 both use the full grid.
+   ===================================================================== */
+
+/* ---------- Stage ---------- */
+
+.sf-stage {
+  position: relative;
+  min-height: 100vh;
+  padding: 26px clamp(12px, 2.1vw, 34px);
+  overflow: hidden;
+  background:
+    radial-gradient(
+      ellipse 48% 55% at 101% 91%,
+      color-mix(in srgb, var(--coral-hot) 34%, transparent) 0%,
+      transparent 80%
+    ),
+    radial-gradient(
+      ellipse 55% 60% at 0% -10%,
+      color-mix(in srgb, var(--aubergine) 92%, transparent) 0,
+      transparent 80%
+    ),
+    var(--void);
+}
+
+.sf-stage::before {
+  content: "";
+  position: absolute;
+  width: 950px;
+  height: 950px;
+  border: 1px solid color-mix(in srgb, var(--coral) 14%, transparent);
+  border-radius: 50%;
+  top: -660px;
+  right: -150px;
+  box-shadow:
+    0 0 0 80px color-mix(in srgb, var(--coral) 7%, transparent),
+    0 0 0 170px color-mix(in srgb, var(--coral) 4%, transparent);
+  pointer-events: none;
+}
+
+.sf-stage::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: -5%;
+  width: 105%;
+  height: 120px;
+  background: linear-gradient(0deg, var(--sf-wash), transparent);
+  pointer-events: none;
+}
+
+/* DELTA mount point for the CircuitVeins ambient background. */
+.sf-veins-slot {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* ---------- App frame ---------- */
+
+.app.sf-app {
+  position: relative;
+  max-width: 1560px;
+  min-height: min(920px, calc(100vh - 52px));
+  margin: auto;
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--plum) 88%, var(--void)) 0%,
+    var(--base) 62%,
+    var(--nav) 100%
+  );
+  border: 1px solid color-mix(in srgb, var(--light-line) 56%, transparent);
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow:
+    var(--shadow),
+    0 0 0 1px color-mix(in srgb, var(--peach) 8%, transparent) inset;
+  display: grid;
+  grid-template-rows: 58px minmax(590px, 1fr) 45px;
+}
+
+.sf-app button:focus-visible,
+.sf-app a:focus-visible,
+.sf-app input:focus-visible,
+.sf-app select:focus-visible,
+.sf-app textarea:focus-visible,
+.sf-app summary:focus-visible,
+.sf-app [tabindex]:focus-visible {
+  outline: 3px solid var(--lime);
+  outline-offset: 3px;
+}
+
+.sf-skip {
+  position: absolute;
+  left: 12px;
+  top: -60px;
+  z-index: 60;
+  background: var(--lime);
+  color: var(--void);
+  font-weight: 800;
+  padding: 8px 14px;
+  border-radius: 8px;
+  text-decoration: none;
+}
+
+.sf-skip:focus-visible {
+  top: 12px;
+}
+
+/* ---------- Top bar ---------- */
+
+.sf-topbar {
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  gap: 16px;
+  background: color-mix(in srgb, var(--nav) 91%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--light-line) 50%, transparent);
+}
+
+.sf-mark {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  background: var(--coral);
+  color: var(--void);
+  border-radius: 5px 15px 5px 11px;
+  transform: rotate(-9deg);
+  font-size: 21px;
+  font-weight: 900;
+  box-shadow: 3px 3px 0 color-mix(in srgb, var(--line) 85%, var(--void));
+}
+
+.sf-logo {
+  font-weight: 950;
+  letter-spacing: -0.055em;
+  font-size: 20px;
+  color: var(--offwhite);
+}
+
+.sf-logo span {
+  color: var(--coral);
+}
+
+.sf-top-meta {
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.19em;
+  font-size: 10px;
+  color: var(--muted);
+  margin-left: 7px;
+}
+
+.sf-top-spacer {
+  flex: 1;
+}
+
+.sf-badges {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.sf-badge {
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  padding: 5px 10px;
+  border-radius: 7px;
+  border: 1px solid color-mix(in srgb, var(--line) 80%, transparent);
+  background: var(--base);
+  color: var(--peach);
+  white-space: nowrap;
+}
+
+.sf-badge-live {
+  background: var(--lime);
+  border-color: var(--lime);
+  color: var(--void);
+}
+
+.sf-badge-sim {
+  background: transparent;
+  color: var(--muted);
+}
+
+.sf-demo-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  background: var(--lime);
+  border-radius: 50%;
+  margin-right: 7px;
+  vertical-align: 1px;
+}
+
+/* ---------- Body grid ---------- */
+
+.sf-body {
+  display: grid;
+  grid-template-columns: 202px minmax(0, 1fr) 294px;
+  min-height: 0;
+}
+
+/* ---------- Side nav ---------- */
+
+.sf-nav {
+  background: color-mix(in srgb, var(--nav) 92%, transparent);
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 27px 13px 20px;
+  border-right: 1px solid color-mix(in srgb, var(--line) 55%, transparent);
+  position: relative;
+  overflow: hidden;
+}
+
+.sf-nav-head {
+  position: relative;
+  padding: 0 13px 24px;
+  border-bottom: 1px solid color-mix(in srgb, var(--line) 55%, transparent);
+}
+
+.sf-eyebrow {
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.19em;
+  font-size: 10px;
+  color: var(--lime);
+}
+
+.sf-nav-head h2 {
+  font-family: var(--title);
+  font-size: 29px;
+  line-height: 0.88;
+  letter-spacing: -0.08em;
+  margin: 14px 0 8px;
+  font-weight: 950;
+  color: var(--offwhite);
+}
+
+.sf-nav-head h2 strong {
+  color: var(--coral);
+}
+
+.sf-nav-head p {
+  color: color-mix(in srgb, var(--mauve) 78%, var(--muted));
+  font-weight: 650;
+  font-size: 9px;
+  letter-spacing: 0.16em;
+  margin: 0;
+}
+
+.sf-rail-nav {
+  display: grid;
+  gap: 5px;
+  margin-top: 26px;
+}
+
+.sf-navbtn {
+  width: 100%;
+  border: 1px solid transparent;
+  color: color-mix(in srgb, var(--peach) 82%, var(--mauve));
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-align: left;
+  background: transparent;
+  border-radius: 8px;
+  padding: 12px 13px;
+  font-size: 12px;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.sf-navbtn:hover {
+  background: var(--sf-hover);
+}
+
+.sf-navbtn.sf-active {
+  background: var(--coral);
+  color: var(--void);
+  box-shadow:
+    3px 4px 0 var(--void),
+    0 0 16px color-mix(in srgb, var(--coral) 18%, transparent);
+}
+
+.sf-navbtn .sf-ico {
+  font-size: 18px;
+  font-weight: 900;
+  width: 19px;
+  text-align: center;
+}
+
+.sf-nav-foot {
+  margin-top: auto;
+  padding: 22px 12px 0;
+}
+
+.sf-stamp {
+  width: 90px;
+  height: 90px;
+  border: 1px solid var(--light-line);
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  transform: rotate(-14deg);
+  font-size: 40px;
+  font-weight: 950;
+  color: var(--coral);
+}
+
+.sf-nav-bottom-label {
+  font-size: 9px;
+  letter-spacing: 0.13em;
+  color: var(--muted);
+  line-height: 1.8;
+  margin-top: 22px;
+  font-weight: 800;
+}
+
+.sf-nav-bottom-label strong {
+  color: var(--lime);
+}
+
+/* ---------- Main column ---------- */
+
+.sf-main {
+  min-width: 0;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+  background: linear-gradient(
+    110deg,
+    color-mix(in srgb, var(--plum) 92%, var(--void)) 0%,
+    color-mix(in srgb, var(--nav) 88%, var(--void)) 65%,
+    var(--base) 100%
+  );
+}
+
+.sf-ribbon {
+  min-height: 38px;
+  flex-shrink: 0;
+  background: var(--lime);
+  color: var(--void);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 27px;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.15em;
+}
+
+.sf-ribbon-pill {
+  padding: 4px 8px;
+  color: var(--lime);
+  background: var(--void);
+  border-radius: 3px;
+  white-space: nowrap;
+}
+
+.sf-screen {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.sf-rail-toggle {
+  display: none;
+  align-self: flex-end;
+  margin: 10px 16px 0;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--peach);
+  border-radius: 7px;
+  padding: 8px 12px;
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.sf-rail-toggle:hover {
+  border-color: var(--coral);
+}
+
+/* ---------- Evidence rail ---------- */
+
+.sf-rail {
+  display: flex;
+  flex-direction: column;
+  background: var(--base);
+  border-left: 1px solid color-mix(in srgb, var(--light-line) 60%, transparent);
+  min-width: 0;
+  overflow: auto;
+}
+
+.sf-rail-header {
+  padding: 21px 19px 15px;
+  background: linear-gradient(
+    120deg,
+    color-mix(in srgb, var(--aubergine) 90%, var(--void)),
+    color-mix(in srgb, var(--plum) 80%, var(--coral-hot))
+  );
+  border-bottom: 1px solid color-mix(in srgb, var(--light-line) 60%, transparent);
+}
+
+.sf-rail-header .sf-small {
+  color: var(--mauve);
+  font-size: 9px;
+  letter-spacing: 0.2em;
+  font-weight: 900;
+}
+
+.sf-rail-header h2 {
+  font-family: var(--title);
+  font-size: 35px;
+  margin: 7px 0 0;
+  letter-spacing: -0.075em;
+  color: var(--offwhite);
+}
+
+.sf-rail-header h2 span {
+  color: var(--coral);
+}
+
+.sf-rail-header .sf-sub {
+  font-size: 10px;
+  color: var(--muted);
+  margin-top: 5px;
+}
+
+.sf-ev-list {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 15px 13px;
+}
+
+.sf-evbtn {
+  display: flex;
+  text-align: left;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  border-radius: 7px;
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--aubergine) 78%, var(--void));
+  color: var(--peach);
+  width: 100%;
+  min-width: 0;
+  cursor: pointer;
+  font: inherit;
+}
+
+.sf-evbtn:hover {
+  background: var(--sf-hover);
+}
+
+.sf-evbtn.sf-active {
+  border-color: var(--lime);
+  background: color-mix(in srgb, var(--aubergine) 62%, var(--plum));
+}
+
+.sf-ev-ic {
+  width: 29px;
+  height: 29px;
+  flex-shrink: 0;
+  background: color-mix(in srgb, var(--aubergine) 90%, var(--void));
+  display: grid;
+  place-items: center;
+  border-radius: 7px;
+  color: var(--coral);
+  font-size: 16px;
+}
+
+.sf-evbtn.sf-active .sf-ev-ic {
+  background: var(--lime);
+  color: var(--void);
+}
+
+.sf-evtxt {
+  min-width: 0;
+}
+
+.sf-evtxt strong {
+  display: block;
+  font-size: 10.7px;
+  line-height: 1.25;
+}
+
+.sf-evtxt small {
+  display: block;
+  font-size: 9px;
+  color: var(--muted);
+  margin-top: 3px;
+}
+
+.sf-ev-status {
+  margin-left: auto;
+  font-size: 9px;
+  white-space: nowrap;
+  color: var(--lime);
+  flex-shrink: 0;
+}
+
+.sf-rail-empty {
+  padding: 15px;
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+/* Ornamental instrument box. The pulse graphic is STATIC here; DELTA
+   mounts the animated SignalTrace at data-motion-slot="signal-trace".
+   It must never be labeled as CPU/network/health/AI telemetry. */
+.sf-wavebox {
+  margin: 10px 13px 13px;
+  background: color-mix(in srgb, var(--aubergine) 82%, var(--void));
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 14px;
+  overflow: hidden;
+  position: relative;
+}
+
+.sf-wavebox h3 {
+  font-size: 17px;
+  letter-spacing: -0.055em;
+  margin: 5px 0 2px;
+  color: var(--offwhite);
+}
+
+.sf-wavebox p {
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.4;
+  margin: 0;
+}
+
+.sf-wavebox .sf-section-label {
+  font-size: 10px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  font-weight: 950;
+  color: var(--muted);
+}
+
+.sf-heartbeat {
+  height: 56px;
+  width: 100%;
+  margin-top: 6px;
+}
+
+.sf-signal-label {
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.15em;
+  color: var(--lime);
+  margin-top: 5px;
+}
+
+.sf-inspector {
+  margin: 0 13px 15px;
+  padding: 13px;
+  border-top: 1px solid var(--line);
+  min-height: 91px;
+}
+
+.sf-inspector h4 {
+  font-size: 11px;
+  margin: 0 0 7px;
+  color: var(--peach);
+}
+
+.sf-inspector p {
+  font-size: 10px;
+  margin: 0;
+  line-height: 1.5;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.sf-inspector .sf-badge-line {
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  color: var(--lime);
+  text-transform: uppercase;
+  font-weight: 900;
+  margin-bottom: 6px;
+}
+
+/* ---------- Status bar ---------- */
+
+.sf-status {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  background: var(--nav);
+  border-top: 1px solid var(--line);
+  padding: 0 20px;
+  color: color-mix(in srgb, var(--mauve) 82%, var(--muted));
+  font-size: 10px;
+  letter-spacing: 0.035em;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.sf-status .sf-sep {
+  width: 1px;
+  height: 15px;
+  background: var(--line);
+  flex-shrink: 0;
+}
+
+.sf-status .sf-grow {
+  flex: 1;
+}
+
+.sf-status strong {
+  color: var(--lime);
+}
+
+.sf-status .sf-truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ---------- Shared sun / rook instrument art ---------- */
+
+.sf-sunscene {
+  position: absolute;
+  right: -4px;
+  top: 0;
+  width: 340px;
+  height: 263px;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.sf-sun {
+  position: absolute;
+  right: 12px;
+  top: -81px;
+  width: 274px;
+  height: 274px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle at 30% 35%,
+    var(--peach),
+    var(--tangerine) 42%,
+    var(--coral) 73%,
+    var(--coral-hot) 100%
+  );
+  box-shadow:
+    0 0 0 20px color-mix(in srgb, var(--peach) 9%, transparent),
+    0 0 0 21px color-mix(in srgb, var(--peach) 33%, transparent),
+    0 0 72px color-mix(in srgb, var(--coral) 67%, transparent);
+}
+
+.sf-sun::after {
+  content: "";
+  position: absolute;
+  inset: -34px;
+  border-radius: 50%;
+  border: 1px dashed color-mix(in srgb, var(--peach) 54%, transparent);
+}
+
+.sf-sun-scan {
+  position: absolute;
+  right: 30px;
+  top: 8px;
+  width: 235px;
+  height: 235px;
+  border-radius: 50%;
+  border: 2px solid color-mix(in srgb, var(--tangerine) 39%, transparent);
+  border-top-color: transparent;
+  border-left-color: transparent;
+}
+
+.sf-cliff {
+  position: absolute;
+  bottom: 0;
+  width: 100%;
+  height: 96px;
+  background: var(--plum);
+  clip-path: polygon(
+    0 100%, 0 93%, 17% 76%, 24% 57%, 33% 69%, 45% 35%,
+    58% 51%, 67% 20%, 80% 50%, 90% 17%, 100% 39%, 100% 100%
+  );
+  opacity: 0.85;
+}
+
+.sf-rook {
+  position: absolute;
+  right: 94px;
+  top: 75px;
+  width: 120px;
+  height: 135px;
+}
+
+.sf-rook path {
+  fill: var(--plum);
+}
+
+/* ---------- Shared buttons / panels ---------- */
+
+.sf-btn {
+  border: 0;
+  border-radius: 7px;
+  padding: 10px 15px;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.015em;
+  cursor: pointer;
+}
+
+.sf-btn-lime {
+  background: var(--lime);
+  color: var(--void);
+  box-shadow: 0 4px 0 var(--void);
+}
+
+.sf-btn-dark {
+  background: color-mix(in srgb, var(--aubergine) 88%, var(--void));
+  color: var(--peach);
+  border: 1px solid var(--line);
+}
+
+.sf-btn-clear {
+  color: var(--void);
+  background: transparent;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  padding: 7px;
+}
+
+.sf-btn-sm {
+  padding: 7px 10px;
+  font-size: 10px;
+}
+
+.sf-btn[disabled] {
+  opacity: 0.48;
+  cursor: not-allowed;
+}
+
+.sf-paper-panel {
+  background: color-mix(in srgb, var(--aubergine) 72%, var(--void));
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 17px;
+  min-width: 0;
+}
+
+.sf-paper-panel h3 {
+  font-size: 14px;
+  letter-spacing: -0.025em;
+  margin: 0 0 16px;
+  color: var(--offwhite);
+}
+
+/* ---------- Responsive: rail collapses first ---------- */
+
+@media (max-width: 1400px) {
+  .sf-body {
+    grid-template-columns: 176px minmax(0, 1fr) 248px;
+  }
+
+  .sf-nav-head h2 {
+    font-size: 24px;
+  }
+
+  .sf-rail-header h2 {
+    font-size: 29px;
+  }
+}
+
+@media (max-width: 1180px) {
+  .sf-body {
+    grid-template-columns: 176px minmax(0, 1fr);
+  }
+
+  .sf-rail-toggle {
+    display: inline-block;
+  }
+
+  .sf-rail {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: min(320px, 88vw);
+    z-index: 40;
+    border-left: 1px solid var(--light-line);
+    box-shadow: var(--shadow);
+    display: none;
+  }
+
+  .sf-rail.sf-rail-open {
+    display: flex;
+  }
+}
+
+@media (max-width: 900px) {
+  .sf-body {
+    grid-template-columns: 76px minmax(0, 1fr);
+  }
+
+  .sf-nav {
+    padding-left: 7px;
+    padding-right: 7px;
+  }
+
+  .sf-nav-head {
+    padding: 0 0 15px;
+    text-align: center;
+  }
+
+  .sf-nav-head h2,
+  .sf-nav-head p,
+  .sf-nav-head .sf-eyebrow,
+  .sf-nav-foot {
+    display: none;
+  }
+
+  .sf-navbtn {
+    justify-content: center;
+    padding: 14px 8px;
+  }
+
+  .sf-navbtn span:last-child {
+    display: none;
+  }
+
+  .sf-top-meta {
+    display: none;
+  }
+}
+
+@media (max-width: 700px) {
+  .app.sf-app {
+    grid-template-rows: 52px 1fr 43px;
+    min-height: calc(100vh - 24px);
+  }
+
+  .sf-stage {
+    padding: 12px;
+  }
+
+  .sf-body {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .sf-nav {
+    padding: 8px;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .sf-nav-head {
+    display: none;
+  }
+
+  .sf-rail-nav {
+    display: flex;
+    margin: 0;
+    gap: 5px;
+    justify-content: center;
+  }
+
+  .sf-navbtn {
+    width: 45px;
+    padding: 8px;
+    justify-content: center;
+  }
+
+  .sf-rail-toggle {
+    display: none;
+  }
+
+  .sf-rail {
+    position: static;
+    width: auto;
+    display: flex;
+    border-left: 0;
+    border-top: 1px solid var(--line);
+    box-shadow: none;
+    max-height: none;
+  }
+
+  .sf-ev-list {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .sf-main {
+    min-height: 650px;
+  }
+
+  .sf-topbar {
+    gap: 7px;
+    padding: 0 10px;
+  }
+
+  .sf-logo {
+    font-size: 16px;
+  }
+
+  .sf-status {
+    gap: 5px;
+    padding: 0 10px;
+    font-size: 9px;
+  }
+}
