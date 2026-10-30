@@ -127,12 +127,35 @@ function dispatchMessage(data: unknown): void {
     if (message.ok) {
       call.resolve(message.result);
     } else {
-      const detail = typeof message.error === "string" ? message.error : "Shell rejected the request.";
+      const detail =
+        typeof message.error === "string"
+          ? message.error
+          : isRecord(message.error) && typeof message.error.message === "string"
+            ? message.error.message
+            : "Shell rejected the request.";
       call.reject(new ShellBridgeError("rejected", detail));
     }
     return;
   }
-  // Id-less traffic is a server-push event (provisional: ALPHA confirms).
+  // The native shell posts validated window drops as
+  // {kind:"fieldrook:file", fileName, path}; normalize to the typed
+  // collector-dropped event. Malformed notices are ignored, never thrown.
+  if (isRecord(data) && data.kind === "fieldrook:file") {
+    const path = typeof data.path === "string" ? data.path : null;
+    const name = typeof data.fileName === "string" ? data.fileName : null;
+    if (path && name) {
+      const pushed: ShellPushEvent = { event: "collector-dropped", payload: { path, name } };
+      for (const listener of eventListeners) {
+        try {
+          listener(pushed);
+        } catch {
+          /* one bad subscriber must not break the bridge */
+        }
+      }
+    }
+    return;
+  }
+  // Id-less traffic is a server-push event.
   if (isRecord(data) && typeof data.event === "string") {
     const pushed: ShellPushEvent = { event: data.event, payload: data.payload };
     for (const listener of eventListeners) {
@@ -186,6 +209,17 @@ function callShell(op: ShellOp, params: Record<string, unknown>, timeoutMs: numb
   });
 }
 
+/** UTF-8 text → base64 without deprecated escape tricks; chunked for size. */
+function utf8ToBase64(text: string): string {
+  const bytes = new TextEncoder().encode(text);
+  let binary = "";
+  const CHUNK = 0x8000;
+  for (let i = 0; i < bytes.length; i += CHUNK) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
+  }
+  return btoa(binary);
+}
+
 function getString(record: Record<string, unknown>, key: string): string | null {
   const value = record[key];
   return typeof value === "string" ? value : null;
@@ -234,7 +268,7 @@ export async function shellOpenFile(args: ShellOpenFileArgs = {}): Promise<Shell
 export async function shellSaveFile(args: ShellSaveFileArgs): Promise<ShellSaveFileResult> {
   const raw = await callShell(
     "saveFile",
-    { filename: args.filename, text: args.text, mime: args.mime ?? "text/plain" },
+    { fileName: args.filename, contentBase64: utf8ToBase64(args.text) },
     DIALOG_TIMEOUT_MS,
   );
   if (!isRecord(raw)) {

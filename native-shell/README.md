@@ -63,9 +63,9 @@ where `error = {code, message}`. Allowed ops ONLY:
 
 | op | params | result |
 |---|---|---|
-| `openFile` | `{title?}` | `{path}` — `.zip` picked in a native dialog |
-| `saveFile` | `{fileName, contentBase64}` | `{path}` — bytes written where the native save dialog pointed |
-| `getVersion` | `{}` | `{shell, server, runtime}` |
+| `openFile` | `{title?}` | `{path, name, sizeBytes, contentBase64}` — `.zip` (≤16 MiB) picked in a native dialog, bytes delivered |
+| `saveFile` | `{fileName, contentBase64}` | `{path, bytesWritten}` — decoded bytes written where the native save dialog pointed |
+| `getVersion` | `{}` | `{shell, server, runtime, version}` (`version` == shell assembly version, for the UI identity strip) |
 | `windowControl` | `{action: minimize\|maximize\|restore\|close}` | `{action}` |
 
 Fail-closed: unknown ops, malformed envelopes, traversal/separator names

@@ -20,7 +20,7 @@ test("remembered incident matches a later similar investigation", async ({ page 
   await expect(card.getByText("UNRESOLVED", { exact: true })).toBeVisible({ timeout: 15000 });
 
   // A fresh incident with the same symptoms finds the remembered one.
-  await page.getByRole("button", { name: "Investigate problem" }).click();
+  await page.getByRole("button", { name: "Workbench", exact: true }).click();
   await page.getByPlaceholder(/vpn disconnects/i).fill(`${probe}: the demo worker is down.`);
   await page.getByText("Advanced: fixture mode").click();
   await page.getByText("Force fixture data").click();

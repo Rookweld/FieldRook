@@ -291,6 +291,29 @@ identity row → `shellVersion` (null = browser preview, label honestly).
 Motion preference stays DELTA-owned (`fieldrook.motion.v1`) — this file
 must not invent a second motion key.
 
+## 5.5 Lead integration resolutions (2026-10-30)
+
+- `openFile` bytes CONFIRMED: the shell returns
+  `{path, name, sizeBytes, contentBase64}` (16 MiB cap, oversize fails
+  honestly). `shellOpenFile` parses it as coded — no client change.
+- `saveFile` direction REVERSED from the provisional sketch: the shell
+  keeps `{fileName, contentBase64}` (ALPHA's tested parser untouched)
+  and now returns `{path, bytesWritten}`; the client encodes
+  UTF-8 → base64 in `shellBridge.ts` (`useExport` untouched).
+- `getVersion` CONFIRMED plus: the shell adds a top-level `version`
+  (== shell assembly version) alongside `{shell, server, runtime}`.
+- Push events: the shell posts `{kind:"fieldrook:file", fileName,
+  path}`; the client normalizes it to `collector-dropped`. The
+  provisional `{event:"collector-dropped"}` wire shape was NOT adopted.
+- Shell error records `{code, message}` are surfaced verbatim in
+  `ShellBridgeError.message` (code stays `rejected` for user cancels).
+- Views shipped prop-driven from App/engine state, so most §5 hook
+  insertions had no surface and were deliberately NOT applied (see the
+  integration commit): `useViewState` (App nav + persistence),
+  `useCollectorImport` (window drop-to-import), `shellGetVersion`
+  (Settings identity row) are live; the rest ship as tested API for
+  future surfaces.
+
 ## 6. M025 capability preservation checklist
 
 | Capability | Hook(s) | Backend endpoint(s) — all existing |

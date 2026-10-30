@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import type { StatusResponse } from "../../types";
 import { summarizeEvidence } from "../../evidenceSummary";
 import type { EvidenceRailProps, ShellProps, SignalView } from "../types";
+import { CircuitVeins, SignalTrace } from "../motion";
 import "../signalforge.css";
 
 /** Shared sun/rook/cliff instrument art. Colors resolve via CSS vars. */
@@ -26,8 +27,7 @@ function ModeBadges({ status }: { status: StatusResponse | null }) {
         <span className="sf-badge">connecting&hellip;</span>
         <span
           className="sf-badge sf-badge-sim"
-          data-motion-slot="motion-switch"
-          title="Atmosphere controls arrive with the motion milestone; the interface follows the OS reduced-motion setting until then."
+          title="Ambient motion follows the motion preference in Settings; the OS reduced-motion setting is always respected."
         >
           Atmosphere &middot; system
         </span>
@@ -142,17 +142,10 @@ export function EvidenceRail({ view, investigation, onGoEvidence, onGoWorkbench 
         <div className="sf-section-label">INSTRUMENT / UI ACTIVITY ONLY</div>
         <h3>Quiet instrument.</h3>
         <p>
-          This panel will carry an animated activity cue. It is <strong>not</strong> a live health
-          or network measurement.
+          Animated activity cue. It is <strong>not</strong> a live health or network measurement.
         </p>
-        <svg className="sf-heartbeat" viewBox="0 0 280 62" preserveAspectRatio="none" aria-hidden="true">
-          <path
-            d="M0 38 H37 L44 35 L52 40 L59 38 L65 38 L70 23 L76 55 L83 5 L90 42 L97 38 H145 L153 33 L160 42 L166 38 H191 L197 24 L203 52 L210 16 L216 39 L225 38 H280"
-            fill="none"
-            style={{ stroke: "var(--line)", strokeWidth: 2 }}
-          />
-        </svg>
-        <div className="sf-signal-label">◉ STATIC / PRE-MOTION</div>
+        <SignalTrace activityPulse={investigation?.activity.length ?? 0} />
+        <div className="sf-signal-label">◉ AMBIENT / IDLE</div>
       </div>
       <div className="sf-inspector" aria-live="polite">
         {selected ? (
@@ -233,8 +226,9 @@ export function SignalFrame({
       <a className="sf-skip" href="#sf-main">
         Skip to main content
       </a>
-      {/* DELTA mounts the CircuitVeins ambient background here (stage-level, like the prototype). */}
-      <div className="sf-veins-slot" data-motion-slot="circuit-veins" aria-hidden="true" />
+      <div className="sf-veins-slot" data-motion-slot="circuit-veins" aria-hidden="true">
+        <CircuitVeins />
+      </div>
       <div className="app sf-app">
         <header className="sf-topbar">
           <div className="sf-mark" aria-hidden="true">

@@ -1,5 +1,8 @@
+import { useEffect, useState } from "react";
 import { ServiceWorkstation } from "../../components/ServiceWorkstation";
 import type { SettingsViewProps } from "../types";
+import { MotionSwitcher } from "../motion";
+import { shellGetVersion } from "../shellBridge";
 import "./Utility.css";
 
 export function SettingsView({ status, investigation }: SettingsViewProps) {
@@ -7,6 +10,22 @@ export function SettingsView({ status, investigation }: SettingsViewProps) {
     typeof window !== "undefined" &&
     typeof window.matchMedia === "function" &&
     window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const [shellVersion, setShellVersion] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    shellGetVersion().then(
+      (v) => {
+        if (!cancelled) setShellVersion(v.version);
+      },
+      () => {
+        if (!cancelled) setShellVersion(null);
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <section className="sf-screen" aria-label="Settings">
@@ -41,6 +60,8 @@ export function SettingsView({ status, investigation }: SettingsViewProps) {
                   ? "Live read-only tools on this machine"
                   : "Synthetic fixtures only"}
               </dd>
+              <dt>Desktop shell</dt>
+              <dd>{shellVersion ?? "No desktop shell detected"}</dd>
             </dl>
           ) : (
             <p>Backend not reached yet — the workbench connects automatically once it answers.</p>
@@ -56,10 +77,11 @@ export function SettingsView({ status, investigation }: SettingsViewProps) {
         </div>
         <div className="sf-utility-card">
           <h2>Motion &amp; atmosphere</h2>
+          <MotionSwitcher label="Ambient motion" idPrefix="sf-settings-motion" />
           <p>
-            Ambient instrument motion (circuit pulses, activity trace) arrives with the motion
-            milestone. Until then the interface is static, and the OS reduced-motion preference is
-            always respected{prefersReduced ? " — this system currently prefers reduced motion" : ""}.
+            Alive plays the full ambient instrument; Quiet dims and slows it; Off stops all
+            decorative motion. The choice persists on this machine
+            {prefersReduced ? ", and this system currently prefers reduced motion" : ""}.
           </p>
         </div>
         <div className="sf-utility-card">

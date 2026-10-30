@@ -25,6 +25,10 @@ export default defineConfig({
   globalTeardown: "./tests/e2e/global-teardown.ts",
   use: {
     baseURL: "http://localhost:4173",
+    // Seed workbench-first view state: engine-flow specs keep intake-first
+    // continuity while fresh profiles land on the launchpad (pinned by
+    // launchpad.spec.ts, which overrides storageState with a blank slate).
+    storageState: "./tests/e2e/storage/workbench.json",
     screenshot: "only-on-failure",
     trace: "retain-on-failure",
   },

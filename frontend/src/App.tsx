@@ -5,18 +5,20 @@ import { ProblemWorkstation } from "./components/ProblemWorkstation";
 import { FirstRunGate } from "./forge/FirstRunGate";
 import type { InvestigationResponse, InvestigationSummary, StatusResponse } from "./types";
 import { SignalFrame } from "./signalforge/components/Shell";
+import { useCollectorImport, useViewState } from "./signalforge/hooks";
 import { Launchpad } from "./signalforge/views/Launchpad";
 import { Workbench } from "./signalforge/views/Workbench";
 import { EvidenceView } from "./signalforge/views/EvidenceView";
 import { KnowledgeView } from "./signalforge/views/KnowledgeView";
 import { SettingsView } from "./signalforge/views/SettingsView";
-import type { Route, SignalView } from "./signalforge/types";
+import type { SignalView } from "./signalforge/types";
 import "./signalforge/tokens.css";
 
 export function App() {
-  // M026 navigation replaces the M025 four-tab model. Workbench first:
-  // matches the Motion Lab default and keeps the intake-first flow.
-  const [route, setRoute] = useState<Route>({ view: "workbench" });
+  // M026 navigation: GAMMA's persisted view state drives BETA's route model.
+  // Fresh profiles land on the launchpad; reloads restore the open case.
+  const { state: route, go, openInvestigation: gotoInvestigation, startNew: navStartNew, reset: navReset } =
+    useViewState();
   const [status, setStatus] = useState<StatusResponse | null>(null);
   const [recents, setRecents] = useState<InvestigationSummary[]>([]);
   const [recentsLoading, setRecentsLoading] = useState(true);
@@ -90,11 +92,14 @@ export function App() {
     if (route.view === "launchpad") void refreshRecents();
   }, [route.view, refreshRecents]);
 
-  const navigate = useCallback((view: SignalView) => {
-    setNotice(null);
-    setRoute((prev) => ({ ...prev, view }));
-    document.getElementById("sf-main")?.scrollTo({ top: 0 });
-  }, []);
+  const navigate = useCallback(
+    (view: SignalView) => {
+      setNotice(null);
+      go(view);
+      document.getElementById("sf-main")?.scrollTo({ top: 0 });
+    },
+    [go],
+  );
 
   const handleMirror = useCallback((inv: InvestigationResponse | null) => {
     setMirror(inv);
@@ -111,7 +116,7 @@ export function App() {
         setSeeded(inv);
         setMirror(inv);
         setSession((s) => s + 1);
-        setRoute({ view: "workbench", investigationId: inv.investigation_id });
+        gotoInvestigation(inv.investigation_id);
         void refreshRecents();
       } catch (e: unknown) {
         if (!mounted.current) return;
@@ -126,7 +131,7 @@ export function App() {
         if (mounted.current) setOpeningId(null);
       }
     },
-    [openingId, refreshRecents],
+    [openingId, refreshRecents, gotoInvestigation],
   );
 
   const startNew = useCallback(() => {
@@ -134,13 +139,13 @@ export function App() {
     setSeeded(null);
     setMirror(null);
     setSession((s) => s + 1);
-    setRoute({ view: "workbench" });
-  }, []);
+    navStartNew();
+  }, [navStartNew]);
 
   /** Real import, via the consented engine surface (intake or workspace). */
   const goImport = useCallback(() => {
     setNotice(null);
-    setRoute((prev) => ({ ...prev, view: "workbench" }));
+    go("workbench");
     window.setTimeout(() => {
       const host = document.querySelector(
         '[data-testid="forge-intake-collector"], [data-testid="forge-collector-import"]',
@@ -148,21 +153,24 @@ export function App() {
       host?.scrollIntoView({ block: "center" });
       host?.querySelector<HTMLInputElement>('input[type="file"]')?.focus({ preventScroll: true });
     }, 80);
-  }, []);
+  }, [go]);
 
   /** Interim quick-capture: jump to the engine's real notes box. */
-  const goNotes = useCallback((_draft: string) => {
-    setRoute((prev) => ({ ...prev, view: "workbench" }));
-    window.setTimeout(() => {
-      const el =
-        document.getElementById("sf-engine-note") ?? document.getElementById("sf-engine-problem");
-      el?.scrollIntoView({ block: "center" });
-      el?.focus({ preventScroll: true });
-    }, 80);
-  }, []);
+  const goNotes = useCallback(
+    (_draft: string) => {
+      go("workbench");
+      window.setTimeout(() => {
+        const el =
+          document.getElementById("sf-engine-note") ?? document.getElementById("sf-engine-problem");
+        el?.scrollIntoView({ block: "center" });
+        el?.focus({ preventScroll: true });
+      }, 80);
+    },
+    [go],
+  );
 
   const openGuide = useCallback(() => {
-    setRoute((prev) => ({ ...prev, view: "workbench" }));
+    go("workbench");
     window.setTimeout(() => {
       const el =
         document.getElementById("sf-engine-tab-guide") ??
@@ -170,7 +178,58 @@ export function App() {
       el?.scrollIntoView({ block: "center" });
       el?.focus({ preventScroll: true });
     }, 80);
-  }, []);
+  }, [go]);
+
+  // Window-level .zip drop → consented import into the open case. The engine
+  // owns case state, so a successful import reseeds + remounts it from the
+  // server response (same machinery as opening a case): no stale views.
+  const importer = useCollectorImport({
+    investigationId: mirror?.investigation_id ?? null,
+    onUpdate: (next) => {
+      setSeeded(next);
+      setMirror(next);
+      setSession((s) => s + 1);
+      setNotice(`Collector package imported: ${next.evidence.length} evidence records on this case.`);
+    },
+    onError: (message) => setNotice(message),
+  });
+
+  const importerRef = useRef(importer);
+  importerRef.current = importer;
+
+  useEffect(() => {
+    const onDragOver = (event: DragEvent) => {
+      if (event.dataTransfer?.types.includes("Files")) event.preventDefault();
+    };
+    const onDrop = (event: DragEvent) => {
+      if (!event.dataTransfer?.types.includes("Files")) return;
+      event.preventDefault();
+      const files = [...event.dataTransfer.files];
+      const zip = files.find((file) => file.name.toLowerCase().endsWith(".zip")) ?? null;
+      if (!zip) {
+        if (files.length > 0) {
+          setNotice("Dropped files are ignored — only .zip collector packages import.");
+        }
+        return;
+      }
+      if (!mirror) {
+        setNotice("Open or start an investigation first — dropped packages import into the open case.");
+        return;
+      }
+      if (importerRef.current.busy) return;
+      const ok = window.confirm(
+        `Import "${zip.name}" into this case with sharing consent?\n\nThe package validates atomically: any failure rejects the whole import.`,
+      );
+      if (!ok) return;
+      void importerRef.current.importFile(zip, true);
+    };
+    window.addEventListener("dragover", onDragOver);
+    window.addEventListener("drop", onDrop);
+    return () => {
+      window.removeEventListener("dragover", onDragOver);
+      window.removeEventListener("drop", onDrop);
+    };
+  }, [mirror]);
 
   return (
     <SignalFrame
@@ -187,7 +246,7 @@ export function App() {
         onReset={() => {
           setSeeded(null);
           setMirror(null);
-          setRoute({ view: "workbench" });
+          navReset();
         }}
       >
         {route.view === "launchpad" && (

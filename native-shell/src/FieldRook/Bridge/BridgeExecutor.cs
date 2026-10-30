@@ -4,6 +4,10 @@
 // for .zip import / export, version reporting, standard-chrome window
 // control. Every path is re-validated at execution time; failures answer
 // {ok:false} and never touch the filesystem outside dialog results.
+//
+// Result shapes are built by FieldRook.Core helpers so the JSON contract
+// the signalforge client parses stays unit-tested (see BridgeProtocolTests
+// ResultShapes_MatchSignalforgeClient).
 
 using System.Reflection;
 using System.Windows;
@@ -67,7 +71,29 @@ public sealed class BridgeExecutor
             return BridgeProtocol.FailResponse(command.Id, invalid);
         }
 
-        return BridgeProtocol.SuccessResponse(command.Id, new { path = dialog.FileName });
+        // The page cannot read an arbitrary native path, so the shell
+        // delivers the bytes it just had the user authorize (capped like
+        // save payloads; oversize zips fail honestly instead of truncating).
+        byte[] content;
+        try
+        {
+            content = File.ReadAllBytes(dialog.FileName);
+        }
+        catch (Exception ex)
+        {
+            return BridgeProtocol.FailResponse(command.Id, new BridgeError(
+                BridgeErrorCodes.Failed, $"The file could not be read: {ex.Message}"));
+        }
+
+        if (content.Length > BridgeProtocol.MaxContentBytes)
+        {
+            return BridgeProtocol.FailResponse(command.Id, new BridgeError(
+                BridgeErrorCodes.Failed, "The file exceeds 16 MiB."));
+        }
+
+        return BridgeProtocol.SuccessResponse(command.Id, BridgeProtocol.OpenFileResult(
+            dialog.FileName, Path.GetFileName(dialog.FileName), content.Length,
+            Convert.ToBase64String(content)));
     }
 
     private string ExecuteSaveFile(BridgeCommand command)
@@ -98,19 +124,17 @@ public sealed class BridgeExecutor
             return BridgeProtocol.FailResponse(command.Id, invalid);
         }
 
-        File.WriteAllBytes(dialog.FileName, command.Content ?? []);
-        return BridgeProtocol.SuccessResponse(command.Id, new { path = dialog.FileName });
+        var bytes = command.Content ?? [];
+        File.WriteAllBytes(dialog.FileName, bytes);
+        return BridgeProtocol.SuccessResponse(command.Id, BridgeProtocol.SaveFileResult(
+            dialog.FileName, bytes.Length));
     }
 
     private string ExecuteGetVersion(BridgeCommand command)
     {
         var server = _serverIdentity();
-        return BridgeProtocol.SuccessResponse(command.Id, new
-        {
-            shell = ShellVersion(),
-            server = server.Version,
-            runtime = server.Runtime,
-        });
+        return BridgeProtocol.SuccessResponse(command.Id, BridgeProtocol.VersionResult(
+            ShellVersion(), server.Version, server.Runtime));
     }
 
     private string ExecuteWindowControl(BridgeCommand command)

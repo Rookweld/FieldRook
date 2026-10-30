@@ -319,6 +319,27 @@ public static class BridgeProtocol
             JsonOptions);
     }
 
+    /// <summary>
+    /// Result shapes shared with the signalforge client, kept in unit-tested
+    /// Core so the JSON contract never drifts silently. The client requires
+    /// openFile {path,name,sizeBytes,contentBase64}, saveFile {path,
+    /// bytesWritten}, and getVersion.version (== the shell version).
+    /// </summary>
+    public static object OpenFileResult(string path, string name, long sizeBytes, string contentBase64)
+    {
+        return new { path, name, sizeBytes, contentBase64 };
+    }
+
+    public static object SaveFileResult(string path, long bytesWritten)
+    {
+        return new { path, bytesWritten };
+    }
+
+    public static object VersionResult(string shell, string? server, string? runtime)
+    {
+        return new { shell, server, runtime, version = shell };
+    }
+
     /// <summary>File-delivery notice posted to the page after a validated drop.</summary>
     public static string FileDeliveredMessage(string path)
     {

@@ -58,8 +58,8 @@ export function FirstRunPanel({ onStart, onDismiss, onReset }: FirstRunPanelProp
           <h3 className="story-head">What FieldRook diagnoses</h3>
           <p>
             Evidence-backed diagnosis of Windows problems: a failing service
-            (Service lookup tab) or a symptom in your own words (Investigate
-            problem tab). Diagnostics are read-only and bounded; the only
+            (Settings → Standalone service diagnostics) or a symptom in your own
+            words (Workbench intake). Diagnostics are read-only and bounded; the only
             thing FieldRook can ever change is its own demo worker, and only
             through propose → approve → execute with a single-use token.
           </p>

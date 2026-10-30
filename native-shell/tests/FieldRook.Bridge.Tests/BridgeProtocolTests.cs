@@ -210,6 +210,30 @@ public sealed class BridgeProtocolTests
     }
 
     [Fact]
+    public void ResultShapes_MatchSignalforgeClient()
+    {
+        using var openDoc = JsonDocument.Parse(BridgeProtocol.SuccessResponse(
+            "r1", BridgeProtocol.OpenFileResult("C:\\p.zip", "p.zip", 4, "AAAA")));
+        var open = openDoc.RootElement.GetProperty("result");
+        Assert.Equal("C:\\p.zip", open.GetProperty("path").GetString());
+        Assert.Equal("p.zip", open.GetProperty("name").GetString());
+        Assert.Equal(4, open.GetProperty("sizeBytes").GetInt64());
+        Assert.Equal("AAAA", open.GetProperty("contentBase64").GetString());
+
+        using var saveDoc = JsonDocument.Parse(BridgeProtocol.SuccessResponse(
+            "r2", BridgeProtocol.SaveFileResult("C:\\e.json", 5)));
+        var save = saveDoc.RootElement.GetProperty("result");
+        Assert.Equal("C:\\e.json", save.GetProperty("path").GetString());
+        Assert.Equal(5, save.GetProperty("bytesWritten").GetInt64());
+
+        using var verDoc = JsonDocument.Parse(BridgeProtocol.SuccessResponse(
+            "r3", BridgeProtocol.VersionResult("0.5.0", "0.5.0", "desktop")));
+        var ver = verDoc.RootElement.GetProperty("result");
+        Assert.Equal("0.5.0", ver.GetProperty("version").GetString());
+        Assert.Equal("0.5.0", ver.GetProperty("shell").GetString());
+    }
+
+    [Fact]
     public void Responses_CarryIdAndShape()
     {
         var success = BridgeProtocol.SuccessResponse("k1", new { path = "C:\\x.zip" });

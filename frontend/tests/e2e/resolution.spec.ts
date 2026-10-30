@@ -61,7 +61,7 @@ test("resolution plan survives reopen from history", async ({ page }) => {
   await page.locator(".view-panel").getByRole("button", { name: "Create resolution plan" }).click();
   await expect(page.getByText("DRAFT", { exact: true }).first()).toBeVisible({ timeout: 15000 });
 
-  await page.getByRole("button", { name: "History", exact: true }).click();
+  await page.getByRole("button", { name: "Launchpad", exact: true }).click();
   await expect(page.getByText(probe).first()).toBeVisible({ timeout: 15000 });
   await page.getByText(probe).first().click();
   await page.getByRole("tab", { name: "Resolve" }).click();
