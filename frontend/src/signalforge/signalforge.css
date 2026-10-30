@@ -70,9 +70,11 @@
   position: relative;
   max-width: 1560px;
   /* Definite height: fr tracks need it, otherwise the middle row grows
-     with content and the status bar sinks below the fold. */
-  height: min(920px, calc(100vh - 52px));
-  min-height: 0; /* beat legacy .app min-height:100vh so height rules */
+     with content and the status bar sinks below the fold. The frame fills
+     the stage vertically (MINOR-4: a capped card letterboxes maximized
+     windows); the 700px floor respects the 58/590/45 row minima. */
+  height: calc(100vh - 52px);
+  min-height: 700px; /* beat legacy .app min-height:100vh so height rules */
   margin: auto;
   background: linear-gradient(
     135deg,

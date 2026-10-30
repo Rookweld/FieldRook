@@ -195,11 +195,14 @@
   font-size: 23px;
   display: block;
   line-height: 1.1;
+  overflow-wrap: normal;
+  word-break: normal;
 }
 
 .sf-stat span {
   font-size: 10px;
   font-weight: 800;
+  overflow-wrap: normal;
 }
 
 .sf-minihelp {

@@ -204,7 +204,14 @@ export function Workbench({
           </div>
         </div>
         <div className="sf-work-content">
-          <section className="sf-engine" aria-label="Investigation workspace">
+          {/*
+            BLOCKER-1 (M026 ZETA): this section MUST keep the same key in
+            both hero branches. The engine below owns the live case; when
+            the mirror flips null->case the branch changes, and without a
+            stable key React remounts the engine (fresh intake, orphaned
+            server case). Keyed, React moves the DOM node and state survives.
+          */}
+          <section key="sf-engine" className="sf-engine" aria-label="Investigation workspace">
             {children}
           </section>
         </div>
@@ -288,7 +295,8 @@ export function Workbench({
           </button>
           .
         </p>
-        <section className="sf-engine" aria-label="Investigation workspace">
+        {/* Same stable key as the no-case branch above (BLOCKER-1). */}
+        <section key="sf-engine" className="sf-engine" aria-label="Investigation workspace">
           {children}
         </section>
       </div>

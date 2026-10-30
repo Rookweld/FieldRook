@@ -1835,8 +1835,7 @@ ol.steps {
 }
 
 .views {
-  background: color-mix(in srgb, var(--void) 82%, transparent);
-  backdrop-filter: blur(6px);
+  background: var(--void);
   box-shadow: 0 8px 20px color-mix(in srgb, var(--void) 40%, transparent);
 }
 

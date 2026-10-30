@@ -68,7 +68,7 @@ export function nextActionFor(inv: InvestigationResponse): NextAction {
   const lastExecution =
     inv.executions.length > 0 ? inv.executions[inv.executions.length - 1] : null;
   if (lastExecution?.outcome === "VERIFIED_RESOLVED" || plan?.status === "VERIFIED_RESOLVED") {
-    return { label: "Export report", view: "resolve" };
+    return { label: "Open report export", view: "resolve" };
   }
   if (inv.proposals.length > 0 || inv.plans.length > 0 || inv.executions.length > 0) {
     return { label: "Review resolution", view: "resolve" };

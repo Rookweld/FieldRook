@@ -2,12 +2,12 @@ import { expect, test } from "@playwright/test";
 
 test("workstation opens with brand, views, and tabs", async ({ page }) => {
   await page.goto("/");
-  await expect(page.getByRole("button", { name: "Launchpad", exact: true })).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "Primary" }).getByRole("button", { name: "Launchpad", exact: true })).toBeVisible();
   await expect(page.getByText("Diagnose. Verify. Resolve.").first()).toBeVisible();
   // SIGNALFORGE primary nav.
-  await expect(page.getByRole("button", { name: "Workbench", exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Evidence", exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Settings", exact: true })).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "Primary" }).getByRole("button", { name: "Workbench", exact: true })).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "Primary" }).getByRole("button", { name: "Evidence", exact: true })).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "Primary" }).getByRole("button", { name: "Settings", exact: true })).toBeVisible();
   // Intake form with one prominent action.
   await expect(page.getByPlaceholder(/vpn disconnects/i)).toBeVisible();
   await expect(page.getByRole("button", { name: "Investigate", exact: true })).toBeVisible();

@@ -55,7 +55,7 @@ test("technician note saves and survives reopen", async ({ page }) => {
   await expect(savedNote).toBeVisible({ timeout: 15000 });
 
   // Reopen from history: the note persisted server-side.
-  await page.getByRole("button", { name: "Launchpad", exact: true }).click();
+  await page.getByRole("navigation", { name: "Primary" }).getByRole("button", { name: "Launchpad", exact: true }).click();
   await expect(page.getByText(probe).first()).toBeVisible({ timeout: 15000 });
   await page.getByText(probe).first().click();
   await page.getByRole("tab", { name: /Evidence/ }).click();

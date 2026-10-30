@@ -34,7 +34,7 @@ test("outdated backend is reported rather than crashing after Investigate", asyn
   await page.getByRole("button", { name: "Investigate", exact: true }).click();
 
   await expect(page.getByRole("alert")).toContainText("frontend/backend version mismatch");
-  await expect(page.getByRole("button", { name: "Launchpad", exact: true })).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "Primary" }).getByRole("button", { name: "Launchpad", exact: true })).toBeVisible();
   expect(errors).toEqual([]);
 });
 
@@ -58,10 +58,10 @@ test("outdated backend is reported rather than crashing when opening History", a
     await route.fulfill({ json: legacyInvestigation });
   });
   await page.goto("/");
-  await page.getByRole("button", { name: "Launchpad", exact: true }).click();
+  await page.getByRole("navigation", { name: "Primary" }).getByRole("button", { name: "Launchpad", exact: true }).click();
   await page.getByRole("button", { name: "Compatibility test" }).click();
 
   await expect(page.getByText(/Open failed.*frontend\/backend version mismatch/)).toBeVisible();
-  await expect(page.getByRole("button", { name: "Launchpad", exact: true })).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "Primary" }).getByRole("button", { name: "Launchpad", exact: true })).toBeVisible();
   expect(errors).toEqual([]);
 });

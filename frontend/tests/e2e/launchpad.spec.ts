@@ -9,10 +9,10 @@ test("launchpad is the fresh landing with working nav and recents", async ({ pag
   await page.goto("/");
   await expect(page.getByRole("heading", { name: /be curious/i })).toBeVisible();
   await expect(page.getByRole("button", { name: "New investigation" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Launchpad", exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Workbench", exact: true })).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "Primary" }).getByRole("button", { name: "Launchpad", exact: true })).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "Primary" }).getByRole("button", { name: "Workbench", exact: true })).toBeVisible();
 
-  await page.getByRole("button", { name: "Workbench", exact: true }).click();
+  await page.getByRole("navigation", { name: "Primary" }).getByRole("button", { name: "Workbench", exact: true }).click();
   await expect(page.getByPlaceholder(/vpn disconnects/i)).toBeVisible();
 
   const probe = `E2E launchpad probe ${Date.now()}`;
@@ -22,7 +22,7 @@ test("launchpad is the fresh landing with working nav and recents", async ({ pag
   await page.getByRole("button", { name: "Investigate", exact: true }).click();
   await expect(page.getByRole("tab", { name: "Findings" })).toBeVisible({ timeout: 30000 });
 
-  await page.getByRole("button", { name: "Launchpad", exact: true }).click();
+  await page.getByRole("navigation", { name: "Primary" }).getByRole("button", { name: "Launchpad", exact: true }).click();
   await expect(page.getByText(probe).first()).toBeVisible({ timeout: 15000 });
   await page.getByText(probe).first().click();
   await expect(page.getByRole("tab", { name: /Evidence/ })).toBeVisible({ timeout: 30000 });

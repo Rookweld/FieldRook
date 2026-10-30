@@ -26,7 +26,7 @@ test("service evidence renders a status module, not plain text", async ({ page, 
   });
   expect(res.ok()).toBe(true);
   await page.goto("/");
-  await page.getByRole("button", { name: "Launchpad", exact: true }).click();
+  await page.getByRole("navigation", { name: "Primary" }).getByRole("button", { name: "Launchpad", exact: true }).click();
   await page.getByText(probe).first().click();
   await page.getByRole("tab", { name: /Evidence/ }).click();
   const card = page.locator("article.evidence-item", { hasText: "service_details" }).first();
