@@ -62,7 +62,7 @@ public static class InstanceProbeRunner
                 File.Delete(AppPaths.LockFile());
                 AppLogger.Info($"Removed stale lock (pid {lockData.Pid}, port {lockData.Port}).");
             }
-            catch (IOException ex)
+            catch (Exception ex)
             {
                 AppLogger.Warn($"Could not clear stale lock: {ex.Message}");
             }

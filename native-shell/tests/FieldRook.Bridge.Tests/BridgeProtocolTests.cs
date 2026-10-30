@@ -203,6 +203,13 @@ public sealed class BridgeProtocolTests
     }
 
     [Fact]
+    public void SizeCaps_AreConsistent()
+    {
+        // The envelope must fit the largest saveFile payload (base64 4/3).
+        Assert.True(BridgeProtocol.MaxEnvelopeBytes > BridgeProtocol.MaxContentBytes * 4 / 3);
+    }
+
+    [Fact]
     public void Responses_CarryIdAndShape()
     {
         var success = BridgeProtocol.SuccessResponse("k1", new { path = "C:\\x.zip" });

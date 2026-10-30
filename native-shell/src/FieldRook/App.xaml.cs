@@ -65,7 +65,18 @@ public partial class App : Application
 
         // Supplemental race guard: the lock/probe/identity decision stays
         // authoritative; the mutex only sharpens a double-launch race.
-        _mutex = new Mutex(initiallyOwned: true, MutexName, out var fresh);
+        // If the mutex itself is unusable (e.g. ACLs), proceed on the probe.
+        bool fresh = true;
+        try
+        {
+            _mutex = new Mutex(initiallyOwned: true, MutexName, out fresh);
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Warn($"Single-instance mutex unavailable (continuing on probe): {ex.Message}");
+            _mutex = null;
+        }
+
         if (!fresh)
         {
             var (port, _) = await InstanceProbeRunner.ResolveAppPortAsync(explicitPort).ConfigureAwait(true);

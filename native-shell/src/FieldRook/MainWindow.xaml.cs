@@ -55,7 +55,11 @@ public partial class MainWindow : Window
                 "No browser fallback is used: the desktop app only runs in its native host.",
                 "WebView2 Runtime is missing",
                 MessageBoxButton.OK, MessageBoxImage.Error);
-            CloseForGood();
+            // The backend is already up: shut it down, then quit for good.
+            await Task.Run(() => _backend.Shutdown()).ConfigureAwait(true);
+            _shuttingDown = true;
+            Closing -= OnClosing;
+            Application.Current.Shutdown(1);
             return;
         }
         catch (Exception ex)

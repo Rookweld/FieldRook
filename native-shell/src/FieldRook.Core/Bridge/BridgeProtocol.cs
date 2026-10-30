@@ -52,8 +52,10 @@ public sealed record BridgeError(string Code, string Message);
 
 public static class BridgeProtocol
 {
-    public const int MaxEnvelopeBytes = 256 * 1024;
-    public const int MaxContentBytes = 64 * 1024 * 1024;
+    // Envelope cap must fit the largest saveFile payload (base64 inflates
+    // content 4/3): 16 MiB -> ~21.4 M chars, so 24 MB envelopes.
+    public const int MaxEnvelopeBytes = 24 * 1024 * 1024;
+    public const int MaxContentBytes = 16 * 1024 * 1024;
     public const int MaxFileNameLength = 180;
     public const int MaxIdLength = 128;
 
@@ -209,7 +211,7 @@ public static class BridgeProtocol
 
         if (content.Length == 0 || content.Length > MaxContentBytes)
         {
-            error = new BridgeError(BridgeErrorCodes.BadParams, "saveFile payload is empty or exceeds 64 MiB.");
+            error = new BridgeError(BridgeErrorCodes.BadParams, "saveFile payload is empty or exceeds 16 MiB.");
             return false;
         }
 
