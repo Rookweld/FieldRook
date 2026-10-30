@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <UseWPF>true</UseWPF>
+    <OutputType>WinExe</OutputType>
+    <RootNamespace>FieldRook</RootNamespace>
+    <AssemblyName>FieldRook</AssemblyName>
+    <!-- Release identity: Build-Shell.ps1 passes /p:Version from VERSION. -->
+    <Version>0.0.0-dev</Version>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Assets\FieldRook.ico</ApplicationIcon>
+    <!-- WebView2 native loader: x64 only (matches the packaged runtime). -->
+    <Platforms>x64</Platforms>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4314.35" />
+    <PackageReference Include="System.Management" Version="8.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\FieldRook.Core\FieldRook.Core.csproj" />
+    <Resource Include="Assets\FieldRook.ico" />
+  </ItemGroup>
+
+</Project>

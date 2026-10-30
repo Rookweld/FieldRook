@@ -1,0 +1,27 @@
+<Window x:Class="FieldRook.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
+        Title="FieldRook" Width="1280" Height="800"
+        MinWidth="1024" MinHeight="700"
+        WindowStartupLocation="CenterScreen"
+        AllowDrop="True"
+        Icon="Assets/FieldRook.ico">
+  <Grid>
+    <wv2:WebView2 x:Name="Web" />
+    <!-- Startup / error overlay: status text + retry while the backend
+         is unhealthy; hidden once the UI navigates successfully. -->
+    <Grid x:Name="Overlay" Background="#140914" Visibility="Visible">
+      <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="560">
+        <TextBlock Text="FieldRook" FontSize="40" FontWeight="Bold"
+                   Foreground="#ff7457" HorizontalAlignment="Center"/>
+        <TextBlock x:Name="StatusText" Text="Starting the FieldRook service…"
+                   FontSize="15" Foreground="#EDE6DA" TextWrapping="Wrap"
+                   HorizontalAlignment="Center" Margin="0,16,0,0"/>
+        <Button x:Name="RetryButton" Content="Retry" Width="140" Margin="0,20,0,0"
+                HorizontalAlignment="Center" Visibility="Collapsed"
+                Click="OnRetryClick"/>
+      </StackPanel>
+    </Grid>
+  </Grid>
+</Window>

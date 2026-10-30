@@ -1,0 +1,7 @@
+# .NET build outputs (native-shell only).
+bin/
+obj/
+TestResults/
+*.user
+*.suo
+.vs/
