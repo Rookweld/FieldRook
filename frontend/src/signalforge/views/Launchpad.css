@@ -1,0 +1,242 @@
+/* Launchpad: home hero + recents + instrument panel. No color
+   literals: tokens.css only, via var() / color-mix(). */
+
+.sf-homehero {
+  min-height: 345px;
+  position: relative;
+  overflow: hidden;
+  padding: 37px 30px;
+  background:
+    radial-gradient(
+      circle at 79% 48%,
+      color-mix(in srgb, var(--tangerine) 72%, transparent) 0%,
+      color-mix(in srgb, var(--coral) 72%, transparent) 22%,
+      color-mix(in srgb, var(--coral-hot) 60%, transparent) 40%,
+      transparent 61%
+    ),
+    linear-gradient(
+      118deg,
+      color-mix(in srgb, var(--aubergine) 88%, var(--void)) 0%,
+      color-mix(in srgb, var(--aubergine) 62%, var(--coral-hot)) 70%,
+      var(--coral) 100%
+    );
+  isolation: isolate;
+}
+
+.sf-homehero::before {
+  content: "FR";
+  position: absolute;
+  font-family: var(--title);
+  font-size: 340px;
+  font-weight: 950;
+  color: color-mix(in srgb, var(--peach) 9%, transparent);
+  right: 70px;
+  top: -124px;
+  letter-spacing: -0.17em;
+  z-index: 0;
+}
+
+.sf-homehero .sf-sunscene {
+  right: 12px;
+  top: 30px;
+  transform: scale(1.12);
+  transform-origin: top right;
+  opacity: 0.83;
+}
+
+.sf-homehero h1 {
+  font-family: var(--title);
+  font-size: clamp(48px, 5vw, 75px);
+  line-height: 0.89;
+  letter-spacing: -0.09em;
+  margin: 15px 0 12px;
+  max-width: 450px;
+  position: relative;
+  z-index: 3;
+  color: var(--offwhite);
+}
+
+.sf-homehero h1 span {
+  color: var(--lime);
+}
+
+.sf-homehero .sf-eyebrow {
+  position: relative;
+  z-index: 3;
+}
+
+.sf-homehero p {
+  font-size: 12px;
+  max-width: 340px;
+  line-height: 1.5;
+  color: var(--peach);
+  position: relative;
+  z-index: 3;
+}
+
+.sf-home-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 22px;
+  position: relative;
+  z-index: 3;
+  flex-wrap: wrap;
+}
+
+.sf-home-panels {
+  padding: 22px 24px;
+  display: grid;
+  grid-template-columns: 1.35fr 1fr;
+  gap: 15px;
+  flex: 1;
+}
+
+.sf-viewall {
+  float: right;
+  background: none;
+  border: 0;
+  padding: 0;
+  color: var(--coral);
+  font-size: 10px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.sf-recent {
+  display: grid;
+  gap: 7px;
+}
+
+.sf-recent-row {
+  padding: 12px 13px;
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--aubergine) 72%, var(--void));
+  color: var(--peach);
+  border: 1px solid var(--line);
+  display: flex;
+  gap: 9px;
+  align-items: center;
+  width: 100%;
+  font-size: 11px;
+  flex-wrap: wrap;
+}
+
+.sf-recent-row:hover {
+  border-color: var(--coral);
+}
+
+.sf-recent-open {
+  background: none;
+  border: 0;
+  padding: 0;
+  color: var(--peach);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  text-align: left;
+  flex: 1 1 12rem;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sf-recent-open:hover {
+  color: var(--lime);
+}
+
+.sf-recent-open[disabled] {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.sf-recent-meta {
+  font-size: 9px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.sf-recent-links {
+  display: flex;
+  gap: 8px;
+}
+
+.sf-recent-links a {
+  color: var(--mauve);
+  font-size: 10px;
+}
+
+.sf-recent-status {
+  margin-left: auto;
+  font-size: 9px;
+  color: var(--lime);
+  white-space: nowrap;
+}
+
+.sf-system-stat {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 9px;
+}
+
+.sf-stat {
+  background: color-mix(in srgb, var(--peach) 72%, var(--mauve));
+  color: var(--void);
+  padding: 13px;
+  border-radius: 10px;
+  overflow-wrap: anywhere;
+}
+
+.sf-stat-lime {
+  background: var(--lime);
+}
+
+.sf-stat strong {
+  font-size: 23px;
+  display: block;
+  line-height: 1.1;
+}
+
+.sf-stat span {
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.sf-minihelp {
+  font-size: 11px;
+  line-height: 1.55;
+  color: var(--muted);
+  margin-top: 15px;
+  overflow-wrap: anywhere;
+}
+
+.sf-warn {
+  font-size: 11px;
+  line-height: 1.55;
+  color: var(--tangerine);
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 900px) {
+  .sf-home-panels {
+    grid-template-columns: 1fr;
+  }
+
+  .sf-homehero h1 {
+    font-size: 50px;
+  }
+}
+
+@media (max-width: 700px) {
+  .sf-homehero {
+    min-height: 330px;
+  }
+
+  .sf-homehero h1 {
+    font-size: 48px;
+  }
+
+  .sf-home-panels {
+    padding: 13px;
+  }
+}

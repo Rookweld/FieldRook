@@ -31,7 +31,7 @@
   }
 }
 
-/* Eyebrow-led headers with a forge-gold rule. */
+/* Eyebrow-led headers with a coral rule (M026 SIGNALFORGE skin). */
 .forge-shell .card-head h2 {
   border-left: 3px solid var(--gold);
   padding-left: 0.6rem;
@@ -95,10 +95,10 @@
 /* ---------- Next-up queue ---------- */
 
 .forge-head {
-  border: 1px solid #2c4a5c;
+  border: 1px solid color-mix(in srgb, var(--lime) 30%, var(--void));
   border-radius: var(--radius-sm);
   padding: 0.6rem 0.8rem;
-  background: rgba(111, 195, 232, 0.06);
+  background: color-mix(in srgb, var(--lime) 6%, transparent);
 }
 
 .forge-head-label {
@@ -206,8 +206,8 @@
 
 .forge-kindtab-active {
   color: var(--cyan);
-  border-color: #2c4a5c;
-  background: rgba(111, 195, 232, 0.08);
+  border-color: color-mix(in srgb, var(--lime) 30%, var(--void));
+  background: color-mix(in srgb, var(--lime) 8%, transparent);
   font-weight: 600;
 }
 
@@ -231,7 +231,7 @@
 /* ---------- Reference citations ---------- */
 
 .forge-cite {
-  border-color: #4a3d22;
+  border-color: color-mix(in srgb, var(--tangerine) 38%, var(--void));
   color: var(--amber);
   max-width: 22rem;
   overflow: hidden;
@@ -239,7 +239,7 @@
 }
 
 button.forge-cite:hover {
-  background: rgba(217, 164, 65, 0.12);
+  background: color-mix(in srgb, var(--tangerine) 12%, transparent);
 }
 
 .forge-cite-tag {

@@ -139,8 +139,11 @@ function GuideStrip({
 
 export function ProblemWorkstation({
   initial,
+  onInvestigationChange,
 }: {
   initial?: InvestigationResponse | null;
+  /** M026 BETA: read-only mirror for the SIGNALFORGE shell. Notify-only. */
+  onInvestigationChange?: ((inv: InvestigationResponse | null) => void) | null;
 }) {
   const [services, setServices] = useState<ServiceSummary[]>([]);
   const [providers, setProviders] = useState<ProviderOption[]>([]);
@@ -183,6 +186,12 @@ export function ProblemWorkstation({
       setPendingPackage(null);
     }
   }, [initial]);
+  // M026 BETA: mirror engine state up to the SIGNALFORGE shell (Workbench
+  // hero, evidence rail, standalone Evidence view). Notification only —
+  // engine state, fetching, and ordering are untouched.
+  useEffect(() => {
+    onInvestigationChange?.(investigation);
+  }, [investigation, onInvestigationChange]);
   const [followup, setFollowup] = useState<string>("");
   const [selectedEvidence, setSelectedEvidence] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -461,7 +470,7 @@ export function ProblemWorkstation({
       )}
 
       {!investigation ? (
-        <section className="card surface-hero">
+        <section className="card surface-hero" id="sf-engine-intake">
           <div className="hero">
             <div className="hero-copy">
               <h2>Name the symptom.</h2>
@@ -487,6 +496,7 @@ export function ProblemWorkstation({
           <label className="field">
             <span>Problem description</span>
             <textarea
+              id="sf-engine-problem"
               className="problem"
               rows={4}
               maxLength={4000}
@@ -650,10 +660,11 @@ export function ProblemWorkstation({
             onNavigate={gotoEvidence}
           />
 
-          <nav className="views" aria-label="Investigation views">
+          <nav className="views" id="sf-engine-tabs" aria-label="Investigation views">
             <button
               type="button"
               role="tab"
+              id="sf-engine-tab-guide"
               aria-selected={view === "guide"}
               className="view-tab"
               onClick={() => setView("guide")}
@@ -666,6 +677,7 @@ export function ProblemWorkstation({
             <button
               type="button"
               role="tab"
+              id="sf-engine-tab-findings"
               aria-selected={view === "findings"}
               className="view-tab"
               onClick={() => setView("findings")}
@@ -675,6 +687,7 @@ export function ProblemWorkstation({
             <button
               type="button"
               role="tab"
+              id="sf-engine-tab-evidence"
               aria-selected={view === "evidence"}
               className="view-tab"
               onClick={() => setView("evidence")}
@@ -684,6 +697,7 @@ export function ProblemWorkstation({
             <button
               type="button"
               role="tab"
+              id="sf-engine-tab-resolve"
               aria-selected={view === "resolve"}
               className="view-tab"
               onClick={() => setView("resolve")}
@@ -816,6 +830,7 @@ export function ProblemWorkstation({
                 <label className="field">
                   <span>Add a note</span>
                   <textarea
+                    id="sf-engine-note"
                     className="problem"
                     rows={2}
                     maxLength={2000}

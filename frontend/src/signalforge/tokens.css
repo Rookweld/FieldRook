@@ -1,0 +1,43 @@
+/* =====================================================================
+   SIGNALFORGE design tokens (M026 BETA). Single source of truth for the
+   palette. The :root block below is VERBATIM from the Motion Lab prototype
+   (FieldRookDesign/fieldrook_motion_lab/index.html). No other file in
+   frontend/src may declare palette hexes: every other stylesheet reaches
+   these values through var() or color-mix().
+   The second block maps legacy M012-M025 App.css/forge variable names onto
+   SIGNALFORGE tokens so existing components reskin without logic changes.
+   ===================================================================== */
+
+:root {
+ --void:#140914; --base:#1d0c20; --nav:#210e25; --plum:#2c1230; --aubergine:#381632; --panel:#29142c;
+ --line:#714459; --light-line:#955367; --peach:#ffe1c7; --muted:#bd98a8; --coral:#ff7457; --coral-hot:#ff513d;
+ --tangerine:#ff9a5b; --lime:#dfff67; --mauve:#e5aecc; --offwhite:#fff3e2; --green:#b7f77d;
+ --shadow:0 28px 78px #0a030cbb; --title: 'Arial Black','Segoe UI Variable Display','Segoe UI',sans-serif;
+}
+
+/* M026 compatibility aliases (no hex here by contract). */
+:root {
+  --bg: var(--void);
+  --panel-2: var(--base);
+  --panel-edge: var(--line);
+  --ink: var(--offwhite);
+  --faint: var(--muted);
+  --gold: var(--coral);
+  --gold-ink: var(--void);
+  --cyan: var(--lime);
+  --cyan-ink: var(--void);
+  --green-ink: var(--void);
+  --red: var(--coral-hot);
+  --red-ink: var(--offwhite);
+  --amber: var(--tangerine);
+  --amber-ink: var(--void);
+  /* Soft tints derived from tokens for depth; no new palette. */
+  --sf-deep: color-mix(in srgb, var(--void) 72%, var(--base));
+  --sf-card: color-mix(in srgb, var(--panel) 88%, var(--void));
+  --sf-card-edge: color-mix(in srgb, var(--line) 78%, var(--void));
+  --sf-hover: color-mix(in srgb, var(--aubergine) 82%, var(--plum));
+  --sf-ink-dim: color-mix(in srgb, var(--muted) 78%, var(--offwhite));
+  --sf-wash: color-mix(in srgb, var(--coral) 9%, transparent);
+  --sf-lime-wash: color-mix(in srgb, var(--lime) 12%, transparent);
+  --sf-track: color-mix(in srgb, var(--line) 45%, var(--void));
+}

@@ -7,10 +7,10 @@
    ===================================================================== */
 
 .firstrun {
-  border-color: #4a3d22;
+  border-color: color-mix(in srgb, var(--tangerine) 38%, var(--void));
 }
 
-/* Forge-gold eyebrow rule, matching .forge-shell card headers. */
+/* Coral eyebrow rule (M026 SIGNALFORGE skin), matching .forge-shell card headers. */
 .firstrun .card-head h2 {
   border-left: 3px solid var(--gold);
   padding-left: 0.6rem;
