@@ -3789,7 +3789,8 @@ textarea::placeholder {
 }
 
 .views {
-  background: transparent;
+  /* No background here: the solid tab-strip skin above is authoritative
+     (MINOR-2: transparent let scrolled content ghost behind the tabs). */
   border-bottom: 1px solid var(--line);
 }
 
