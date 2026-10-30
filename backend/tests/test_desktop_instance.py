@@ -126,6 +126,87 @@ def test_pid_is_alive_dead_process() -> None:
     assert pid_is_alive(UNASSIGNABLE_PID) is False
 
 
+# --------------------------------------------------------------------------
+# Hotfix: Windows liveness must never signal (CI 41110178826 SIGINT)
+# --------------------------------------------------------------------------
+
+_ERROR_ACCESS_DENIED = 5
+_ERROR_INVALID_PARAMETER = 87
+# Minimal probe rights, mirrored from app.main (SYNCHRONIZE | QUERY_LIMITED).
+_PROBE_ACCESS = 0x00100000 | 0x1000
+
+
+def _stub_kernel32(last_error: int, calls: list) -> object:
+    """Fake WinDLL handle: OpenProcess always fails; records the mask.
+
+    Plain-function attributes (not bound methods) so the implementation
+    under test may set ctypes restype/argtypes on them, as with real
+    WinDLL function pointers.
+    """
+
+    def OpenProcess(access: int, inherit: bool, pid: int) -> int:
+        calls.append(access)
+        return 0
+
+    def GetLastError() -> int:
+        return last_error
+
+    def WaitForSingleObject(handle: int, timeout_ms: int) -> int:
+        raise AssertionError("must not wait on a null handle")
+
+    def CloseHandle(handle: int) -> bool:
+        raise AssertionError("must not close a null handle")
+
+    stub = type("StubKernel32", (), {})()
+    stub.OpenProcess = OpenProcess
+    stub.GetLastError = GetLastError
+    stub.WaitForSingleObject = WaitForSingleObject
+    stub.CloseHandle = CloseHandle
+    return stub
+
+
+def test_pid_liveness_never_calls_os_kill_on_windows(monkeypatch: pytest.MonkeyPatch) -> None:
+    """On Windows, os.kill(pid, 0) emits a console Ctrl+C event (CPython
+    routes signal 0 through GenerateConsoleCtrlEvent), SIGINTing every
+    process sharing the console — this killed CI run 41110178826. The
+    liveness probe must produce correct answers with os.kill unusable."""
+    if os.name != "nt":
+        pytest.skip("Windows-only signaling regression")
+
+    def _boom(pid: object, sig: int) -> None:
+        raise AssertionError("pid liveness must not call os.kill on Windows")
+
+    monkeypatch.setattr(os, "kill", _boom)
+    assert pid_is_alive(os.getpid()) is True
+    assert pid_is_alive(_reaped_pid()) is False
+    assert pid_is_alive(UNASSIGNABLE_PID) is False
+
+
+def test_pid_liveness_denied_means_exists(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Access-denied proves the PID exists: report live (conservative)."""
+    if os.name != "nt":
+        pytest.skip("Windows-only branch")
+    calls: list = []
+    monkeypatch.setattr(
+        ctypes, "WinDLL", lambda *args, **kwargs: _stub_kernel32(_ERROR_ACCESS_DENIED, calls)
+    )
+    assert pid_is_alive(os.getpid()) is True
+    assert calls == [_PROBE_ACCESS]  # minimal rights, single probe
+
+
+def test_pid_liveness_invalid_pid_reports_dead(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Unassignable PID fails OpenProcess: report dead without signaling."""
+    if os.name != "nt":
+        pytest.skip("Windows-only branch")
+    calls: list = []
+    monkeypatch.setattr(
+        ctypes,
+        "WinDLL",
+        lambda *args, **kwargs: _stub_kernel32(_ERROR_INVALID_PARAMETER, calls),
+    )
+    assert pid_is_alive(UNASSIGNABLE_PID) is False
+
+
 def test_lock_roundtrip_and_corrupt(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setenv("LOCALAPPDATA", str(tmp_path))
     assert read_instance_lock() is None
