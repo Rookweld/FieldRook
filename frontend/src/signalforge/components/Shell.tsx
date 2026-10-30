@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import type { StatusResponse } from "../../types";
 import { summarizeEvidence } from "../../evidenceSummary";
 import type { EvidenceRailProps, ShellProps, SignalView } from "../types";
-import "./signalforge.css";
+import "../signalforge.css";
 
 /** Shared sun/rook/cliff instrument art. Colors resolve via CSS vars. */
 export function RookFigure() {

@@ -1,29 +1,12 @@
 /* =====================================================================
-   FieldRook M012 design system — focused technician workstation.
-   Tokens, base, layout, navigation. Component styles follow below.
-   Palette: charcoal/slate neutrals, cyan for active/selection,
-   forge-gold for primary emphasis, green ONLY for verified success,
-   red for errors/failures, muted amber for uncertainty.
+   FieldRook M026 design skin — SIGNALFORGE technician instrument.
+   Palette lives ONLY in signalforge/tokens.css (verbatim Motion Lab
+   values + legacy compatibility aliases); this sheet holds layout and
+   component rules. No palette hexes, rgb(), or hsl() in this file:
+   every color reaches the tokens through var() or color-mix().
    ===================================================================== */
-
+/* M026: non-palette layout/typography tokens only. */
 :root {
-  --bg: #0b0e12;
-  --panel: #131922;
-  --panel-2: #0e141c;
-  --panel-edge: #26303d;
-  --ink: #d9e0ea;
-  --muted: #93a0b0;
-  --faint: #5f6c7e;
-  --gold: #e2a63d;
-  --gold-ink: #201503;
-  --cyan: #6fc3e8;
-  --cyan-ink: #0a1a24;
-  --green: #43c488;
-  --green-ink: #06241a;
-  --red: #e0685a;
-  --red-ink: #2b0d09;
-  --amber: #d9a441;
-  --amber-ink: #241a06;
   --mono: "Cascadia Code", Consolas, "Courier New", monospace;
   --sans: "Segoe UI", system-ui, -apple-system, sans-serif;
   --radius: 8px;
@@ -53,7 +36,7 @@ body {
 }
 
 ::selection {
-  background: rgba(226, 166, 61, 0.35);
+  background: color-mix(in srgb, var(--coral) 35%, transparent);
 }
 
 /* Visible keyboard focus, consistent with the theme. */
@@ -93,7 +76,7 @@ summary:focus-visible,
   gap: var(--space-3);
   flex-wrap: wrap;
   padding: 0.7rem 1.25rem;
-  background: #0e1319;
+  background: var(--sf-deep);
   border-bottom: 2px solid var(--gold);
 }
 
@@ -346,7 +329,7 @@ summary:focus-visible,
 
 .badge-live {
   color: var(--cyan);
-  border-color: #2c4a5c;
+  border-color: color-mix(in srgb, var(--lime) 30%, var(--void));
 }
 
 .badge-sim {
@@ -355,12 +338,12 @@ summary:focus-visible,
 
 .badge-fail {
   color: var(--red);
-  border-color: #5c2b26;
+  border-color: color-mix(in srgb, var(--coral-hot) 45%, var(--void));
 }
 
 .badge-verified {
   color: var(--green);
-  border-color: #1f4a38;
+  border-color: color-mix(in srgb, var(--green) 30%, var(--void));
 }
 
 .tag {
@@ -376,17 +359,17 @@ summary:focus-visible,
 
 .tag-obs {
   color: var(--cyan);
-  background: rgba(111, 195, 232, 0.1);
+  background: color-mix(in srgb, var(--lime) 10%, transparent);
 }
 
 .tag-inf {
   color: var(--muted);
-  background: rgba(147, 160, 176, 0.14);
+  background: color-mix(in srgb, var(--muted) 14%, transparent);
 }
 
 .tag-unv {
   color: var(--amber);
-  background: rgba(217, 164, 65, 0.12);
+  background: color-mix(in srgb, var(--tangerine) 12%, transparent);
 }
 
 .chip {
@@ -402,7 +385,7 @@ summary:focus-visible,
 
 button.chip-button {
   color: var(--cyan);
-  border-color: #2c4a5c;
+  border-color: color-mix(in srgb, var(--lime) 30%, var(--void));
   cursor: pointer;
   font: inherit;
   font-family: var(--mono);
@@ -410,7 +393,7 @@ button.chip-button {
 }
 
 button.chip-button:hover {
-  background: rgba(111, 195, 232, 0.12);
+  background: color-mix(in srgb, var(--lime) 12%, transparent);
 }
 
 .likelihood {
@@ -463,9 +446,9 @@ button.chip-button:hover {
 }
 
 .button-danger {
-  color: #fff;
-  background: #8c2f24;
-  border-color: #a53a2d;
+  color: var(--offwhite);
+  background: color-mix(in srgb, var(--coral-hot) 55%, var(--void));
+  border-color: color-mix(in srgb, var(--coral-hot) 60%, var(--void));
 }
 
 .link-button {
@@ -477,7 +460,7 @@ button.chip-button:hover {
   cursor: pointer;
   text-decoration: underline;
   text-underline-offset: 2px;
-  text-decoration-color: rgba(111, 195, 232, 0.4);
+  text-decoration-color: color-mix(in srgb, var(--lime) 40%, transparent);
 }
 
 .link-button:hover {
@@ -635,8 +618,8 @@ details.advanced > summary {
 }
 
 .warn {
-  background: rgba(217, 164, 65, 0.09);
-  border: 1px solid #4a3a1c;
+  background: color-mix(in srgb, var(--tangerine) 9%, transparent);
+  border: 1px solid color-mix(in srgb, var(--tangerine) 38%, var(--void));
   border-left: 3px solid var(--amber);
   border-radius: 4px;
   padding: 0.5rem 0.7rem;
@@ -652,7 +635,7 @@ details.advanced > summary {
 }
 
 .error {
-  border-color: #5c2b26;
+  border-color: color-mix(in srgb, var(--coral-hot) 45%, var(--void));
 }
 
 .pre {
@@ -727,17 +710,17 @@ details.advanced > summary {
 
 .result-good .result-status {
   color: var(--green);
-  border-color: #1f4a38;
+  border-color: color-mix(in srgb, var(--green) 30%, var(--void));
 }
 
 .result-bad .result-status {
   color: var(--red);
-  border-color: #5c2b26;
+  border-color: color-mix(in srgb, var(--coral-hot) 45%, var(--void));
 }
 
 .result-warn .result-status {
   color: var(--amber);
-  border-color: #4a3a1c;
+  border-color: color-mix(in srgb, var(--tangerine) 38%, var(--void));
 }
 
 .result-context {
@@ -829,12 +812,12 @@ ul.unverified > li:last-child {
 }
 
 .runbook-step > summary::before {
-  content: "▸ ";
+  content: "â–¸ ";
   color: var(--faint);
 }
 
 .runbook-step[open] > summary::before {
-  content: "▾ ";
+  content: "â–¾ ";
 }
 
 .runbook-label {
@@ -856,25 +839,25 @@ ul.unverified > li:last-child {
 
 .impact-read-only {
   color: var(--cyan);
-  border-color: #2c4a5c;
+  border-color: color-mix(in srgb, var(--lime) 30%, var(--void));
 }
 
 .impact-changes-system,
 .impact-admin {
   color: var(--amber);
-  border-color: #4a3a1c;
+  border-color: color-mix(in srgb, var(--tangerine) 38%, var(--void));
 }
 
 .impact-system-change,
 .impact-privileged-action {
   color: var(--amber);
-  border-color: #4a3a1c;
+  border-color: color-mix(in srgb, var(--tangerine) 38%, var(--void));
 }
 
 .impact-potentially-disruptive,
 .impact-unsupported-or-unsafe {
   color: var(--red);
-  border-color: #5c2323;
+  border-color: color-mix(in srgb, var(--coral-hot) 45%, var(--void));
 }
 
 ol.actions > li {
@@ -920,8 +903,8 @@ ol.actions > li {
 }
 
 .contradiction {
-  background: rgba(224, 104, 90, 0.07);
-  border: 1px solid #5c2b26;
+  background: color-mix(in srgb, var(--coral-hot) 7%, transparent);
+  border: 1px solid color-mix(in srgb, var(--coral-hot) 45%, var(--void));
   border-left: 3px solid var(--red);
   border-radius: 4px;
   padding: 0.5rem 0.7rem;
@@ -1005,12 +988,12 @@ ul.rechecks > li.recheck {
 
 .flag-current {
   color: var(--cyan);
-  background: rgba(111, 195, 232, 0.1);
+  background: color-mix(in srgb, var(--lime) 10%, transparent);
 }
 
 .flag-historical {
   color: var(--muted);
-  background: rgba(147, 160, 176, 0.14);
+  background: color-mix(in srgb, var(--muted) 14%, transparent);
 }
 
 .ev-warning {
@@ -1084,7 +1067,7 @@ button.coverage:hover {
 
 .coverage-failed {
   color: var(--red);
-  border-color: #5c2b26;
+  border-color: color-mix(in srgb, var(--coral-hot) 45%, var(--void));
 }
 
 .overview-grid {
@@ -1119,7 +1102,7 @@ button.coverage:hover {
   border-radius: var(--radius);
   padding: 0.8rem 1rem;
   z-index: 50;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 12px 32px color-mix(in srgb, var(--void) 50%, transparent);
 }
 
 .evidence-peek-head {
@@ -1262,22 +1245,22 @@ ul.refresh-changes > li {
 
 .verdict-unchanged {
   color: var(--muted);
-  background: rgba(147, 160, 176, 0.14);
+  background: color-mix(in srgb, var(--muted) 14%, transparent);
 }
 
 .verdict-changed {
   color: var(--amber);
-  background: rgba(217, 164, 65, 0.12);
+  background: color-mix(in srgb, var(--tangerine) 12%, transparent);
 }
 
 .verdict-unavailable {
   color: var(--red);
-  background: rgba(224, 104, 90, 0.12);
+  background: color-mix(in srgb, var(--coral-hot) 12%, transparent);
 }
 
 .verdict-pass {
   color: var(--green);
-  background: rgba(67, 196, 136, 0.12);
+  background: color-mix(in srgb, var(--green) 12%, transparent);
 }
 
 /* ---------- Resolution ---------- */
@@ -1308,8 +1291,8 @@ ul.refresh-changes > li {
 }
 
 .approval-note {
-  background: rgba(111, 195, 232, 0.07);
-  border: 1px solid #2c4a5c;
+  background: color-mix(in srgb, var(--lime) 7%, transparent);
+  border: 1px solid color-mix(in srgb, var(--lime) 30%, var(--void));
   border-left: 3px solid var(--cyan);
   border-radius: 4px;
   padding: 0.5rem 0.7rem;
@@ -1416,17 +1399,17 @@ table.criteria th {
 
 .resolution-good {
   color: var(--green);
-  border-color: #1f4a38;
+  border-color: color-mix(in srgb, var(--green) 30%, var(--void));
 }
 
 .resolution-bad {
   color: var(--red);
-  border-color: #5c2b26;
+  border-color: color-mix(in srgb, var(--coral-hot) 45%, var(--void));
 }
 
 .resolution-warn {
   color: var(--amber);
-  border-color: #4a3a1c;
+  border-color: color-mix(in srgb, var(--tangerine) 38%, var(--void));
 }
 
 .resolution-mute {
@@ -1600,7 +1583,7 @@ ol.steps {
 /* ---------- Error boundary ---------- */
 
 .boundary {
-  border-color: #5c2b26;
+  border-color: color-mix(in srgb, var(--coral-hot) 45%, var(--void));
 }
 
 .boundary h2 {
@@ -1684,18 +1667,18 @@ ol.steps {
 }
 
 /* =====================================================================
-   M013 — THE LIVING FORGE. Atmospheric environment, physical depth,
+   M013 â€” THE LIVING FORGE. Atmospheric environment, physical depth,
    tactile controls, motion language. This layer only adds: the M012
    layout and every component hook above stay intact.
    ===================================================================== */
 
 :root {
-  --steel-hi: rgba(217, 224, 234, 0.07);
-  --steel-lo: rgba(0, 0, 0, 0.35);
-  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.5);
-  --shadow-2: 0 6px 18px rgba(0, 0, 0, 0.45);
-  --shadow-3: 0 14px 36px rgba(0, 0, 0, 0.5);
-  --shadow-4: 0 22px 60px rgba(0, 0, 0, 0.55);
+  --steel-hi: color-mix(in srgb, var(--offwhite) 7%, transparent);
+  --steel-lo: color-mix(in srgb, var(--void) 35%, transparent);
+  --shadow-1: 0 1px 2px color-mix(in srgb, var(--void) 50%, transparent);
+  --shadow-2: 0 6px 18px color-mix(in srgb, var(--void) 45%, transparent);
+  --shadow-3: 0 14px 36px color-mix(in srgb, var(--void) 50%, transparent);
+  --shadow-4: 0 22px 60px color-mix(in srgb, var(--void) 55%, transparent);
   --ease-out: cubic-bezier(0.22, 0.9, 0.3, 1);
   --ease-spring: cubic-bezier(0.34, 1.3, 0.5, 1);
 }
@@ -1721,9 +1704,9 @@ ol.steps {
   overflow: hidden;
   pointer-events: none;
   background:
-    radial-gradient(1100px 500px at 12% 108%, rgba(226, 166, 61, 0.07), transparent 60%),
-    radial-gradient(900px 420px at 88% -8%, rgba(111, 195, 232, 0.06), transparent 60%),
-    radial-gradient(1400px 900px at 50% 40%, rgba(20, 28, 40, 0.5), transparent 70%),
+    radial-gradient(1100px 500px at 12% 108%, color-mix(in srgb, var(--coral) 7%, transparent), transparent 60%),
+    radial-gradient(900px 420px at 88% -8%, color-mix(in srgb, var(--lime) 6%, transparent), transparent 60%),
+    radial-gradient(1400px 900px at 50% 40%, color-mix(in srgb, var(--void) 50%, transparent), transparent 70%),
     var(--bg);
 }
 
@@ -1750,7 +1733,7 @@ ol.steps {
   background: conic-gradient(
     from 210deg at 85% 110%,
     transparent 0deg,
-    rgba(226, 166, 61, 0.05) 18deg,
+    color-mix(in srgb, var(--coral) 5%, transparent) 18deg,
     transparent 36deg
   );
   animation: forge-breathe 14s ease-in-out infinite alternate;
@@ -1791,7 +1774,7 @@ ol.steps {
   position: absolute;
   bottom: -2vh;
   border-radius: 50%;
-  background: radial-gradient(circle, #f2c069 0%, rgba(226, 166, 61, 0.55) 45%, transparent 72%);
+  background: radial-gradient(circle, var(--tangerine) 0%, color-mix(in srgb, var(--coral) 55%, transparent) 45%, transparent 72%);
   opacity: 0;
   animation-name: ember-rise;
   animation-timing-function: linear;
@@ -1818,19 +1801,19 @@ ol.steps {
 /* ---------- Elevation: structural surfaces ---------- */
 
 .card {
-  background: linear-gradient(180deg, rgba(217, 224, 234, 0.045), transparent 22%), var(--panel);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--offwhite) 4%, transparent), transparent 22%), var(--panel);
   /* Lighter top edge: directional light on machined steel. */
-  border-top: 1px solid #2e3947;
+  border-top: 1px solid var(--sf-card-edge);
   box-shadow:
     inset 0 1px 0 var(--steel-hi),
-    0 0 0 1px rgba(3, 5, 8, 0.9),
+    0 0 0 1px color-mix(in srgb, var(--void) 90%, transparent),
     var(--shadow-2);
 }
 
 .header {
   position: relative;
-  background: linear-gradient(180deg, rgba(217, 224, 234, 0.05), transparent 70%), #0e1319;
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.5);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--offwhite) 5%, transparent), transparent 70%), var(--sf-deep);
+  box-shadow: 0 10px 28px color-mix(in srgb, var(--void) 50%, transparent);
 }
 
 .header::after {
@@ -1840,35 +1823,35 @@ ol.steps {
   right: 0;
   bottom: -2px;
   height: 2px;
-  background: linear-gradient(90deg, var(--gold) 0%, #8a6224 45%, rgba(111, 195, 232, 0.5) 100%);
+  background: linear-gradient(90deg, var(--gold) 0%, color-mix(in srgb, var(--tangerine) 55%, var(--void)) 45%, color-mix(in srgb, var(--lime) 50%, transparent) 100%);
 }
 
 .contextbar {
-  background: linear-gradient(180deg, rgba(217, 224, 234, 0.05), transparent 60%), var(--panel);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--offwhite) 5%, transparent), transparent 60%), var(--panel);
   box-shadow:
     inset 0 1px 0 var(--steel-hi),
-    0 0 0 1px rgba(3, 5, 8, 0.9),
+    0 0 0 1px color-mix(in srgb, var(--void) 90%, transparent),
     var(--shadow-1);
 }
 
 .views {
-  background: rgba(11, 14, 18, 0.82);
+  background: color-mix(in srgb, var(--void) 82%, transparent);
   backdrop-filter: blur(6px);
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 8px 20px color-mix(in srgb, var(--void) 40%, transparent);
 }
 
 /* ---------- Tactile buttons ---------- */
 
 .button {
   position: relative;
-  background: linear-gradient(180deg, #f0bc58 0%, var(--gold) 45%, #c78f2e 100%);
-  border-color: #0e0a04;
+  background: linear-gradient(180deg, var(--tangerine) 0%, var(--gold) 45%, var(--tangerine) 100%);
+  border-color: var(--void);
   box-shadow:
-    inset 0 1px 0 rgba(255, 244, 220, 0.55),
-    inset 0 -2px 4px rgba(90, 55, 5, 0.45),
-    0 2px 10px rgba(226, 166, 61, 0.25),
-    0 1px 2px rgba(0, 0, 0, 0.6);
-  text-shadow: 0 1px 0 rgba(255, 240, 210, 0.35);
+    inset 0 1px 0 color-mix(in srgb, var(--offwhite) 55%, transparent),
+    inset 0 -2px 4px color-mix(in srgb, var(--tangerine) 28%, var(--void)),
+    0 2px 10px color-mix(in srgb, var(--coral) 25%, transparent),
+    0 1px 2px color-mix(in srgb, var(--void) 60%, transparent);
+  text-shadow: 0 1px 0 color-mix(in srgb, var(--offwhite) 35%, transparent);
   transition:
     transform 120ms var(--ease-out),
     box-shadow 160ms var(--ease-out),
@@ -1879,67 +1862,67 @@ ol.steps {
   filter: brightness(1.06);
   transform: translateY(-1px);
   box-shadow:
-    inset 0 1px 0 rgba(255, 244, 220, 0.6),
-    inset 0 -2px 4px rgba(90, 55, 5, 0.45),
-    0 6px 18px rgba(226, 166, 61, 0.35),
-    0 2px 4px rgba(0, 0, 0, 0.6);
+    inset 0 1px 0 color-mix(in srgb, var(--offwhite) 60%, transparent),
+    inset 0 -2px 4px color-mix(in srgb, var(--tangerine) 28%, var(--void)),
+    0 6px 18px color-mix(in srgb, var(--coral) 35%, transparent),
+    0 2px 4px color-mix(in srgb, var(--void) 60%, transparent);
 }
 
 .button:active:not(:disabled) {
   transform: translateY(1px);
   box-shadow:
-    inset 0 2px 6px rgba(90, 55, 5, 0.55),
-    0 1px 2px rgba(0, 0, 0, 0.6);
+    inset 0 2px 6px color-mix(in srgb, var(--tangerine) 28%, var(--void)),
+    0 1px 2px color-mix(in srgb, var(--void) 60%, transparent);
   filter: brightness(0.97);
 }
 
 .button:disabled {
-  background: #3a332a;
-  border-color: #211c15;
-  color: #97907e;
+  background: color-mix(in srgb, var(--plum) 70%, var(--void));
+  border-color: var(--void);
+  color: var(--muted);
   text-shadow: none;
-  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.5);
+  box-shadow: inset 0 1px 3px color-mix(in srgb, var(--void) 50%, transparent);
 }
 
 .button-ghost {
-  background: linear-gradient(180deg, rgba(217, 224, 234, 0.08), rgba(217, 224, 234, 0.02));
-  border-color: #39434f;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--offwhite) 8%, transparent), color-mix(in srgb, var(--offwhite) 2%, transparent));
+  border-color: var(--sf-card-edge);
   color: var(--ink);
-  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.6);
+  text-shadow: 0 1px 1px color-mix(in srgb, var(--void) 60%, transparent);
   box-shadow:
-    inset 0 1px 0 rgba(217, 224, 234, 0.09),
-    0 1px 3px rgba(0, 0, 0, 0.5);
+    inset 0 1px 0 color-mix(in srgb, var(--offwhite) 9%, transparent),
+    0 1px 3px color-mix(in srgb, var(--void) 50%, transparent);
   font-weight: 500;
 }
 
 .button-ghost:hover:not(:disabled) {
-  border-color: #5a6675;
+  border-color: var(--light-line);
   filter: brightness(1.12);
   box-shadow:
-    inset 0 1px 0 rgba(217, 224, 234, 0.12),
-    0 3px 10px rgba(0, 0, 0, 0.55);
+    inset 0 1px 0 color-mix(in srgb, var(--offwhite) 12%, transparent),
+    0 3px 10px color-mix(in srgb, var(--void) 55%, transparent);
 }
 
 .button-ghost:active:not(:disabled) {
-  box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.55);
+  box-shadow: inset 0 2px 5px color-mix(in srgb, var(--void) 55%, transparent);
 }
 
 .button-danger {
-  background: linear-gradient(180deg, #a54438 0%, #8c2f24 55%, #6f231b 100%);
-  border-color: #2b0d09;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--coral-hot) 80%, var(--peach)) 0%, color-mix(in srgb, var(--coral-hot) 55%, var(--void)) 55%, color-mix(in srgb, var(--coral-hot) 70%, var(--void)) 100%);
+  border-color: var(--void);
   box-shadow:
-    inset 0 1px 0 rgba(255, 200, 190, 0.35),
-    inset 0 -2px 4px rgba(40, 5, 2, 0.5),
-    0 2px 10px rgba(224, 104, 90, 0.25),
-    0 1px 2px rgba(0, 0, 0, 0.6);
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+    inset 0 1px 0 color-mix(in srgb, var(--peach) 35%, transparent),
+    inset 0 -2px 4px color-mix(in srgb, var(--coral-hot) 25%, var(--void)),
+    0 2px 10px color-mix(in srgb, var(--coral-hot) 25%, transparent),
+    0 1px 2px color-mix(in srgb, var(--void) 60%, transparent);
+  text-shadow: 0 1px 2px color-mix(in srgb, var(--void) 60%, transparent);
 }
 
 .preset-button {
-  background: linear-gradient(180deg, rgba(217, 224, 234, 0.06), transparent);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--offwhite) 6%, transparent), transparent);
   box-shadow:
-    inset 0 1px 0 rgba(217, 224, 234, 0.07),
-    0 1px 3px rgba(0, 0, 0, 0.4);
+    inset 0 1px 0 color-mix(in srgb, var(--offwhite) 7%, transparent),
+    0 1px 3px color-mix(in srgb, var(--void) 40%, transparent);
   transition:
     transform 120ms var(--ease-out),
     border-color 140ms var(--ease-out),
@@ -1951,8 +1934,8 @@ ol.steps {
 }
 
 button.chip-button {
-  background: linear-gradient(180deg, rgba(111, 195, 232, 0.1), rgba(111, 195, 232, 0.03));
-  box-shadow: inset 0 1px 0 rgba(111, 195, 232, 0.12);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--lime) 10%, transparent), color-mix(in srgb, var(--lime) 3%, transparent));
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--lime) 12%, transparent);
   transition:
     transform 120ms var(--ease-out),
     background 140ms var(--ease-out);
@@ -1972,10 +1955,10 @@ button.chip-button:hover {
 }
 
 .tab-active {
-  background: linear-gradient(180deg, rgba(217, 224, 234, 0.06), transparent 60%), var(--panel);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--offwhite) 6%, transparent), transparent 60%), var(--panel);
   box-shadow:
     inset 0 1px 0 var(--steel-hi),
-    0 -4px 12px rgba(0, 0, 0, 0.35);
+    0 -4px 12px color-mix(in srgb, var(--void) 35%, transparent);
 }
 
 .tab-active::before {
@@ -1997,8 +1980,8 @@ button.chip-button:hover {
 }
 
 .view-tab[aria-selected="true"] {
-  background: linear-gradient(180deg, rgba(111, 195, 232, 0.1), transparent 70%), var(--panel);
-  box-shadow: inset 0 1px 0 rgba(111, 195, 232, 0.12);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--lime) 10%, transparent), transparent 70%), var(--panel);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--lime) 12%, transparent);
 }
 
 .view-tab[aria-selected="true"]::after {
@@ -2019,10 +2002,10 @@ input[type="search"],
 select,
 textarea {
   max-width: 100%;
-  background: linear-gradient(180deg, rgba(0, 0, 0, 0.35), transparent 30%), var(--panel-2);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--void) 35%, transparent), transparent 30%), var(--panel-2);
   box-shadow:
-    inset 0 2px 5px rgba(0, 0, 0, 0.5),
-    0 1px 0 rgba(217, 224, 234, 0.05);
+    inset 0 2px 5px color-mix(in srgb, var(--void) 50%, transparent),
+    0 1px 0 color-mix(in srgb, var(--offwhite) 5%, transparent);
   transition:
     border-color 140ms var(--ease-out),
     box-shadow 140ms var(--ease-out);
@@ -2032,10 +2015,10 @@ input[type="text"]:focus,
 input[type="search"]:focus,
 select:focus,
 textarea:focus {
-  border-color: #6b5a2e;
+  border-color: color-mix(in srgb, var(--tangerine) 45%, var(--void));
   box-shadow:
-    inset 0 2px 5px rgba(0, 0, 0, 0.5),
-    0 0 0 3px rgba(226, 166, 61, 0.14);
+    inset 0 2px 5px color-mix(in srgb, var(--void) 50%, transparent),
+    0 0 0 3px color-mix(in srgb, var(--coral) 14%, transparent);
   outline: none;
 }
 
@@ -2043,7 +2026,7 @@ textarea:focus {
 
 .hero {
   display: grid;
-  /* minmax(0, …) keeps long service names in the select from forcing the
+  /* minmax(0, â€¦) keeps long service names in the select from forcing the
      track wider than the viewport (mobile overflow regression). */
   grid-template-columns: minmax(0, 1fr) 300px;
   gap: var(--space-4);
@@ -2081,12 +2064,12 @@ textarea:focus {
   border: 1px solid var(--panel-edge);
   border-radius: var(--radius);
   background:
-    radial-gradient(200px 140px at 50% 38%, rgba(111, 195, 232, 0.1), transparent 70%),
-    radial-gradient(240px 160px at 50% 108%, rgba(226, 166, 61, 0.1), transparent 70%),
+    radial-gradient(200px 140px at 50% 38%, color-mix(in srgb, var(--lime) 10%, transparent), transparent 70%),
+    radial-gradient(240px 160px at 50% 108%, color-mix(in srgb, var(--coral) 10%, transparent), transparent 70%),
     var(--panel-2);
   box-shadow:
     inset 0 1px 0 var(--steel-hi),
-    0 0 0 1px rgba(3, 5, 8, 0.9),
+    0 0 0 1px color-mix(in srgb, var(--void) 90%, transparent),
     var(--shadow-3);
   overflow: hidden;
 }
@@ -2098,7 +2081,7 @@ textarea:focus {
   background: repeating-linear-gradient(
     0deg,
     transparent 0 3px,
-    rgba(111, 195, 232, 0.022) 3px 4px
+    color-mix(in srgb, var(--lime) 2%, transparent) 3px 4px
   );
   pointer-events: none;
 }
@@ -2114,7 +2097,7 @@ textarea:focus {
 
 .core-idle {
   animation: core-float 9s ease-in-out infinite;
-  filter: drop-shadow(0 0 14px rgba(111, 195, 232, 0.25));
+  filter: drop-shadow(0 0 14px color-mix(in srgb, var(--lime) 25%, transparent));
 }
 
 @keyframes core-float {
@@ -2135,25 +2118,25 @@ textarea:focus {
 .result {
   position: relative;
   background:
-    linear-gradient(180deg, rgba(217, 224, 234, 0.06), transparent 30%),
-    radial-gradient(600px 180px at 8% 0%, rgba(111, 195, 232, 0.05), transparent 70%),
+    linear-gradient(180deg, color-mix(in srgb, var(--offwhite) 6%, transparent), transparent 30%),
+    radial-gradient(600px 180px at 8% 0%, color-mix(in srgb, var(--lime) 5%, transparent), transparent 70%),
     var(--panel);
   box-shadow:
     inset 0 1px 0 var(--steel-hi),
-    0 0 0 1px rgba(3, 5, 8, 0.9),
+    0 0 0 1px color-mix(in srgb, var(--void) 90%, transparent),
     var(--shadow-3);
   animation: rise-in 420ms var(--ease-out) both;
 }
 
 .result-good {
   background:
-    linear-gradient(180deg, rgba(67, 196, 136, 0.08), transparent 34%),
-    radial-gradient(600px 180px at 8% 0%, rgba(67, 196, 136, 0.08), transparent 70%),
+    linear-gradient(180deg, color-mix(in srgb, var(--green) 8%, transparent), transparent 34%),
+    radial-gradient(600px 180px at 8% 0%, color-mix(in srgb, var(--green) 8%, transparent), transparent 70%),
     var(--panel);
   box-shadow:
-    inset 0 1px 0 rgba(67, 196, 136, 0.18),
-    0 0 0 1px rgba(3, 5, 8, 0.9),
-    0 0 34px rgba(67, 196, 136, 0.09),
+    inset 0 1px 0 color-mix(in srgb, var(--green) 18%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--void) 90%, transparent),
+    0 0 34px color-mix(in srgb, var(--green) 9%, transparent),
     var(--shadow-3);
 }
 
@@ -2209,9 +2192,9 @@ textarea:focus {
 }
 
 .evidence-item {
-  background: linear-gradient(180deg, rgba(217, 224, 234, 0.035), transparent 40%), var(--panel-2);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--offwhite) 4%, transparent), transparent 40%), var(--panel-2);
   box-shadow:
-    inset 0 1px 0 rgba(217, 224, 234, 0.05),
+    inset 0 1px 0 color-mix(in srgb, var(--offwhite) 5%, transparent),
     var(--shadow-1);
   transition:
     border-color 140ms var(--ease-out),
@@ -2219,13 +2202,13 @@ textarea:focus {
 }
 
 .evidence-item:hover {
-  border-color: #334052;
+  border-color: var(--sf-card-edge);
 }
 
 .ev-selected {
   box-shadow:
-    inset 0 1px 0 rgba(111, 195, 232, 0.14),
-    0 0 22px rgba(111, 195, 232, 0.1),
+    inset 0 1px 0 color-mix(in srgb, var(--lime) 14%, transparent),
+    0 0 22px color-mix(in srgb, var(--lime) 10%, transparent),
     var(--shadow-1);
 }
 
@@ -2243,10 +2226,10 @@ textarea:focus {
 }
 
 .evidence-peek {
-  background: linear-gradient(180deg, rgba(217, 224, 234, 0.05), transparent 30%), var(--panel);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--offwhite) 5%, transparent), transparent 30%), var(--panel);
   box-shadow:
     inset 0 1px 0 var(--steel-hi),
-    0 0 0 1px rgba(3, 5, 8, 0.95),
+    0 0 0 1px color-mix(in srgb, var(--void) 95%, transparent),
     var(--shadow-4);
   animation: peek-in 220ms var(--ease-spring) both;
   transform-origin: top right;
@@ -2269,15 +2252,15 @@ ol.refreshes > li.refresh,
 .action-card,
 .criterion-row,
 .runbook-step {
-  background: linear-gradient(180deg, rgba(217, 224, 234, 0.03), transparent 45%), var(--panel-2);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--offwhite) 3%, transparent), transparent 45%), var(--panel-2);
   box-shadow:
-    inset 0 1px 0 rgba(217, 224, 234, 0.05),
+    inset 0 1px 0 color-mix(in srgb, var(--offwhite) 5%, transparent),
     var(--shadow-1);
 }
 
 .pending {
   align-items: center;
-  background: linear-gradient(180deg, rgba(111, 195, 232, 0.05), transparent 60%), var(--panel-2);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--lime) 5%, transparent), transparent 60%), var(--panel-2);
 }
 
 /* M014: pending glow moved to .scope-active in the M014 layer. */
@@ -2285,22 +2268,22 @@ ol.refreshes > li.refresh,
 /* ---------- Badges, tags, header mark ---------- */
 
 .badge {
-  background: linear-gradient(180deg, rgba(217, 224, 234, 0.06), transparent);
-  box-shadow: inset 0 1px 0 rgba(217, 224, 234, 0.06);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--offwhite) 6%, transparent), transparent);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--offwhite) 6%, transparent);
 }
 
 .badge-live {
-  background: linear-gradient(180deg, rgba(111, 195, 232, 0.12), rgba(111, 195, 232, 0.03));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--lime) 12%, transparent), color-mix(in srgb, var(--lime) 3%, transparent));
 }
 
 .badge-verified {
-  background: linear-gradient(180deg, rgba(67, 196, 136, 0.14), rgba(67, 196, 136, 0.03));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--green) 14%, transparent), color-mix(in srgb, var(--green) 3%, transparent));
 }
 
 .brand-mark {
   display: inline-flex;
   color: var(--gold);
-  filter: drop-shadow(0 2px 6px rgba(226, 166, 61, 0.3));
+  filter: drop-shadow(0 2px 6px color-mix(in srgb, var(--coral) 30%, transparent));
 }
 
 ol.history-list > li.history-item {
@@ -2308,13 +2291,13 @@ ol.history-list > li.history-item {
 }
 
 ol.history-list > li.history-item:hover {
-  border-color: #334052;
+  border-color: var(--sf-card-edge);
 }
 
 /* ---------- Restrained dark scrollbars ---------- */
 
 * {
-  scrollbar-color: #2b3543 transparent;
+  scrollbar-color: var(--line) transparent;
 }
 
 ::-webkit-scrollbar {
@@ -2327,14 +2310,14 @@ ol.history-list > li.history-item:hover {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #2b3543;
+  background: var(--line);
   border-radius: 8px;
   border: 2px solid transparent;
   background-clip: content-box;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #3a4759;
+  background: var(--light-line);
   background-clip: content-box;
 }
 
@@ -2386,7 +2369,7 @@ ol.history-list > li.history-item:hover {
 }
 
 /* =====================================================================
-   M014 — CINEMATIC ATMOSPHERE. Living environment, material system,
+   M014 â€” CINEMATIC ATMOSPHERE. Living environment, material system,
    SignalScope instrument, coordinated motion. Additive over M013.
    ===================================================================== */
 
@@ -2424,9 +2407,9 @@ ol.history-list > li.history-item:hover {
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(62% 58% at 50% 40%, rgba(5, 7, 11, 0.82) 0%, rgba(5, 7, 11, 0.45) 55%, transparent 78%),
-    linear-gradient(180deg, rgba(5, 7, 11, 0.72) 0%, transparent 22%, transparent 74%, rgba(5, 7, 11, 0.62) 100%),
-    radial-gradient(130% 110% at 50% 50%, transparent 58%, rgba(3, 4, 7, 0.5) 100%);
+    radial-gradient(62% 58% at 50% 40%, color-mix(in srgb, var(--void) 82%, transparent) 0%, color-mix(in srgb, var(--void) 45%, transparent) 55%, transparent 78%),
+    linear-gradient(180deg, color-mix(in srgb, var(--void) 72%, transparent) 0%, transparent 22%, transparent 74%, color-mix(in srgb, var(--void) 62%, transparent) 100%),
+    radial-gradient(130% 110% at 50% 50%, transparent 58%, color-mix(in srgb, var(--void) 50%, transparent) 100%);
 }
 
 /* Per-view ambient tint. Driven by data-view on .app; slow crossfade. */
@@ -2439,19 +2422,19 @@ ol.history-list > li.history-item:hover {
 
 .app[data-view="evidence"] .atmosphere-tint {
   opacity: 1;
-  background: radial-gradient(90% 70% at 78% 18%, rgba(111, 195, 232, 0.09), transparent 70%);
+  background: radial-gradient(90% 70% at 78% 18%, color-mix(in srgb, var(--lime) 9%, transparent), transparent 70%);
 }
 
 .app[data-view="resolve"] .atmosphere-tint {
   opacity: 1;
-  background: radial-gradient(90% 70% at 16% 88%, rgba(226, 166, 61, 0.09), transparent 70%);
+  background: radial-gradient(90% 70% at 16% 88%, color-mix(in srgb, var(--coral) 9%, transparent), transparent 70%);
 }
 
 .app[data-view="history"] .atmosphere-tint,
 .app[data-view="knowledge"] .atmosphere-tint,
 .app[data-view="service"] .atmosphere-tint {
   opacity: 1;
-  background: radial-gradient(80% 60% at 50% 100%, rgba(139, 148, 163, 0.05), transparent 70%);
+  background: radial-gradient(80% 60% at 50% 100%, color-mix(in srgb, var(--muted) 5%, transparent), transparent 70%);
 }
 
 /* ---------- Material system ---------- */
@@ -2459,10 +2442,10 @@ ol.history-list > li.history-item:hover {
 /* Structural titanium: brushed, grounded, hard top-light. */
 .header {
   background:
-    repeating-linear-gradient(0deg, rgba(217, 224, 234, 0.014) 0 1px, transparent 1px 3px),
-    linear-gradient(180deg, rgba(217, 224, 234, 0.06), transparent 70%),
-    #0e1319;
-  border-top: 1px solid rgba(217, 224, 234, 0.07);
+    repeating-linear-gradient(0deg, color-mix(in srgb, var(--offwhite) 1%, transparent) 0 1px, transparent 1px 3px),
+    linear-gradient(180deg, color-mix(in srgb, var(--offwhite) 6%, transparent), transparent 70%),
+    var(--sf-deep);
+  border-top: 1px solid color-mix(in srgb, var(--offwhite) 7%, transparent);
 }
 
 /* Primary elevated panels: warm key-side sheen + reflection band.
@@ -2470,13 +2453,13 @@ ol.history-list > li.history-item:hover {
 .surface-hero,
 .result:not(.result-good) {
   background:
-    linear-gradient(to top right, rgba(226, 166, 61, 0.05) 0%, transparent 34%),
-    linear-gradient(180deg, rgba(217, 224, 234, 0.055), transparent 26%),
-    radial-gradient(600px 180px at 8% 0%, rgba(111, 195, 232, 0.05), transparent 70%),
+    linear-gradient(to top right, color-mix(in srgb, var(--coral) 5%, transparent) 0%, transparent 34%),
+    linear-gradient(180deg, color-mix(in srgb, var(--offwhite) 6%, transparent), transparent 26%),
+    radial-gradient(600px 180px at 8% 0%, color-mix(in srgb, var(--lime) 5%, transparent), transparent 70%),
     var(--panel);
   box-shadow:
-    inset 0 1px 0 rgba(217, 224, 234, 0.09),
-    0 0 0 1px rgba(3, 5, 8, 0.9),
+    inset 0 1px 0 color-mix(in srgb, var(--offwhite) 9%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--void) 90%, transparent),
     var(--shadow-3);
 }
 
@@ -2484,7 +2467,7 @@ ol.history-list > li.history-item:hover {
 
 .scope {
   display: block;
-  filter: drop-shadow(0 0 12px rgba(111, 195, 232, 0.12));
+  filter: drop-shadow(0 0 12px color-mix(in srgb, var(--lime) 12%, transparent));
 }
 
 .scope-wave {
@@ -2546,7 +2529,7 @@ ol.history-list > li.history-item:hover {
 }
 
 .scope-active {
-  filter: drop-shadow(0 0 16px rgba(226, 166, 61, 0.22));
+  filter: drop-shadow(0 0 16px color-mix(in srgb, var(--coral) 22%, transparent));
 }
 
 .scope-active .scope-sweep {
@@ -2563,7 +2546,7 @@ ol.history-list > li.history-item:hover {
 }
 
 .scope-active .scope-corners {
-  stroke: #c9a24e;
+  stroke: var(--coral);
   opacity: 0.85;
 }
 
@@ -2573,10 +2556,10 @@ ol.history-list > li.history-item:hover {
 
 .core-stage {
   background:
-    radial-gradient(220px 150px at 50% 30%, rgba(111, 195, 232, 0.07), transparent 70%),
-    radial-gradient(260px 170px at 50% 112%, rgba(226, 166, 61, 0.08), transparent 70%),
-    linear-gradient(180deg, #101720, var(--panel-2));
-  border-top: 1px solid rgba(217, 224, 234, 0.09);
+    radial-gradient(220px 150px at 50% 30%, color-mix(in srgb, var(--lime) 7%, transparent), transparent 70%),
+    radial-gradient(260px 170px at 50% 112%, color-mix(in srgb, var(--coral) 8%, transparent), transparent 70%),
+    linear-gradient(180deg, var(--sf-deep), var(--panel-2));
+  border-top: 1px solid color-mix(in srgb, var(--offwhite) 9%, transparent);
 }
 
 .pending .scope {
@@ -2586,7 +2569,7 @@ ol.history-list > li.history-item:hover {
 /* ---------- Raven tab accent ---------- */
 
 /* When a tab newly matches .tab-active its indicator sweeps in once
-   from the left — a brief travelling accent, then the static line. */
+   from the left â€” a brief travelling accent, then the static line. */
 .tab-active::before {
   transform-origin: left center;
   animation: tab-sweep 0.38s ease-out;
@@ -2634,7 +2617,7 @@ ol.history-list > li.history-item:hover {
 }
 
 /* =====================================================================
-   M015 — THE LIVING INVESTIGATION. Diagnostic component system, story
+   M015 â€” THE LIVING INVESTIGATION. Diagnostic component system, story
    modules, timeline rail, resolve storytelling, purposeful motion.
    ===================================================================== */
 
@@ -2653,8 +2636,8 @@ ol.history-list > li.history-item:hover {
   gap: 0.1rem;
   margin: 0;
   padding: 0.4rem 0.6rem;
-  background: rgba(217, 224, 234, 0.028);
-  border: 1px solid rgba(38, 48, 61, 0.7);
+  background: color-mix(in srgb, var(--offwhite) 3%, transparent);
+  border: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
   border-radius: var(--radius-sm);
 }
 
@@ -2693,7 +2676,7 @@ ol.history-list > li.history-item:hover {
   padding: 0;
 }
 
-/* Service-state dots: running is active cyan; stopped is neutral —
+/* Service-state dots: running is active cyan; stopped is neutral â€”
    never red. A stopped service is not an error. */
 .st-dot {
   display: inline-block;
@@ -2705,16 +2688,16 @@ ol.history-list > li.history-item:hover {
 
 .st-on {
   background: var(--cyan);
-  box-shadow: 0 0 7px rgba(111, 195, 232, 0.55);
+  box-shadow: 0 0 7px color-mix(in srgb, var(--lime) 55%, transparent);
 }
 
 .st-off {
-  border: 2px solid #4a5568;
+  border: 2px solid var(--sf-track);
   background: transparent;
 }
 
 .st-unknown {
-  background: #4a5568;
+  background: var(--sf-track);
 }
 
 .st-pill {
@@ -2734,7 +2717,7 @@ ol.history-list > li.history-item:hover {
 
 .st-pill-on {
   color: var(--cyan);
-  border-color: #2b4d63;
+  border-color: color-mix(in srgb, var(--lime) 30%, var(--void));
 }
 
 .st-pill-off {
@@ -2754,12 +2737,12 @@ ol.history-list > li.history-item:hover {
 
 .lvl-error {
   color: var(--red);
-  border-color: #5c2b26;
+  border-color: color-mix(in srgb, var(--coral-hot) 45%, var(--void));
 }
 
 .lvl-warn {
   color: var(--amber);
-  border-color: #5a4a1e;
+  border-color: color-mix(in srgb, var(--tangerine) 38%, var(--void));
 }
 
 /* ---------- Service visual ---------- */
@@ -2813,7 +2796,7 @@ ol.history-list > li.history-item:hover {
   align-items: center;
   gap: 0.6rem;
   padding: 0.35rem 0.1rem;
-  border-bottom: 1px solid rgba(38, 48, 61, 0.55);
+  border-bottom: 1px solid color-mix(in srgb, var(--line) 55%, transparent);
 }
 
 .svc-rows li:last-child {
@@ -2842,9 +2825,9 @@ ol.history-list > li.history-item:hover {
 .net-iface {
   margin: 0.4rem 0;
   padding: 0.45rem 0.7rem;
-  border: 1px solid rgba(38, 48, 61, 0.7);
+  border: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
   border-radius: var(--radius-sm);
-  background: rgba(111, 195, 232, 0.03);
+  background: color-mix(in srgb, var(--lime) 3%, transparent);
 }
 
 .net-iface-name {
@@ -2867,7 +2850,7 @@ ol.history-list > li.history-item:hover {
   gap: 0.6rem;
   flex-wrap: wrap;
   padding: 0.32rem 0.1rem;
-  border-bottom: 1px solid rgba(38, 48, 61, 0.55);
+  border-bottom: 1px solid color-mix(in srgb, var(--line) 55%, transparent);
 }
 
 .net-rows li:last-child {
@@ -2892,7 +2875,7 @@ ol.history-list > li.history-item:hover {
 .crash-card {
   position: relative;
   padding: 0.55rem 0.8rem 0.55rem 1rem;
-  background: rgba(217, 224, 234, 0.028);
+  background: color-mix(in srgb, var(--offwhite) 3%, transparent);
   border: 1px solid var(--panel-edge);
   border-radius: var(--radius-sm);
   border-left: 3px solid var(--amber);
@@ -2936,7 +2919,7 @@ ol.history-list > li.history-item:hover {
 
 .evlog-row {
   padding: 0.45rem 0.1rem;
-  border-bottom: 1px solid rgba(38, 48, 61, 0.55);
+  border-bottom: 1px solid color-mix(in srgb, var(--line) 55%, transparent);
 }
 
 .evlog-row:last-child {
@@ -2980,9 +2963,9 @@ details.evlog-msg > p {
   flex-wrap: wrap;
   margin: 0.3rem 0;
   padding: 0.45rem 0.7rem;
-  border: 1px solid rgba(38, 48, 61, 0.7);
+  border: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
   border-radius: var(--radius-sm);
-  background: rgba(111, 195, 232, 0.03);
+  background: color-mix(in srgb, var(--lime) 3%, transparent);
 }
 
 .ops-rows {
@@ -2999,7 +2982,7 @@ details.evlog-msg > p {
   gap: 0.6rem;
   flex-wrap: wrap;
   padding: 0.32rem 0.1rem;
-  border-bottom: 1px solid rgba(38, 48, 61, 0.55);
+  border-bottom: 1px solid color-mix(in srgb, var(--line) 55%, transparent);
 }
 
 .ops-rows li:last-child {
@@ -3019,7 +3002,7 @@ details.evlog-msg > p {
 .story-mod {
   margin: 0.7rem 0;
   padding-top: 0.7rem;
-  border-top: 1px solid rgba(38, 48, 61, 0.7);
+  border-top: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
   animation: story-in 380ms var(--ease-out) both;
 }
 
@@ -3106,7 +3089,7 @@ ol.timeline::before {
   top: 0.6rem;
   bottom: 0.6rem;
   width: 2px;
-  background: linear-gradient(180deg, var(--panel-edge), rgba(38, 48, 61, 0.25));
+  background: linear-gradient(180deg, var(--panel-edge), color-mix(in srgb, var(--line) 25%, transparent));
   border-radius: 2px;
 }
 
@@ -3135,27 +3118,27 @@ li.tl {
 
 .tl-fam-tool .tl-mark {
   color: var(--cyan);
-  border-color: #2b4d63;
+  border-color: color-mix(in srgb, var(--lime) 30%, var(--void));
 }
 
 .tl-fam-evidence .tl-mark {
   color: var(--gold);
-  border-color: #5a4a1e;
+  border-color: color-mix(in srgb, var(--tangerine) 38%, var(--void));
 }
 
 .tl-fam-human .tl-mark {
-  color: #b8a6d9;
-  border-color: #463c5c;
+  color: var(--mauve);
+  border-color: color-mix(in srgb, var(--mauve) 30%, var(--void));
 }
 
 .tl-fam-verdict .tl-mark {
   color: var(--green);
-  border-color: #1f4a38;
+  border-color: color-mix(in srgb, var(--green) 30%, var(--void));
 }
 
 .tl-fam-error .tl-mark {
   color: var(--red);
-  border-color: #5c2b26;
+  border-color: color-mix(in srgb, var(--coral-hot) 45%, var(--void));
 }
 
 .tl-body {
@@ -3205,7 +3188,7 @@ li.tl {
 
 @keyframes change-flash {
   0% {
-    background: rgba(226, 166, 61, 0.12);
+    background: color-mix(in srgb, var(--coral) 12%, transparent);
   }
   100% {
     background: transparent;
@@ -3219,7 +3202,7 @@ li.tl {
 .change-old {
   color: var(--muted);
   text-decoration: line-through;
-  text-decoration-color: rgba(224, 104, 90, 0.6);
+  text-decoration-color: color-mix(in srgb, var(--coral-hot) 60%, transparent);
 }
 
 .change-new {
@@ -3252,7 +3235,7 @@ li.tl {
 }
 
 .stage + .stage::before {
-  content: "›";
+  content: "â€º";
   color: var(--faint);
   margin-right: 0.5rem;
   margin-left: -0.15rem;
@@ -3262,7 +3245,7 @@ li.tl {
   width: 0.55rem;
   height: 0.55rem;
   border-radius: 50%;
-  border: 2px solid #4a5568;
+  border: 2px solid var(--sf-track);
   flex: none;
 }
 
@@ -3282,7 +3265,7 @@ li.tl {
 .stage-current .stage-dot {
   background: var(--gold);
   border-color: var(--gold);
-  box-shadow: 0 0 8px rgba(226, 166, 61, 0.5);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--coral) 50%, transparent);
 }
 
 .criterion-cards {
@@ -3297,7 +3280,7 @@ li.tl {
 .criterion-card {
   border: 1px solid var(--panel-edge);
   border-radius: var(--radius-sm);
-  background: rgba(217, 224, 234, 0.022);
+  background: color-mix(in srgb, var(--offwhite) 2%, transparent);
   padding: 0.6rem 0.8rem;
 }
 
@@ -3327,7 +3310,7 @@ li.tl {
   align-items: flex-start;
   gap: 0.2rem;
   padding: 0.45rem 0.6rem;
-  border: 1px solid rgba(38, 48, 61, 0.7);
+  border: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
   border-radius: var(--radius-sm);
   overflow-wrap: anywhere;
 }
@@ -3347,8 +3330,8 @@ li.tl {
 }
 
 .compare-changed {
-  border-color: #5a4a1e;
-  background: rgba(226, 166, 61, 0.05);
+  border-color: color-mix(in srgb, var(--tangerine) 38%, var(--void));
+  background: color-mix(in srgb, var(--coral) 5%, transparent);
 }
 
 .verdict-unmeasured {
@@ -3368,13 +3351,13 @@ li.tl {
 
 @keyframes confirm-settle {
   0% {
-    box-shadow: 0 0 0 rgba(67, 196, 136, 0);
+    box-shadow: 0 0 0 transparent;
   }
   25% {
-    box-shadow: 0 0 26px rgba(67, 196, 136, 0.35);
+    box-shadow: 0 0 26px color-mix(in srgb, var(--green) 35%, transparent);
   }
   100% {
-    box-shadow: 0 0 0 rgba(67, 196, 136, 0);
+    box-shadow: 0 0 0 transparent;
   }
 }
 
@@ -3452,33 +3435,33 @@ li.tl {
 }
 
 /* ------------------------------------------------------------------
-   M016 — THE REAL TECHNICIAN. Guided investigation layer: status tones,
+   M016 â€” THE REAL TECHNICIAN. Guided investigation layer: status tones,
    question/step/hypothesis cards, turn composer, assistant strip.
    Reuses the M014 material system; no new motion beyond fade-in.
    ------------------------------------------------------------------ */
 
 .badge-good {
   color: var(--green);
-  border-color: #234d3a;
+  border-color: color-mix(in srgb, var(--green) 30%, var(--void));
 }
 .badge-bad {
   color: var(--red);
-  border-color: #5c2b26;
+  border-color: color-mix(in srgb, var(--coral-hot) 45%, var(--void));
 }
 .badge-warn {
   color: var(--amber);
-  border-color: #5c4a26;
+  border-color: color-mix(in srgb, var(--tangerine) 38%, var(--void));
 }
 .badge-mute {
   color: var(--muted);
 }
 .badge-current {
   color: var(--cyan);
-  border-color: #2c4a5c;
+  border-color: color-mix(in srgb, var(--lime) 30%, var(--void));
 }
 .flag-origin {
   color: var(--amber);
-  background: rgba(217, 164, 65, 0.12);
+  background: color-mix(in srgb, var(--tangerine) 12%, transparent);
 }
 
 .guide {
@@ -3651,4 +3634,218 @@ li.tl {
   .guide {
     animation: none !important;
   }
+}
+/* =====================================================================
+   M026 SIGNALFORGE skin (BETA). Reskins M012-M016 engine components to
+   the Motion Lab instrument language. Selectors and layout hooks are
+   unchanged; only surface treatments (background/border/text) move to
+   SIGNALFORGE tokens. No transitions or animations here (DELTA owns
+   motion); hover states change instantly.
+   ===================================================================== */
+
+.card {
+  background: var(--sf-card);
+  border: 1px solid var(--sf-card-edge);
+  border-radius: 12px;
+}
+
+.card-head h2 {
+  color: var(--offwhite);
+}
+
+.eyebrow {
+  color: var(--lime);
+}
+
+.story-head {
+  color: var(--peach);
+}
+
+.button {
+  background: var(--lime);
+  border: 1px solid var(--lime);
+  color: var(--void);
+  border-radius: 7px;
+  font-weight: 800;
+  box-shadow: 0 4px 0 var(--void);
+}
+
+.button:hover:not(:disabled) {
+  background: var(--peach);
+  border-color: var(--peach);
+  color: var(--void);
+}
+
+.button:disabled {
+  background: var(--sf-track);
+  border-color: var(--sf-card-edge);
+  color: var(--muted);
+  box-shadow: none;
+}
+
+.button-ghost {
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--peach);
+  box-shadow: none;
+}
+
+.button-ghost:hover:not(:disabled) {
+  border-color: var(--coral);
+  color: var(--lime);
+  background: var(--sf-hover);
+}
+
+.button-danger {
+  background: color-mix(in srgb, var(--coral-hot) 55%, var(--void));
+  border: 1px solid color-mix(in srgb, var(--coral-hot) 60%, var(--void));
+  color: var(--offwhite);
+  box-shadow: none;
+}
+
+.button-danger:hover:not(:disabled) {
+  background: var(--coral-hot);
+  border-color: var(--coral-hot);
+  color: var(--void);
+}
+
+.badge {
+  background: var(--sf-hover);
+  border: 1px solid var(--line);
+  color: var(--peach);
+  border-radius: 7px;
+}
+
+.badge-live {
+  background: var(--lime);
+  border-color: var(--lime);
+  color: var(--void);
+}
+
+.badge-sim {
+  background: transparent;
+  color: var(--muted);
+}
+
+.badge-verified {
+  background: var(--green);
+  border-color: var(--green);
+  color: var(--void);
+}
+
+.badge-fail {
+  background: var(--coral-hot);
+  border-color: var(--coral-hot);
+  color: var(--void);
+}
+
+.link-button {
+  color: var(--mauve);
+}
+
+.link-button:hover {
+  color: var(--lime);
+}
+
+.tag,
+.chip {
+  background: var(--sf-hover);
+  border: 1px solid var(--line);
+  color: var(--peach);
+}
+
+input[type="text"],
+input[type="search"],
+select,
+textarea {
+  background: var(--sf-deep);
+  border: 1px solid var(--line);
+  color: var(--peach);
+  border-radius: 7px;
+}
+
+input[type="text"]:disabled,
+input[type="search"]:disabled,
+select:disabled,
+textarea:disabled {
+  color: var(--muted);
+  border-color: var(--sf-card-edge);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--muted);
+}
+
+.preset-button {
+  background: var(--sf-hover);
+  border: 1px solid var(--line);
+  color: var(--peach);
+  border-radius: 7px;
+}
+
+.preset-button:hover:not(:disabled) {
+  border-color: var(--coral);
+  color: var(--lime);
+}
+
+.views {
+  background: transparent;
+  border-bottom: 1px solid var(--line);
+}
+
+.view-tab {
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid transparent;
+}
+
+.view-tab:hover {
+  color: var(--peach);
+  background: var(--sf-hover);
+}
+
+.view-tab[aria-selected="true"] {
+  color: var(--void);
+  background: var(--coral);
+  border-color: var(--coral);
+}
+
+.view-tab[aria-selected="true"] .view-count {
+  color: var(--void);
+}
+
+.contextbar {
+  background: var(--sf-card);
+  border: 1px solid var(--sf-card-edge);
+  border-radius: 12px;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.mono {
+  color: var(--peach);
+}
+
+.hint {
+  color: var(--muted);
+}
+
+ol.history-list > li.history-item,
+ul.notes > li {
+  border-color: var(--sf-card-edge);
+}
+
+button.history-title:hover {
+  color: var(--lime);
+}
+
+details.advanced > summary {
+  color: var(--muted);
+}
+
+details.advanced > summary:hover {
+  color: var(--lime);
 }

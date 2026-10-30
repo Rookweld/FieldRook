@@ -23,7 +23,7 @@ export function RavenMark({ size = 28 }: { size?: number }) {
       <polygon points="24,42 40,44 34,58 22,52" fill="currentColor" opacity="0.7" />
       <polygon points="34,44 48,38 44,54 34,58" fill="currentColor" opacity="0.5" />
       {/* forge-gold eye */}
-      <polygon points="33,27 39,27 37,32" fill="#e2a63d" />
+      <polygon points="33,27 39,27 37,32" style={{ fill: "var(--coral)" }} />
     </svg>
   );
 }
