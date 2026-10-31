@@ -134,11 +134,15 @@ Collection is not silently uploaded. Some elevated collection categories have no
 
 ## Get started
 
-### Windows desktop release candidate · v0.5.0
+### Windows desktop pre-release - v0.5.0
 
-The native Desktop and portable Collector have been packaged and validated on the development machine. **A public binary download has not been published yet.** Until a release is explicitly published, do not treat a local build path or this README as an installer download.
+The native Desktop and portable Collector have been packaged and validated on the development machine and are published as a [pre-release on GitHub](https://github.com/Rookweld/FieldRook/releases/tag/v0.5.0) (binaries are unsigned - verify checksums before running):
 
-Once a release artifact is available:
+- [FieldRook-0.5.0.zip](https://github.com/Rookweld/FieldRook/releases/download/v0.5.0/FieldRook-0.5.0.zip) - portable app: unzip, run `FieldRook.exe`, keep the folder together.
+- [FieldRook-Collector-0.5.0.zip](https://github.com/Rookweld/FieldRook/releases/download/v0.5.0/FieldRook-Collector-0.5.0.zip) - portable collector: USB-friendly, runs from its own folder.
+- [SHA256SUMS-v0.5.0.txt](https://github.com/Rookweld/FieldRook/releases/download/v0.5.0/SHA256SUMS-v0.5.0.txt) - hashes of both ZIPs plus the executables inside.
+
+To install:
 
 1. Extract the complete `FieldRook-0.5.0` distribution. Keep its bundled files together.
 2. Run `FieldRook.exe` to open the native Windows application.
