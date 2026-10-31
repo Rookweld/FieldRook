@@ -235,11 +235,11 @@ Fill at record/export time:
 
 ## 8. E2E coverage behind this demo
 
-- `frontend/tests/e2e/evidence-lens.spec.ts` (new, M028.D): deterministic
+- `frontend/tests/e2e/evidence-lens-flows.spec.ts` (new, M028.D; renamed at merge to keep both suites): deterministic
   record order + provenance, original-vs-recheck UNCHANGED comparison with
   `refresh_of` linkage, contradiction citations with chip drill-through,
   refresh JSON contract, export §14 linkage.
-- `frontend/tests/e2e/network-lab.spec.ts` (new, M028.D): observed
+- `frontend/tests/e2e/network-lab-flows.spec.ts` (new, M028.D; renamed at merge to keep both suites): observed
   adapters/addresses/DNS readings with tool/source labels, passive-config
   vs active-test separation, five-tool networking allowlist pin, no
   ping/traceroute UI, remote-target re-check withdrawal + API 409.
