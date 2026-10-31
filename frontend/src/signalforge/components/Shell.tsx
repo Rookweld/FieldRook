@@ -67,6 +67,7 @@ const NAV_ITEMS: { view: SignalView; label: string; glyph: string }[] = [
   { view: "launchpad", label: "Launchpad", glyph: "⌂" },
   { view: "workbench", label: "Workbench", glyph: "↗" },
   { view: "evidence", label: "Evidence", glyph: "◈" },
+  { view: "network", label: "Network Lab", glyph: "◍" },
   { view: "knowledge", label: "Knowledge", glyph: "▤" },
   { view: "settings", label: "Settings", glyph: "⚙" },
 ];
@@ -79,6 +80,8 @@ function ribbonText(view: SignalView, hasCase: boolean): string {
       return hasCase ? "FIELD REPORT / ACTIVE INVESTIGATION" : "FIELD REPORT / NO ACTIVE CASE";
     case "evidence":
       return "FIELDROOK / EVIDENCE";
+    case "network":
+      return "FIELDROOK / NETWORK LAB";
     case "knowledge":
       return "FIELDROOK / KNOWLEDGE";
     case "settings":

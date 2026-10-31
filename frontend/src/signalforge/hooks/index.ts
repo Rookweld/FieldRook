@@ -28,6 +28,7 @@ export {
   type ResolutionCreateInput,
 } from "./useResolution";
 export { useServices } from "./useServices";
+export { useNetworkLab, type NetworkLabBinding } from "./useNetworkLab";
 export { useTools } from "./useTools";
 export {
   useViewState,

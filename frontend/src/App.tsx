@@ -9,6 +9,7 @@ import { useCollectorImport, useViewState } from "./signalforge/hooks";
 import { Launchpad } from "./signalforge/views/Launchpad";
 import { Workbench } from "./signalforge/views/Workbench";
 import { EvidenceView } from "./signalforge/views/EvidenceView";
+import { NetworkLab } from "./signalforge/views/NetworkLab";
 import { KnowledgeView } from "./signalforge/views/KnowledgeView";
 import { SettingsView } from "./signalforge/views/SettingsView";
 import type { SignalView } from "./signalforge/types";
@@ -286,6 +287,19 @@ export function App() {
             investigation={mirror}
             onGoWorkbench={() => navigate("workbench")}
             onGoLaunchpad={() => navigate("launchpad")}
+          />
+        )}
+        {route.view === "network" && (
+          <NetworkLab
+            investigation={mirror}
+            onUpdate={(next) => {
+              setSeeded(next);
+              setMirror(next);
+              setSession((s) => s + 1);
+            }}
+            onGoWorkbench={() => navigate("workbench")}
+            onGoLaunchpad={() => navigate("launchpad")}
+            onGoEvidence={() => navigate("evidence")}
           />
         )}
         {route.view === "knowledge" && <KnowledgeView />}
