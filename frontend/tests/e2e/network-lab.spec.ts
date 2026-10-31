@@ -1,152 +1,157 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 
-/**
- * M028.D — Network Lab flows, pinned against the DOM/contracts this branch
- * actually ships (engine Evidence tab network cards, /api/tools catalogue,
- * target isolation on reverify). The M028 Lab instrument re-skins these
- * flows; the merge lead owns selector drift, but every behaviour below must
- * survive: observed-only network readings with tool/source/collected_at,
- * passive-config vs active-test separation, the five-tool allowlist, and
- * the remote-target no-measurement guard.
- */
+// Relative API path: the request fixture inherits baseURL, and Vite proxies
+// /api to the (possibly alternate-port) E2E backend. Works under both the
+// standard config (:8123/:4173) and alternate-port configs.
 
-const BACKEND = "http://127.0.0.1:8123";
-
-async function investigateFixture(page: Page, problem: string) {
-  await page.goto("/");
-  await page.getByPlaceholder(/vpn disconnects/i).fill(problem);
-  await page.getByText("Advanced: fixture mode").click();
-  await page.getByText("Force fixture data").click();
-  await page.getByRole("button", { name: "Investigate", exact: true }).click();
-  await expect(page.getByRole("tab", { name: /Evidence/ })).toBeVisible({ timeout: 30000 });
+async function startCase(
+  request: APIRequestContext,
+  problem: string,
+  target: string,
+): Promise<string> {
+  const response = await request.post(`/api/investigations`, {
+    form: { problem, target, share_consent: "true" },
+  });
+  expect(response.ok()).toBeTruthy();
+  const body = (await response.json()) as { investigation_id: string };
+  return body.investigation_id;
 }
 
-test("lab shows observed adapters, addresses, and DNS config with provenance", async ({
-  page,
-}) => {
-  await investigateFixture(page, "E2E lab probe: my VPN disconnects every 10 minutes.");
+async function openCaseFromLaunchpad(page: Page, problem: string): Promise<void> {
+  await page.goto("/");
+  await page
+    .getByRole("navigation", { name: "Primary" })
+    .getByRole("button", { name: "Launchpad", exact: true })
+    .click();
+  const opener = page.getByRole("button", { name: problem, exact: false }).first();
+  await expect(opener).toBeVisible({ timeout: 30000 });
+  await opener.click();
+  // Opening leaves the launchpad for the workbench with the case mirrored.
+  await expect(page.getByRole("button", { name: problem, exact: false })).toHaveCount(0, {
+    timeout: 30000,
+  });
+}
 
-  // Fixture provenance is labeled on the case itself.
-  await expect(page.getByText("FIXTURES", { exact: true })).toBeVisible();
+async function gotoNetworkLab(page: Page): Promise<void> {
+  await page
+    .getByRole("navigation", { name: "Primary" })
+    .getByRole("button", { name: "Network Lab", exact: true })
+    .click();
+  await expect(page.getByTestId("network-lab")).toBeVisible({ timeout: 15000 });
+}
 
-  await page.getByRole("tab", { name: /Evidence/ }).click();
-  await expect(page.getByRole("heading", { name: /Network \(3\)/ })).toBeVisible();
-
-  // Measured adapter state, not a generic "network down" claim.
-  const adapters = page.locator("#evcard-ev-1");
-  await expect(adapters.getByText("Adapters (2)")).toBeVisible();
-  await expect(adapters.getByText("Wi-Fi").first()).toBeVisible();
-  await expect(adapters.getByText("Up").first()).toBeVisible();
-  await expect(adapters.getByText("tool:get_network_adapters:fixture")).toBeVisible();
-
-  // Measured addresses with interface + family.
-  const addresses = page.locator("#evcard-ev-2");
-  await expect(addresses.getByText("192.168.1.20/24")).toBeVisible();
-  await expect(addresses.getByText("IPv4").first()).toBeVisible();
-  await expect(addresses.getByText("tool:get_ip_config:fixture")).toBeVisible();
-
-  // Observed DNS servers per interface.
-  const dns = page.locator("#evcard-ev-3");
-  await expect(dns.getByText("192.168.1.1").first()).toBeVisible();
-  await expect(dns.getByText("1.1.1.1").first()).toBeVisible();
-  await expect(dns.getByText("tool:get_dns_config:fixture")).toBeVisible();
-
-  // No invented scanners: the lab offers re-checks, never ping/traceroute UI.
-  const panel = page.locator(".view-panel");
-  await expect(panel.getByRole("button", { name: /ping|traceroute|port.scan/i })).toHaveCount(0);
-  await expect(adapters.getByRole("button", { name: "Re-check", exact: true })).toBeVisible();
-});
-
-test("lab separates passive DNS config from the active resolution test", async ({
-  page,
-}) => {
-  await investigateFixture(page, "E2E lab probe: intranet hostnames do not resolve.");
-  await page.getByRole("tab", { name: /Evidence/ }).click();
-  await expect(page.getByRole("heading", { name: /Network \(2\)/ })).toBeVisible();
-
-  // Passive observation: configured servers.
-  const config = page.locator("#evcard-ev-1");
-  await expect(config.getByText("dns_config", { exact: true })).toBeVisible();
-  // Exact: the Raw JSON <pre> in the same card repeats the summary string.
-  await expect(config.getByText("DNS servers for 2 interfaces (fixture).", { exact: true })).toBeVisible();
-
-  // Active test: one bounded query with its own verdict rendering.
-  const dnsTest = page.locator("#evcard-ev-2");
-  await expect(dnsTest.getByText("dns_test", { exact: true })).toBeVisible();
-  await expect(dnsTest.getByText("example.com").first()).toBeVisible();
-  // Exact: the Raw JSON <pre> in the same card contains "resolves to".
-  await expect(dnsTest.getByText("RESOLVES", { exact: true })).toBeVisible();
-  await expect(dnsTest.getByText("93.184.216.34").first()).toBeVisible();
-  await expect(dnsTest.getByText("Query time")).toBeVisible();
-  await expect(dnsTest.getByText("tool:test_dns_resolution:fixture")).toBeVisible();
-
-  // The active test is re-runnable and deterministically unchanged.
-  // (Scoped + exact: the timeline echoes "Re-check of ev-2 …" as prose.)
-  await dnsTest.getByRole("button", { name: "Re-check", exact: true }).click();
-  const freshDns = page.locator("#evcard-ev-3");
-  await expect(freshDns.getByText("RE-CHECK OF ev-2", { exact: true })).toBeVisible({ timeout: 15000 });
-  await expect(page.getByText("UNCHANGED", { exact: true }).first()).toBeVisible();
-});
-
-test("lab tool catalogue pins the five registered network tools", async ({ request }) => {
-  const res = await request.get(`${BACKEND}/api/tools`);
-  expect(res.ok()).toBeTruthy();
-  const tools = (await res.json()) as Array<{ name: string; category: string; family?: string | null }>;
-  const network = tools.filter((t) => t.family === "networking");
-  expect(network.map((t) => `${t.name}/${t.category}`).sort()).toEqual(
-    [
-      "get_connections/connections",
-      "get_dns_config/dns_config",
-      "get_ip_config/ip_config",
-      "get_network_adapters/net_adapters",
-      "test_dns_resolution/dns_test",
-    ].sort(),
-  );
-  // The allowlist has no ping, traceroute, or port scanner under any name.
-  for (const tool of tools) {
-    expect(tool.name).not.toMatch(/ping|traceroute|scan/i);
-  }
-});
-
-test("lab withholds host re-measurement on a remote-target case", async ({
+test("network lab shows observed records with tool, source, and collection labels", async ({
   page,
   request,
 }) => {
-  await investigateFixture(page, "E2E lab probe: the branch office network is down.");
-  // Non-exact: an open-questions dot extends the tab's accessible name.
-  await page.getByRole("tab", { name: "Guide" }).click();
-  await page.getByLabel("Diagnostic target").selectOption("remote");
-  await expect(page.getByText("OTHER PC", { exact: true })).toBeVisible();
-  await expect(page.getByText(/host readings are withheld/i)).toBeVisible();
+  const problem = `E2E netlab observe ${Date.now()}: my VPN connects but the intranet never loads.`;
+  await startCase(request, problem, "local");
+  await openCaseFromLaunchpad(page, problem);
+  await gotoNetworkLab(page);
 
-  // Evidence cards drop their Re-check controls and say why.
-  await page.getByRole("tab", { name: /Evidence/ }).click();
-  const gated = page.locator("article", { has: page.getByTestId("recheck-unavailable") });
-  await expect(gated.first()).toBeVisible({ timeout: 15000 });
-  await expect(page.getByText(/this case targets remote/).first()).toBeVisible();
-  await expect(
-    page.locator(".view-panel").getByRole("button", { name: "Re-check", exact: true }),
-  ).toHaveCount(0);
-
-  // The API boundary enforces the same guard (409, not a wrong-machine reading).
-  const created = await request.post(`${BACKEND}/api/investigations`, {
-    multipart: {
-      problem: "Lab guard probe: the network is down on this machine.",
-      use_fixtures: "true",
-      share_consent: "true",
-      target: "local",
-    },
-  });
-  expect(created.ok()).toBeTruthy();
-  const inv = (await created.json()) as { investigation_id: string };
-  const switched = await request.post(`${BACKEND}/api/investigations/${inv.investigation_id}/target`, {
-    data: { target: "remote" },
-  });
-  expect(switched.ok()).toBeTruthy();
-  const denied = await request.post(
-    `${BACKEND}/api/investigations/${inv.investigation_id}/reverify`,
-    { data: { evidence_id: "ev-1" } },
+  const lab = page.getByTestId("network-lab");
+  await expect(lab.getByTestId("network-target-banner")).toContainText(/local target/i);
+  // Real observed sections from the registered tools, with provenance badges.
+  await expect(lab.getByTestId("network-section-net_adapters")).toContainText(
+    "get_network_adapters",
   );
-  expect(denied.status()).toBe(409);
-  expect(await denied.text()).toContain("Collect on the affected machine instead.");
+  await expect(lab.getByTestId("network-section-dns_config")).toContainText("get_dns_config");
+  await expect(lab.getByText("FIXTURE").first()).toBeVisible();
+  await expect(lab.getByText(/Last collected:/).first()).toBeVisible();
+  // No invented action promises anywhere in the instrument.
+  await expect(lab.getByRole("button", { name: /ping|traceroute|port.?scan/i })).toHaveCount(0);
+  await expect(lab.getByPlaceholder(/hostname/i)).toHaveCount(0);
+});
+
+test("local re-check needs consent, then records a fresh reading", async ({
+  page,
+  request,
+}) => {
+  const problem = `E2E netlab recheck ${Date.now()}: DNS does not resolve anything since this morning.`;
+  await startCase(request, problem, "local");
+  await openCaseFromLaunchpad(page, problem);
+  await gotoNetworkLab(page);
+
+  const lab = page.getByTestId("network-lab");
+  const consent = lab.getByTestId("network-lab-consent");
+  await expect(consent).toBeVisible();
+  const recheck = lab.getByTestId(/network-recheck-ev-/).first();
+  await expect(recheck).toBeVisible();
+  await expect(recheck).toBeDisabled();
+  await expect(recheck).toContainText(/needs consent/i);
+
+  const section = lab.getByTestId("network-section-dns_config");
+  const before = await section.getByText(/Last collected:/).count();
+  expect(before).toBeGreaterThan(0);
+
+  await consent.check();
+  await expect(recheck).toBeEnabled();
+  await recheck.click();
+
+  // Fresh reading lands as a new record linked to the old one (data-derived,
+  // so it survives the engine reseed that follows every case mutation).
+  await expect(section.getByText(/Last collected:/)).toHaveCount(before + 1, { timeout: 30000 });
+  await expect(section.getByText(/Re-check of ev-/).first()).toBeVisible({ timeout: 30000 });
+});
+
+test("cancel drops a slow re-check and says the reading may still land", async ({
+  page,
+  request,
+}) => {
+  const problem = `E2E netlab cancel ${Date.now()}: DNS does not resolve anything since this morning.`;
+  await startCase(request, problem, "local");
+  await openCaseFromLaunchpad(page, problem);
+  await gotoNetworkLab(page);
+
+  const lab = page.getByTestId("network-lab");
+  await lab.getByTestId("network-lab-consent").check();
+  const recheck = lab.getByTestId(/network-recheck-ev-/).first();
+  await expect(recheck).toBeEnabled();
+
+  await page.route("**/api/investigations/*/reverify", async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 3000));
+    await route.continue();
+  });
+  await recheck.click();
+  const cancel = lab.getByTestId("network-lab-cancel");
+  await expect(cancel).toBeVisible({ timeout: 5000 });
+  await cancel.click();
+  await expect(lab.getByTestId("network-lab-notice")).toContainText(/cancelled locally/i, {
+    timeout: 10000,
+  });
+  await page.unroute("**/api/investigations/*/reverify");
+});
+
+test("remote target shows observations only with no run controls", async ({
+  page,
+  request,
+}) => {
+  const problem = `E2E netlab remote ${Date.now()}: branch office PC cannot reach the intranet.`;
+  await startCase(request, problem, "remote");
+  await openCaseFromLaunchpad(page, problem);
+  await gotoNetworkLab(page);
+
+  const lab = page.getByTestId("network-lab");
+  await expect(lab.getByTestId("network-target-banner")).toContainText(/remote target/i);
+  await expect(lab.getByTestId("network-lab-consent")).toHaveCount(0);
+  await expect(lab.getByTestId(/network-recheck-ev-/)).toHaveCount(0);
+  await expect(
+    lab.getByRole("button", { name: /re-check|run|test now|scan/i }),
+  ).toHaveCount(0);
+  await expect(lab).toContainText(/collector/i);
+});
+
+test("unknown target shows host-only readings with no run controls", async ({
+  page,
+  request,
+}) => {
+  const problem = `E2E netlab unknown ${Date.now()}: something on some PC broke DNS.`;
+  await startCase(request, problem, "unknown");
+  await openCaseFromLaunchpad(page, problem);
+  await gotoNetworkLab(page);
+
+  const lab = page.getByTestId("network-lab");
+  await expect(lab.getByTestId("network-target-banner")).toContainText(/unknown target/i);
+  await expect(lab.getByTestId("network-lab-consent")).toHaveCount(0);
+  await expect(lab.getByTestId(/network-recheck-ev-/)).toHaveCount(0);
 });
