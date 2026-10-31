@@ -1,0 +1,392 @@
+/* =====================================================================
+   FIELD KIT dock (M028.A). Right-side instrument dock: open panel,
+   collapsed tool strip, pinned favorites, honest coming-soon cards.
+   Palette reaches tokens.css ONLY through var() / color-mix(): no hex,
+   rgb(), or hsl() in this file. This sheet is STATIC (no transitions
+   or keyframes), so OS reduced-motion is respected by construction and
+   there is no animation/perf regression versus M026.
+   Grid states live on .sf-body: .sf-dock-collapsed (slim strip column)
+   and .sf-dock-closed (rail hidden). Wide-grid overrides are scoped to
+   min-width:1181px so the <=1180px overlay and <=700px stack keep their
+   M026 behavior; hiding a closed rail applies at every width.
+   ===================================================================== */
+
+/* ---------- Dock frame ---------- */
+
+.sf-rail-dock {
+  overflow: hidden;
+}
+
+.sf-dock {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.sf-dock-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 14px 13px 10px;
+  background: linear-gradient(
+    120deg,
+    color-mix(in srgb, var(--aubergine) 90%, var(--void)),
+    color-mix(in srgb, var(--plum) 80%, var(--coral-hot))
+  );
+  border-bottom: 1px solid color-mix(in srgb, var(--light-line) 60%, transparent);
+  flex-shrink: 0;
+}
+
+.sf-dock-title h2 {
+  font-family: var(--title);
+  font-size: 24px;
+  margin: 4px 0 0;
+  letter-spacing: -0.075em;
+  color: var(--offwhite);
+}
+
+.sf-dock-title h2 span {
+  color: var(--coral);
+}
+
+.sf-dock-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.sf-dock-iconbtn {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border-radius: 7px;
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--aubergine) 88%, var(--void));
+  color: var(--peach);
+  font-size: 13px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.sf-dock-iconbtn:hover {
+  border-color: var(--coral);
+}
+
+/* ---------- Pinned favorites ---------- */
+
+.sf-dock-pinned {
+  padding: 10px 13px 0;
+  flex-shrink: 0;
+}
+
+.sf-dock-pinned .sf-section-label {
+  font-size: 9px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  font-weight: 950;
+  color: var(--muted);
+}
+
+.sf-pinrow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.sf-pinbtn {
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--aubergine) 78%, var(--void));
+  color: var(--peach);
+  border-radius: 7px;
+  padding: 6px 9px;
+  font-size: 10px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.sf-pinbtn:hover {
+  border-color: var(--coral);
+}
+
+.sf-pinbtn.sf-active {
+  border-color: var(--lime);
+  background: color-mix(in srgb, var(--aubergine) 62%, var(--plum));
+}
+
+/* ---------- Instrument tabs ---------- */
+
+.sf-dock-tabs {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 13px;
+  flex-shrink: 0;
+  max-height: 38%;
+  overflow: auto;
+}
+
+.sf-dock-row {
+  display: flex;
+  gap: 6px;
+  align-items: stretch;
+  min-width: 0;
+}
+
+.sf-dock-tab {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  text-align: left;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 9px;
+  border-radius: 7px;
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--aubergine) 78%, var(--void));
+  color: var(--peach);
+  cursor: pointer;
+  font: inherit;
+}
+
+.sf-dock-tab:hover {
+  background: var(--sf-hover);
+}
+
+.sf-dock-tab.sf-active {
+  border-color: var(--lime);
+  background: color-mix(in srgb, var(--aubergine) 62%, var(--plum));
+}
+
+.sf-dock-tab.sf-soon {
+  border-style: dashed;
+}
+
+.sf-dock-glyph {
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--aubergine) 90%, var(--void));
+  color: var(--coral);
+  font-size: 14px;
+}
+
+.sf-dock-tab.sf-active .sf-dock-glyph {
+  background: var(--lime);
+  color: var(--void);
+}
+
+.sf-dock-tabtxt {
+  min-width: 0;
+  flex: 1;
+}
+
+.sf-dock-tabtxt strong {
+  display: block;
+  font-size: 10.7px;
+  line-height: 1.25;
+}
+
+.sf-dock-tabtxt small {
+  display: block;
+  font-size: 9px;
+  color: var(--muted);
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sf-soon-tag {
+  flex-shrink: 0;
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  padding: 3px 6px;
+  border-radius: 5px;
+  border: 1px solid var(--light-line);
+  color: var(--muted);
+  background: transparent;
+}
+
+.sf-dock-pin {
+  flex-shrink: 0;
+  width: 32px;
+  border-radius: 7px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--muted);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.sf-dock-pin:hover {
+  border-color: var(--coral);
+  color: var(--peach);
+}
+
+.sf-dock-pin[aria-pressed="true"] {
+  color: var(--lime);
+  border-color: var(--lime);
+}
+
+.sf-dock-pin[disabled] {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.sf-dock-status {
+  flex-shrink: 0;
+  padding: 0 13px 8px;
+  font-size: 9px;
+  color: var(--muted);
+  min-height: 20px;
+}
+
+/* ---------- Instrument panel ---------- */
+
+.sf-dock-panel {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  border-top: 1px solid color-mix(in srgb, var(--light-line) 60%, transparent);
+}
+
+.sf-dock-panel:focus {
+  outline: none;
+}
+
+.sf-dock-panel:focus-visible {
+  outline: 3px solid var(--lime);
+  outline-offset: -3px;
+}
+
+.sf-dock-evwrap {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
+.sf-soonpanel {
+  margin: 13px;
+  padding: 15px;
+  border: 1px dashed var(--light-line);
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--aubergine) 72%, var(--void));
+}
+
+.sf-soonpanel h3 {
+  font-size: 16px;
+  letter-spacing: -0.04em;
+  margin: 6px 0 8px;
+  color: var(--offwhite);
+}
+
+.sf-soonpanel p {
+  font-size: 10.5px;
+  line-height: 1.55;
+  color: var(--muted);
+  margin: 0 0 10px;
+}
+
+.sf-soonpanel p:last-child {
+  margin-bottom: 0;
+}
+
+/* ---------- Collapsed tool strip ---------- */
+
+.sf-dockstrip {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  height: 100%;
+  padding: 12px 8px;
+  overflow: auto;
+}
+
+.sf-stripbtn {
+  display: grid;
+  place-items: center;
+  min-height: 40px;
+  border-radius: 7px;
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--aubergine) 78%, var(--void));
+  color: var(--peach);
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.sf-stripbtn:hover {
+  border-color: var(--coral);
+}
+
+.sf-stripbtn.sf-active {
+  border-color: var(--lime);
+  background: color-mix(in srgb, var(--aubergine) 62%, var(--plum));
+}
+
+.sf-strip-expand {
+  background: var(--coral);
+  border-color: var(--coral);
+  color: var(--void);
+}
+
+/* ---------- Grid states ---------- */
+
+.sf-body.sf-dock-closed .sf-rail {
+  display: none;
+}
+
+@media (min-width: 1181px) {
+  .sf-body.sf-dock-collapsed {
+    grid-template-columns: 202px minmax(0, 1fr) 60px;
+  }
+
+  .sf-body.sf-dock-closed {
+    grid-template-columns: 202px minmax(0, 1fr);
+  }
+}
+
+@media (min-width: 1181px) and (max-width: 1400px) {
+  .sf-body.sf-dock-collapsed {
+    grid-template-columns: 176px minmax(0, 1fr) 60px;
+  }
+
+  .sf-body.sf-dock-closed {
+    grid-template-columns: 176px minmax(0, 1fr);
+  }
+}
+
+/* The open/close toggle lives in the main column at every width (it is
+   the focus target when the dock closes). The <=1180px overlay keeps its
+   M026 position; collapse is a wide-layout affordance only. */
+.sf-main > .sf-rail-toggle {
+  display: inline-block;
+}
+
+@media (max-width: 1180px) {
+  .sf-dock-collapse-btn {
+    display: none;
+  }
+}
+
+@media (max-width: 700px) {
+  .sf-body.sf-dock-collapsed .sf-rail {
+    display: flex;
+  }
+
+  .sf-body.sf-dock-collapsed .sf-dockstrip {
+    flex-direction: row;
+    height: auto;
+  }
+
+  .sf-body.sf-dock-collapsed .sf-stripbtn {
+    flex: 1;
+  }
+}

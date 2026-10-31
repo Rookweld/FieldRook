@@ -18,6 +18,8 @@ import {
 import type { InvestigationResponse } from "../../types";
 import { useActions } from "./useActions";
 import { useCollectorImport } from "./useCollectorImport";
+import { useDockState, type DockVisibility } from "../dock/useDockState";
+import { listInstruments, MAX_DOCK_PINS } from "../dock/instruments";
 import { useExport } from "./useExport";
 import { useGuidedChecks } from "./useGuidedChecks";
 import { useInvestigation } from "./useInvestigation";
@@ -212,5 +214,26 @@ export function ContractShellBridge(): null {
   void available;
   const error = new ShellBridgeError("unavailable", "no bridge");
   void error.code;
+  return null;
+}
+
+export function ContractDock(): null {
+  const dock = useDockState();
+  const visibility: DockVisibility = dock.visibility;
+  void visibility;
+  dock.setVisibility("collapsed");
+  dock.toggleOpen();
+  void dock.activeId;
+  dock.activate("evidence");
+  void dock.pins.length;
+  dock.togglePin("evidence");
+  void dock.isPinned("evidence");
+  void dock.pinsFull;
+  void dock.pinNotice;
+  void dock.selectedEvidenceId;
+  dock.selectEvidence("ev-1");
+  void listInstruments().length;
+  const max: number = MAX_DOCK_PINS;
+  void max;
   return null;
 }
