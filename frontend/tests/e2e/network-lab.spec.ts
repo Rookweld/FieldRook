@@ -88,10 +88,11 @@ test("local re-check needs consent, then records a fresh reading", async ({
   await expect(recheck).toBeEnabled();
   await recheck.click();
 
-  // Fresh reading lands as a new record linked to the old one (data-derived,
-  // so it survives the engine reseed that follows every case mutation).
+  // Fresh reading lands as a new record linked to the old one.
   await expect(section.getByText(/Last collected:/)).toHaveCount(before + 1, { timeout: 30000 });
   await expect(section.getByText(/Re-check of ev-/).first()).toBeVisible({ timeout: 30000 });
+  // M029: the success notice itself must survive (lab updates no longer remount the view).
+  await expect(lab.getByTestId("network-lab-notice")).toContainText(/Fresh reading recorded as ev-/, { timeout: 10000 });
 });
 
 test("cancel drops a slow re-check and says the reading may still land", async ({
@@ -119,6 +120,8 @@ test("cancel drops a slow re-check and says the reading may still land", async (
   await expect(lab.getByTestId("network-lab-notice")).toContainText(/cancelled locally/i, {
     timeout: 10000,
   });
+  await expect(lab.getByTestId("network-lab-notice")).not.toContainText(/Fresh reading/i);
+  await expect(lab.getByTestId("network-lab-error")).toHaveCount(0);
   await page.unroute("**/api/investigations/*/reverify");
 });
 
@@ -154,4 +157,58 @@ test("unknown target shows host-only readings with no run controls", async ({
   await expect(lab.getByTestId("network-target-banner")).toContainText(/unknown target/i);
   await expect(lab.getByTestId("network-lab-consent")).toHaveCount(0);
   await expect(lab.getByTestId(/network-recheck-ev-/)).toHaveCount(0);
+});
+test("switching instruments preserves the open case", async ({
+  page,
+  request,
+}) => {
+  const problem = `E2E netlab switch ${Date.now()}: DNS does not resolve anything since this morning.`;
+  await startCase(request, problem, "local");
+  await openCaseFromLaunchpad(page, problem);
+  await gotoNetworkLab(page);
+
+  const lab = page.getByTestId("network-lab");
+  await expect(lab.getByTestId("network-target-banner")).toContainText(/local target/i);
+  await expect(lab.getByTestId("network-section-net_adapters")).toBeVisible();
+
+  await page
+    .getByRole("navigation", { name: "Primary" })
+    .getByRole("button", { name: "Evidence", exact: true })
+    .click();
+  await expect(lab).toBeHidden({ timeout: 15000 });
+
+  await page
+    .getByRole("navigation", { name: "Primary" })
+    .getByRole("button", { name: "Network Lab", exact: true })
+    .click();
+  const labAgain = page.getByTestId("network-lab");
+  await expect(labAgain).toBeVisible({ timeout: 15000 });
+  await expect(labAgain.getByTestId("network-target-banner")).toContainText(/local target/i);
+  await expect(labAgain.getByTestId("network-section-net_adapters")).toContainText(
+    "get_network_adapters",
+  );
+  await expect(labAgain.getByTestId("network-lab-error")).toHaveCount(0);
+});
+
+test("failed re-check shows an error and never a success notice", async ({
+  page,
+  request,
+}) => {
+  const problem = `E2E netlab fail ${Date.now()}: DNS does not resolve anything since this morning.`;
+  await startCase(request, problem, "local");
+  await openCaseFromLaunchpad(page, problem);
+  await gotoNetworkLab(page);
+
+  const lab = page.getByTestId("network-lab");
+  await lab.getByTestId("network-lab-consent").check();
+  const recheck = lab.getByTestId(/network-recheck-ev-/).first();
+  await expect(recheck).toBeEnabled();
+
+  await page.route("**/api/investigations/*/reverify", async (route) => {
+    await route.abort();
+  });
+  await recheck.click();
+  await expect(lab.getByTestId("network-lab-error")).toBeVisible({ timeout: 15000 });
+  await expect(lab.getByTestId("network-lab-notice")).toHaveCount(0);
+  await page.unroute("**/api/investigations/*/reverify");
 });

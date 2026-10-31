@@ -295,7 +295,10 @@ export function App() {
             onUpdate={(next) => {
               setSeeded(next);
               setMirror(next);
-              setSession((s) => s + 1);
+              // M029: no session bump here. Only one view mounts at a time, so
+              // bumping session would remount NetworkLab itself and wipe its
+              // just-set success notice; the engine mounts fresh with the new
+              // mirror whenever the user navigates back to it.
             }}
             onGoWorkbench={() => navigate("workbench")}
             onGoLaunchpad={() => navigate("launchpad")}
