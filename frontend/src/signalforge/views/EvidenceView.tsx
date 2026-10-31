@@ -1,5 +1,6 @@
 import { Fragment, useState } from "react";
 import { summarizeEvidence } from "../../evidenceSummary";
+import { EvidenceLens } from "../components/EvidenceLens";
 import type { EvidenceViewProps } from "../types";
 import "./Utility.css";
 
@@ -43,6 +44,10 @@ export function EvidenceView({ investigation, onGoWorkbench, onGoLaunchpad }: Ev
   const selected = evidence.find((item) => item.id === effectiveId) ?? null;
   const categories = [...new Set(evidence.map((item) => item.category))].sort();
   const failed = evidence.filter((item) => item.error !== null).length;
+  const inspectRecord = (id: string) => {
+    setSelectedId(id);
+    document.getElementById("sf-evidence-records")?.scrollIntoView({ block: "nearest" });
+  };
 
   return (
     <section className="sf-screen" aria-label="Evidence">
@@ -76,7 +81,12 @@ export function EvidenceView({ investigation, onGoWorkbench, onGoLaunchpad }: Ev
         </div>
         {evidence.length > 0 && (
           <div className="sf-ev-split">
-            <div className="sf-utility-card" role="group" aria-label="Case evidence records">
+            <div
+              className="sf-utility-card"
+              id="sf-evidence-records"
+              role="group"
+              aria-label="Case evidence records"
+            >
               <h2>Records</h2>
               <div className="sf-ev-list" style={{ padding: 0 }}>
                 {evidence.map((item) => (
@@ -152,6 +162,16 @@ export function EvidenceView({ investigation, onGoWorkbench, onGoLaunchpad }: Ev
             </div>
           </div>
         )}
+        <div className="sf-utility-card">
+          <div className="sf-eyebrow">Field kit instrument</div>
+          <h2>Evidence Lens</h2>
+          <p>
+            Deterministic comparison over this case&apos;s own records: re-checks against their
+            historical readings, Collector snapshots from the same computer, and contradictions
+            with their cited records. Select any record id to inspect it above.
+          </p>
+        </div>
+        <EvidenceLens investigation={investigation} onInspectRecord={inspectRecord} />
         {investigation.refreshes.length > 0 && (
           <div className="sf-utility-card">
             <h2>Re-checks ({investigation.refreshes.length})</h2>
