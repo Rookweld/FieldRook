@@ -58,9 +58,13 @@ test("lens lists records deterministically with source, tool, and timestamps", a
     .getByRole("button", { name: "Evidence", exact: true })
     .click();
   const view = page.locator('section[aria-label="Evidence"]');
-  await expect(view.getByText("3 records on this case")).toBeVisible();
-  // No Re-checks section heading (the explainer paragraph mentions re-checks).
-  await expect(view.getByRole("heading", { name: /Re-checks/ })).toHaveCount(0);
+  // Header count lives outside the Lens (the merged M028.B instrument repeats
+  // the count inside its own panel, so scope to the header paragraph).
+  await expect(view.locator(".sf-utility > p").first()).toContainText("3 records on this case");
+  // No re-check records yet: the legacy Re-checks card is absent and the Lens
+  // shows its empty state (merged M028.B instrument renders "Re-checks (0)").
+  await expect(view.getByText("No re-checks yet")).toBeVisible();
+  await expect(view.getByText(/Re-checks \([1-9]/)).toHaveCount(0);
   const detail = view.locator(".sf-ev-detail");
   await expect(detail.getByText("ev-1", { exact: true })).toBeVisible();
   await expect(detail.getByText("get_network_adapters", { exact: true }).first()).toBeVisible();
@@ -96,8 +100,15 @@ test("lens compares an original reading with its re-check (unchanged)", async ({
     .getByRole("navigation", { name: "Primary" })
     .getByRole("button", { name: "Evidence", exact: true })
     .click();
-  await expect(page.getByText("Re-checks (1)")).toBeVisible();
-  await expect(page.getByText(/get_network_adapters: unchanged/)).toBeVisible();
+  // Both the legacy Re-checks card and the merged Lens carry the record;
+  // scope to the legacy card (the only surface rendering "tool: verdict").
+  const legacyRechecks = page
+    .locator('section[aria-label="Evidence"] .sf-utility-card', {
+      hasText: /get_network_adapters: unchanged/,
+    })
+    .first();
+  await expect(legacyRechecks.getByRole("heading", { name: "Re-checks (1)" })).toBeVisible();
+  await expect(legacyRechecks.getByText(/get_network_adapters: unchanged/)).toBeVisible();
 
   // The exported report preserves the comparison for the ticket.
   const md = await request.get(`${BACKEND}/api/investigations/${investigationId}/export?format=markdown`);
