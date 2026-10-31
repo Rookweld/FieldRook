@@ -12,12 +12,12 @@ Built by **[ROOKWELD](https://rookweld.com)** · Open source · Designed for rea
 
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-725070?style=flat-square)](LICENSE)
 ![Platform: Windows](https://img.shields.io/badge/Platform-Windows%2010%2F11-ef725e?style=flat-square)
-![Release candidate: v0.5.0](https://img.shields.io/badge/Release%20candidate-v0.5.0-ccf46a?style=flat-square)
+[![Pre-release: v0.5.0](https://img.shields.io/badge/Pre--release-v0.5.0-ccf46a?style=flat-square)](https://github.com/Rookweld/FieldRook/releases/tag/v0.5.0)
 ![Local-first](https://img.shields.io/badge/Approach-Local--first-75465d?style=flat-square)
 
 [**See the workstation**](#the-workstation) · [**How it works**](#from-symptom-to-evidence) · [**Get started**](#get-started) · [**Safety**](#safety-is-part-of-the-product) · [**What comes next**](#whats-next-the-field-kit)
 
-![FieldRook 0.5.0 native Windows Launchpad](docs/assets/m026/launchpad-native.png)
+![FieldRook 0.5.0 SIGNALFORGE — real native Windows Launchpad](docs/assets/m027/hero-launchpad.png)
 
 **An actual WPF + WebView2 Windows application. Not a browser tab.**
 
@@ -48,32 +48,42 @@ FieldRook 0.5.0 introduces **SIGNALFORGE**: a retro-futuristic instrument-inspir
 
 Its new **native WPF shell** embeds the existing React workstation through WebView2 and manages the packaged local FastAPI server. The usual experience is one Windows window, not a manually launched backend plus a browser tab.
 
-![FieldRook active investigation workbench](docs/assets/m026/workbench-case.png)
+![FieldRook 0.5.0 investigation Workbench, captured from the released native app](docs/assets/m027/workbench-case.png)
 
 *The SIGNALFORGE Workbench — actual FieldRook 0.5.0 UI capture, not concept art.*
 
 <details>
-<summary><strong>More real application screenshots — evidence, import, and motion settings</strong></summary>
+<summary><strong>More native-app captures — evidence, Collector, resolution, and settings</strong></summary>
 
 #### Examine evidence
 
-![FieldRook evidence interface](docs/assets/m026/evidence.png)
+![FieldRook Evidence view with source-linked observations](docs/assets/m027/evidence-overview.png)
 
 #### Import a Collector package
 
-![FieldRook Collector import](docs/assets/m026/import.png)
+![FieldRook Collector provenance inspector](docs/assets/m027/evidence-collector-provenance.png)
+
+#### Review the resolution queue
+
+![FieldRook Resolve and verify flow](docs/assets/m027/resolve-queue.png)
+
+#### Inspect the contextual evidence rail
+
+![FieldRook current evidence rail, not the future Field Kit expansion](docs/assets/m027/toolbox-evidence-rail.png)
 
 #### Tune the living interface
 
-![FieldRook motion preferences](docs/assets/m026/settings-motion.png)
+![FieldRook Alive/Quiet/Off motion preferences](docs/assets/m027/settings-motion.png)
 
 </details>
 
-### Watch the investigation flow
+### Watch the real Windows app in action
 
-**[Watch the FieldRook 0.5.0 UI journey (WebM)](docs/assets/m026/demo-journey.webm)**
+[![Animated preview of the released FieldRook 0.5.0 Windows app](docs/assets/m027/fieldrook-v0.5.0-preview.gif)](docs/assets/m027/fieldrook-v0.5.0-signalforge-trailer.mp4)
 
-> **Capture note:** This video records the production React UI in Chromium, using the same frontend build hosted by the native shell. It is not footage of the sealed WPF/WebView2 window. The screenshots above include actual application captures.
+**[▶ Watch the 33-second SIGNALFORGE release trailer (MP4)](docs/assets/m027/fieldrook-v0.5.0-signalforge-trailer.mp4)** · [Download v0.5.0](https://github.com/Rookweld/FieldRook/releases/tag/v0.5.0)
+
+> **Real-product footage.** The trailer is edited from an OS-level capture of the **shipped v0.5.0 native Windows application**, running isolated simulated demo investigations. Slow camera pushes, typography, transitions, and an original electronic sound bed were added in post-production; the application's UI and case data were **not fabricated or altered**. Decorative interface motion is not telemetry.
 
 The background motion is deliberately subtle. The interface offers **Alive**, **Quiet**, and **Off** preferences and supports reduced-motion behavior. Decorative activity is not presented as a real hardware measurement.
 
@@ -151,7 +161,7 @@ To install:
 
 **Runtime notes:** Windows and a suitable WebView2 Runtime are required. Builds are currently unsigned, so Windows may display an unverified-publisher warning. No model is bundled by default. Offline investigation and evidence workflows do not depend on a paid cloud model.
 
-For build provenance, validation details, and current limitations, see [M026 delivery notes](docs/M026_DELIVERY.md). For inference setup, see [Provider configuration](docs/PROVIDERS.md).
+For build provenance, validation details, and current limitations, see [M026 delivery notes](docs/M026_DELIVERY.md) and the [v0.5.0 pre-release](https://github.com/Rookweld/FieldRook/releases/tag/v0.5.0). For inference setup, see [Provider configuration](docs/PROVIDERS.md).
 
 ### Building from source
 
@@ -189,14 +199,14 @@ FieldRook was developed as part of the **[Meta Global AI Developer Hackathon 202
 
 ## Validation and known limits
 
-For the M026 local release-candidate gate, the delivery report records:
+For the M026.1 release-candidate verification (plus green GitHub Actions on the merged source), the records show:
 
 | Gate | Reported result |
 | :--- | :--- |
-| Backend | 684 passed, 4 environment-dependent skips |
+| Backend | 687 passed, 4 environment-dependent skips |
 | Playwright end-to-end | 47 / 47 passed |
 | .NET tests | 66 / 66 passed |
-| Diagnostic gauntlet | 37 / 37 passed |
+| Diagnostic gauntlet | 38 / 38 passed |
 | Native packaged journey | Investigation, Collector import, export, and persistence exercised |
 | Security probes | 11 / 11 passed |
 
