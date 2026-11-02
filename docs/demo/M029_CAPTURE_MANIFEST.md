@@ -1,9 +1,9 @@
 # M029 — Native capture manifest (P3)
 
 Source build: frozen M029 desktop + shell from worktree `m029/prove-polish-record`
-(`C:\tmp\m29-wt-fix`), built to `C:\Users\pontu\.fieldrook-tmp\m29-dist\`.
+(`<m029-worktree>`), built to `<fieldrook-tmp>\m29-dist\`.
 Recorded: 2026-11-01 ~00:56–01:28 UTC. App: PID 50464, isolated port :8131,
-isolated data `C:\Users\pontu\.fieldrook-tmp\m29-capture\data`,
+isolated data `<fieldrook-tmp>\m29-capture\data`,
 `FIELDROOK_FIXTURE_WORKER=failing`. Model: `fieldrook-simulated-001`
 (SIMULATED, badged in every shot). Operator :8000 / data untouched.
 
@@ -30,19 +30,19 @@ against the re-broken fixture. The narration states this openly.
 
 ## Files (SHA-256)
 
-Raw session: `C:\Users\pontu\.fieldrook-tmp\m29-capture\raw\m29-raw-session.mp4`
+Raw session: `<fieldrook-tmp>\m29-capture\raw\m29-raw-session.mp4`
 (1580x880 h264, 1864.93 s, 27,604,312 bytes)
 
 - `c39d3cfdfcce67f2b7540596b06206c5d26c671ede880eed6924e435a5d4e89a`
   27604312 m29-raw-session.mp4
 
-Exported report: `C:\Users\pontu\.fieldrook-tmp\m29-capture\artifacts\inv-8fb657bec4c9.md`
+Exported report: `<fieldrook-tmp>\m29-capture\artifacts\inv-8fb657bec4c9.md`
 (real in-app Download Markdown, secret-scanned clean)
 
 - `fa6c9f679c363435a7ce0412a8b0dc73104a500a8c3ad8cd789af534b1ca8e20`
   11281 inv-8fb657bec4c9.md
 
-Stills: `C:\Users\pontu\.fieldrook-tmp\m29-capture\stills\` (OS-level pixels,
+Stills: `<fieldrook-tmp>\m29-capture\stills\` (OS-level pixels,
 CDP input only; shot16/shot16b identical — Escape did not dismiss the
 Edge downloads popup; it was closed via DevTools `/json/close/` instead):
 

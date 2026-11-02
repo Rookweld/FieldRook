@@ -2,14 +2,14 @@
 
 Voice: **Pontus English Natural V4**, Suno voice ID
 `5e89651b-01ab-442d-b26f-8cb2928bb422` (see
-`C:\dev\FieldRook_NARRATOR_V4_LOCK.md`). Style: natural spoken English
+(narrator lock note, kept out of the repo). Style: natural spoken English
 documentary narration; warm, grounded, unhurried; clear "FieldRook"; no
 singing, no music, `backing_music=false`. Reference pace: winning V4-B take
 ≈ 40 words / 17.6 s (≈136 wpm + pauses).
 
 Script: **298 spoken words in 7 chunks** (6–8 required). Rough cut:
 **176 s, silent**, assembled ONLY from verified raw offsets below
-(raw: `C:\Users\pontu\.fieldrook-tmp\m29-capture\raw\m29-raw-session.mp4`,
+(raw: `<fieldrook-tmp>\m29-capture\raw\m29-raw-session.mp4`,
 1864.93 s; every segment below was spot-checked on real frames).
 Deliberate pauses sit around tool proofs and the NOT_RESOLVED hold.
 All on-screen analysis is SIMULATED (`fieldrook-simulated-001`, badged);
@@ -82,8 +82,8 @@ no live Meta inference is claimed anywhere (see M029_META_PROOF_STATUS.md).
 | 15 | 2:44–2:52 | raw 1803–1811 | "Fresh reading recorded as ev-3" | C7 |
 | 16 | 2:52–2:56 | still shot18b-netlab-notice.png ×4 s | Notice end hold | C7 tagline |
 
-Total: 176 s. Edit script: `C:\Users\pontu\.fieldrook-tmp\m29-capture\Build-RoughCut.ps1`
-→ `C:\Users\pontu\.fieldrook-tmp\m29-capture\rough\m29-roughcut-silent.mp4`.
+Total: 176 s. Edit script: `<fieldrook-tmp>\m29-capture\Build-RoughCut.ps1`
+→ `<fieldrook-tmp>\m29-capture\rough\m29-roughcut-silent.mp4`.
 
 ## Suno take instructions (per chunk C1–C7)
 
