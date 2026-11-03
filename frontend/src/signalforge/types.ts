@@ -5,7 +5,7 @@ import type {
 } from "../types";
 
 /** M026 navigation replaces the M025 four-tab model. */
-export type SignalView = "launchpad" | "workbench" | "evidence" | "knowledge" | "settings";
+export type SignalView = "launchpad" | "workbench" | "evidence" | "network" | "knowledge" | "settings";
 
 export type Route = {
   view: SignalView;
@@ -49,6 +49,15 @@ export type EvidenceViewProps = {
   investigation: InvestigationResponse | null;
   onGoWorkbench: () => void;
   onGoLaunchpad: () => void;
+};
+
+/** M028.C Network Lab: read-only network instrument with consented re-checks. */
+export type NetworkLabProps = {
+  investigation: InvestigationResponse | null;
+  onUpdate: (next: InvestigationResponse) => void;
+  onGoWorkbench: () => void;
+  onGoLaunchpad: () => void;
+  onGoEvidence: () => void;
 };
 
 export type SettingsViewProps = {

@@ -263,9 +263,15 @@ export function addInvestigationNote(
   );
 }
 
+export interface ReverifyOptions {
+  /** Optional abort signal: dropping the local wait (the server read may still land). */
+  signal?: AbortSignal;
+}
+
 export function reverifyEvidence(
   id: string,
   evidenceId: string,
+  options?: ReverifyOptions,
 ): Promise<InvestigationResponse> {
   return requestInvestigation(
     `/api/investigations/${encodeURIComponent(id)}/reverify`,
@@ -273,6 +279,7 @@ export function reverifyEvidence(
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ evidence_id: evidenceId }),
+      signal: options?.signal,
     },
   );
 }

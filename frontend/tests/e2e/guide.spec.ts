@@ -37,7 +37,12 @@ test("guided remote investigation answers questions and works the plan", async (
   await page.getByRole("button", { name: "Record outcome" }).first().click();
   await page.getByPlaceholder("What did you observe?").fill("Checked on site: Teams sign-in works.");
   await page.getByRole("button", { name: "Save outcome" }).click();
-  await expect(page.getByText("Teams sign-in works.")).toBeVisible();
+  // Scoped to the plan step: the activity timeline honestly echoes the same
+  // outcome text ("Step step-1 completed"), which trips strict mode on an
+  // unscoped page-wide locator.
+  await expect(
+    page.locator("p.guide-outcome", { hasText: "Teams sign-in works." }),
+  ).toBeVisible();
 
   // The observation is labeled technician-reported evidence.
   await page.getByRole("tab", { name: /Evidence/ }).click();

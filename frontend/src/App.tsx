@@ -9,6 +9,7 @@ import { useCollectorImport, useViewState } from "./signalforge/hooks";
 import { Launchpad } from "./signalforge/views/Launchpad";
 import { Workbench } from "./signalforge/views/Workbench";
 import { EvidenceView } from "./signalforge/views/EvidenceView";
+import { NetworkLab } from "./signalforge/views/NetworkLab";
 import { KnowledgeView } from "./signalforge/views/KnowledgeView";
 import { SettingsView } from "./signalforge/views/SettingsView";
 import type { SignalView } from "./signalforge/types";
@@ -286,6 +287,22 @@ export function App() {
             investigation={mirror}
             onGoWorkbench={() => navigate("workbench")}
             onGoLaunchpad={() => navigate("launchpad")}
+          />
+        )}
+        {route.view === "network" && (
+          <NetworkLab
+            investigation={mirror}
+            onUpdate={(next) => {
+              setSeeded(next);
+              setMirror(next);
+              // M029: no session bump here. Only one view mounts at a time, so
+              // bumping session would remount NetworkLab itself and wipe its
+              // just-set success notice; the engine mounts fresh with the new
+              // mirror whenever the user navigates back to it.
+            }}
+            onGoWorkbench={() => navigate("workbench")}
+            onGoLaunchpad={() => navigate("launchpad")}
+            onGoEvidence={() => navigate("evidence")}
           />
         )}
         {route.view === "knowledge" && <KnowledgeView />}

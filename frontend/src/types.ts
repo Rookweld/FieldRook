@@ -382,6 +382,11 @@ export interface InvestigationResponse {
   rounds_used: number;
   blocked_reason: string | null;
   assistant_message: string;
+  // M028 Lens: persisted by the backend for every response; optional here
+  // so older backends degrade to "unknown host / no packages" instead of
+  // tripping the api.ts version-mismatch guard.
+  target_identity?: TargetIdentity | null;
+  collector_packages?: CollectorPackageRecord[];
 }
 
 export interface InvestigationSummary {
@@ -394,6 +399,31 @@ export interface InvestigationSummary {
   proposal_count: number;
   latest_outcome: string | null;
 }
+
+export type TargetOS = {
+  platform: string;
+  version: string;
+  build: string;
+};
+
+export type TargetIdentity = {
+  schema_version: string;
+  hostname_hash: string;
+  hint: string | null;
+  os: TargetOS | null;
+};
+
+export type CollectorPackageRecord = {
+  schema_version: string;
+  package_id: string;
+  collector_version: string;
+  collector_lang: string;
+  created_at: string | null;
+  hostname_hash: string;
+  manifest_sha256: string;
+  evidence_ids: string[];
+  warnings: string[];
+};
 
 export interface ToolInfo {
   name: string;

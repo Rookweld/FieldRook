@@ -145,3 +145,214 @@
     font-size: 34px;
   }
 }
+
+/* Evidence Lens (M028.B). No color literals. */
+
+.sf-lens-rows,
+.sf-lens-pairs,
+.sf-lens-cxlist,
+.sf-lens-changes,
+.sf-lens-unchanged {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sf-lens-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: 12px;
+}
+
+.sf-lens-row-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.sf-lens-row-main strong {
+  color: var(--offwhite);
+  overflow-wrap: anywhere;
+}
+
+.sf-lens-row-main small {
+  color: var(--muted);
+}
+
+.sf-lens-host,
+.sf-lens-cx {
+  overflow-wrap: anywhere;
+}
+
+.sf-lens-cx {
+  color: var(--peach);
+}
+
+.sf-lens-row-id {
+  font-family: ui-monospace, monospace;
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.sf-lens-status {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 4px 7px;
+  border-radius: 5px;
+  white-space: nowrap;
+  background: color-mix(in srgb, var(--aubergine) 82%, var(--void));
+  color: var(--muted);
+}
+
+.sf-lens-status-error {
+  color: var(--coral);
+}
+
+.sf-lens-status-live,
+.sf-lens-status-imported {
+  color: var(--lime);
+}
+
+.sf-lens-status-fixture {
+  color: var(--peach);
+}
+
+.sf-lens-pair {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.sf-lens-pair-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.sf-lens-verdict {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  padding: 4px 8px;
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--aubergine) 82%, var(--void));
+  color: var(--muted);
+}
+
+.sf-lens-changed {
+  color: var(--coral);
+}
+
+.sf-lens-unchanged {
+  color: var(--lime);
+}
+
+.sf-lens-unavailable {
+  color: var(--peach);
+}
+
+.sf-lens-pair-link {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.sf-lens-tool {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.sf-lens-times {
+  font-size: 11px;
+}
+
+.sf-lens-warn {
+  color: var(--peach);
+}
+
+.sf-lens-changes code {
+  font-size: 11px;
+  color: var(--peach);
+  overflow-wrap: anywhere;
+}
+
+.sf-lens-fields p {
+  font-size: 12px;
+}
+
+.sf-lens-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+  margin: 6px 0;
+}
+
+.sf-lens-table th,
+.sf-lens-table td {
+  text-align: left;
+  vertical-align: top;
+  padding: 4px 8px;
+  border-top: 1px solid var(--line);
+  overflow-wrap: anywhere;
+  max-width: 280px;
+}
+
+.sf-lens-table thead th {
+  color: var(--muted);
+  font-weight: 700;
+  border-top: none;
+}
+
+.sf-lens-table tbody th {
+  color: var(--peach);
+  font-weight: 400;
+  font-family: ui-monospace, monospace;
+}
+
+.sf-lens-table td {
+  color: var(--offwhite);
+  font-family: ui-monospace, monospace;
+}
+
+.sf-lens-fields details {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 6px;
+}
+
+.sf-lens-fields summary {
+  cursor: pointer;
+  color: var(--peach);
+}
+
+.sf-lens-unchanged code {
+  color: var(--peach);
+  font-size: 11px;
+}
+
+.sf-lens-idbtn {
+  background: none;
+  border: none;
+  padding: 0;
+  font-family: ui-monospace, monospace;
+  font-size: 11px;
+  color: var(--lime);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.sf-lens-cxlist p {
+  margin: 2px 0;
+}

@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react";
 
-export type SignalforgeView = "launchpad" | "workbench" | "evidence" | "knowledge" | "settings";
+export type SignalforgeView = "launchpad" | "workbench" | "evidence" | "network" | "knowledge" | "settings";
 
 export interface SignalforgeViewState {
   view: SignalforgeView;
@@ -9,7 +9,7 @@ export interface SignalforgeViewState {
 
 const STORAGE_KEY = "signalforge.view.v1";
 
-const VIEWS: readonly SignalforgeView[] = ["launchpad", "workbench", "evidence", "knowledge", "settings"];
+const VIEWS: readonly SignalforgeView[] = ["launchpad", "workbench", "evidence", "network", "knowledge", "settings"];
 
 function isView(value: unknown): value is SignalforgeView {
   return typeof value === "string" && (VIEWS as readonly string[]).includes(value);

@@ -1,8 +1,9 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import type { StatusResponse } from "../../types";
-import { summarizeEvidence } from "../../evidenceSummary";
-import type { EvidenceRailProps, ShellProps, SignalView } from "../types";
-import { CircuitVeins, SignalTrace } from "../motion";
+import type { ShellProps, SignalView } from "../types";
+import { CircuitVeins } from "../motion";
+import { FieldKitDock } from "../dock/FieldKitDock";
+import { useDockState } from "../dock/useDockState";
 import "../signalforge.css";
 
 /** Shared sun/rook/cliff instrument art. Colors resolve via CSS vars. */
@@ -67,6 +68,7 @@ const NAV_ITEMS: { view: SignalView; label: string; glyph: string }[] = [
   { view: "launchpad", label: "Launchpad", glyph: "⌂" },
   { view: "workbench", label: "Workbench", glyph: "↗" },
   { view: "evidence", label: "Evidence", glyph: "◈" },
+  { view: "network", label: "Network Lab", glyph: "◍" },
   { view: "knowledge", label: "Knowledge", glyph: "▤" },
   { view: "settings", label: "Settings", glyph: "⚙" },
 ];
@@ -79,6 +81,8 @@ function ribbonText(view: SignalView, hasCase: boolean): string {
       return hasCase ? "FIELD REPORT / ACTIVE INVESTIGATION" : "FIELD REPORT / NO ACTIVE CASE";
     case "evidence":
       return "FIELDROOK / EVIDENCE";
+    case "network":
+      return "FIELDROOK / NETWORK LAB";
     case "knowledge":
       return "FIELDROOK / KNOWLEDGE";
     case "settings":
@@ -88,107 +92,6 @@ function ribbonText(view: SignalView, hasCase: boolean): string {
       return _exhaustive;
     }
   }
-}
-
-export function EvidenceRail({ view, investigation, onGoEvidence, onGoWorkbench }: EvidenceRailProps) {
-  const evidence = investigation?.evidence ?? [];
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const effectiveId = selectedId ?? evidence[0]?.id ?? null;
-  const selected = evidence.find((item) => item.id === effectiveId) ?? null;
-  const summary = selected ? summarizeEvidence(selected).slice(0, 3) : [];
-
-  return (
-    <>
-      <div className="sf-rail-header">
-        <div className="sf-small">PROVENANCE / CASE RECORDS</div>
-        <h2>
-          EVIDENCE<span>.</span>
-        </h2>
-        <div className="sf-sub">
-          {investigation ? `${evidence.length} records on this case` : "No active investigation"}
-        </div>
-      </div>
-      {evidence.length === 0 ? (
-        <p className="sf-rail-empty">
-          {investigation
-            ? "No evidence collected yet. Diagnostic results and technician notes will appear here with their source."
-            : "Open a case from the Launchpad or start one in the Workbench — collected evidence will appear here with its source."}
-        </p>
-      ) : (
-        <div className="sf-ev-list" role="group" aria-label="Case evidence">
-          {evidence.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              className={item.id === effectiveId ? "sf-evbtn sf-active" : "sf-evbtn"}
-              aria-current={item.id === effectiveId ? "true" : undefined}
-              onClick={() => setSelectedId(item.id)}
-            >
-              <span className="sf-ev-ic" aria-hidden="true">
-                {item.error ? "!" : "◎"}
-              </span>
-              <span className="sf-evtxt">
-                <strong>{item.tool_name ?? item.category}</strong>
-                <small>
-                  {item.source} &middot; {new Date(item.collected_at).toLocaleDateString()}
-                </small>
-              </span>
-              <span className="sf-ev-status">{item.error ? "ERROR" : item.category}</span>
-            </button>
-          ))}
-        </div>
-      )}
-      <div className="sf-wavebox" data-motion-slot="signal-trace">
-        <div className="sf-section-label">INSTRUMENT / UI ACTIVITY ONLY</div>
-        <h3>Quiet instrument.</h3>
-        <p>
-          Animated activity cue. It is <strong>not</strong> a live health or network measurement.
-        </p>
-        <SignalTrace activityPulse={investigation?.activity.length ?? 0} />
-        <div className="sf-signal-label">◉ AMBIENT / IDLE</div>
-      </div>
-      <div className="sf-inspector" aria-live="polite">
-        {selected ? (
-          <>
-            <div className="sf-badge-line">
-              {selected.category} &middot; {selected.source}
-            </div>
-            <h4>{selected.tool_name ?? selected.id}</h4>
-            {selected.error ? (
-              <p>Collection failed: {selected.error}</p>
-            ) : summary.length > 0 ? (
-              summary.map((row) => (
-                <p key={row.label}>
-                  {row.label}: {row.value}
-                </p>
-              ))
-            ) : (
-              <p>Record held; open the full evidence view for raw detail.</p>
-            )}
-            {view !== "evidence" && (
-              <p>
-                <button type="button" className="sf-btn sf-btn-dark sf-btn-sm" onClick={onGoEvidence}>
-                  Full evidence view ↗
-                </button>
-              </p>
-            )}
-          </>
-        ) : (
-          <>
-            <div className="sf-badge-line">NO RECORD SELECTED</div>
-            <h4>Nothing to inspect</h4>
-            {view !== "workbench" && (
-              <p>
-                <button type="button" className="sf-btn sf-btn-dark sf-btn-sm" onClick={onGoWorkbench}>
-                  Go to Workbench ↗
-                </button>
-              </p>
-            )}
-          </>
-        )}
-      </div>
-    </>
-  );
 }
 
 export type SignalFrameProps = ShellProps & {
@@ -206,20 +109,54 @@ export function SignalFrame({
   onGoWorkbench,
   children,
 }: SignalFrameProps) {
-  const [railOpen, setRailOpen] = useState(false);
+  // M028.A FIELD KIT dock owns the right rail. Visibility only swaps the
+  // rail; the investigation engine (children) is never remounted, so case
+  // state survives every dock action.
+  const dock = useDockState();
+  const { visibility, setVisibility, toggleOpen } = dock;
+  const toggleRef = useRef<HTMLButtonElement>(null);
+  const dockOpen = visibility === "open";
 
   useEffect(() => {
-    if (!railOpen) return;
+    if (visibility === "closed") return;
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setRailOpen(false);
+      if (event.key !== "Escape") return;
+      // Overlay parity with M026: at narrow widths Escape always
+      // dismisses the rail; at wide widths only when focus is inside
+      // the dock, so engine inputs keep their own Escape behavior.
+      const target = event.target as HTMLElement | null;
+      const inDock = target?.closest?.("#sf-fieldkit-dock") != null;
+      const overlay = window.innerWidth <= 1180;
+      if (!inDock && !overlay) return;
+      setVisibility("closed");
+      toggleRef.current?.focus();
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [railOpen]);
+  }, [visibility, setVisibility]);
+
+  // Closing from inside the dock returns focus to the always-visible
+  // main-column toggle, which is also the reopen control.
+  const closeDock = () => {
+    setVisibility("closed");
+    window.setTimeout(() => toggleRef.current?.focus(), 0);
+  };
+
+  const handleVisibility: typeof setVisibility = (next) => {
+    if (next === "closed") closeDock();
+    else setVisibility(next);
+  };
 
   const statusLine = status
     ? `${status.service} · v${status.version} · ${status.model_name} (${status.model_mode})`
     : "Waiting for the backend on this machine";
+
+  const bodyClass =
+    visibility === "collapsed"
+      ? "sf-body sf-dock-collapsed"
+      : visibility === "closed"
+        ? "sf-body sf-dock-closed"
+        : "sf-body";
 
   return (
     <div className="sf-stage">
@@ -244,7 +181,7 @@ export function SignalFrame({
             <ModeBadges status={status} />
           </div>
         </header>
-        <div className="sf-body">
+        <div className={bodyClass}>
           <nav className="sf-nav" aria-label="Primary">
             <div className="sf-nav-head">
               <div className="sf-eyebrow">R/W &middot; Tool Nº 01</div>
@@ -297,24 +234,37 @@ export function SignalFrame({
               </span>
             </div>
             <button
+              ref={toggleRef}
               type="button"
+              data-testid="fieldkit-toggle"
               className="sf-rail-toggle"
-              aria-expanded={railOpen}
-              aria-controls="sf-evidence-rail"
-              onClick={() => setRailOpen((open) => !open)}
+              aria-expanded={visibility !== "closed"}
+              aria-controls="sf-fieldkit-dock"
+              onClick={toggleOpen}
             >
-              {railOpen ? "Close evidence inspector ✕" : "Open evidence inspector ◈"}
+              {dockOpen || visibility === "collapsed"
+                ? "Close Field Kit dock ✕"
+                : "Open Field Kit dock ◈"}
             </button>
             {children}
           </main>
           <aside
-            className={railOpen ? "sf-rail sf-rail-open" : "sf-rail"}
-            id="sf-evidence-rail"
-            aria-label="Evidence and signal inspector"
+            className={dockOpen ? "sf-rail sf-rail-dock sf-rail-open" : "sf-rail sf-rail-dock"}
+            id="sf-fieldkit-dock"
+            aria-label="Field Kit instrument dock"
           >
-            <EvidenceRail
+            <FieldKitDock
               view={view}
               investigation={investigation}
+              visibility={visibility}
+              activeId={dock.activeId}
+              pins={dock.pins}
+              pinNotice={dock.pinNotice}
+              selectedEvidenceId={dock.selectedEvidenceId}
+              onVisibility={handleVisibility}
+              onActivate={dock.activate}
+              onTogglePin={dock.togglePin}
+              onSelectEvidence={dock.selectEvidence}
               onGoEvidence={onGoEvidence}
               onGoWorkbench={onGoWorkbench}
             />
