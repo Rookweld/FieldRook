@@ -163,6 +163,10 @@ To install:
 
 For build provenance, validation details, and current limitations, see [M026 delivery notes](docs/M026_DELIVERY.md) and the [v0.5.0 pre-release](https://github.com/Rookweld/FieldRook/releases/tag/v0.5.0). For inference setup, see [Provider configuration](docs/PROVIDERS.md).
 
+### Windows desktop pre-release candidate - v0.6.0-rc.1 (not yet published)
+
+The current source identifies as **v0.6.0-rc.1** and includes the functional Field Kit (dock, Evidence Lens, Network Lab). A matching Windows package is prepared as a local release candidate only — it has **not** been published to GitHub Releases. Until it is, the downloadable pre-release remains v0.5.0 above, which does **not** contain the Field Kit instruments. Candidate notes: [RELEASE_NOTES_v0.6.0-rc.1.md](RELEASE_NOTES_v0.6.0-rc.1.md).
+
 ### Building from source
 
 This repository contains the Python/FastAPI backend, React/TypeScript frontend, native Windows shell, and packaging scripts. Development requires the corresponding build tools; **end users of the packaged Desktop do not need Python or Node.js installed separately**.
