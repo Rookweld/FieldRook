@@ -1,7 +1,7 @@
 # FieldRook v0.6.0-rc.1 — Release Notes (pre-release candidate)
 
-**Status: pre-release, development build. Not stable. Not yet published.**
-This candidate includes the functional M028/M029 Field Kit, which is NOT in the v0.5.0 binaries.
+**Status: published GitHub pre-release (November 3, 2026). Development build; not stable.**
+This published candidate includes the functional M028/M029 Field Kit, which is NOT in the v0.5.0 binaries.
 
 ## What is new since v0.5.0
 

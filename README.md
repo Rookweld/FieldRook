@@ -12,10 +12,10 @@ Built by **[ROOKWELD](https://rookweld.com)** · Open source · Designed for rea
 
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-725070?style=flat-square)](LICENSE)
 ![Platform: Windows](https://img.shields.io/badge/Platform-Windows%2010%2F11-ef725e?style=flat-square)
-[![Pre-release: v0.5.0](https://img.shields.io/badge/Pre--release-v0.5.0-ccf46a?style=flat-square)](https://github.com/Rookweld/FieldRook/releases/tag/v0.5.0)
+[![Pre-release: v0.6.0-rc.1](https://img.shields.io/badge/Pre--release-v0.6.0--rc.1-ccf46a?style=flat-square)](https://github.com/Rookweld/FieldRook/releases/tag/v0.6.0-rc.1)
 ![Local-first](https://img.shields.io/badge/Approach-Local--first-75465d?style=flat-square)
 
-[**See the workstation**](#the-workstation) · [**How it works**](#from-symptom-to-evidence) · [**Get started**](#get-started) · [**Safety**](#safety-is-part-of-the-product) · [**What comes next**](#whats-next-the-field-kit)
+[**See the workstation**](#the-workstation) · [**How it works**](#from-symptom-to-evidence) · [**Get started**](#get-started) · [**Safety**](#safety-is-part-of-the-product) · [**Field Kit**](#the-field-kit)
 
 ![FieldRook 0.5.0 SIGNALFORGE — real native Windows Launchpad](docs/assets/m027/hero-launchpad.png)
 
@@ -144,34 +144,35 @@ Collection is not silently uploaded. Some elevated collection categories have no
 
 ## Get started
 
-### Windows desktop pre-release - v0.5.0
+### Latest Windows desktop pre-release â€” v0.6.0-rc.1 (published November 3, 2026)
 
-The native Desktop and portable Collector have been packaged and validated on the development machine and are published as a [pre-release on GitHub](https://github.com/Rookweld/FieldRook/releases/tag/v0.5.0) (binaries are unsigned - verify checksums before running):
+The newest published Windows desktop package is **[v0.6.0-rc.1](https://github.com/Rookweld/FieldRook/releases/tag/v0.6.0-rc.1)**. It includes the functional **Field Kit dock, Evidence Lens, and Network Lab**. This is a **pre-release**, not a stable or independently certified build.
 
-- [FieldRook-0.5.0.zip](https://github.com/Rookweld/FieldRook/releases/download/v0.5.0/FieldRook-0.5.0.zip) - portable app: unzip, run `FieldRook.exe`, keep the folder together.
-- [FieldRook-Collector-0.5.0.zip](https://github.com/Rookweld/FieldRook/releases/download/v0.5.0/FieldRook-Collector-0.5.0.zip) - portable collector: USB-friendly, runs from its own folder.
-- [SHA256SUMS-v0.5.0.txt](https://github.com/Rookweld/FieldRook/releases/download/v0.5.0/SHA256SUMS-v0.5.0.txt) - hashes of both ZIPs plus the executables inside.
+- [FieldRook-0.6.0-rc.1.zip](https://github.com/Rookweld/FieldRook/releases/download/v0.6.0-rc.1/FieldRook-0.6.0-rc.1.zip) â€” portable Windows desktop app; extract the full archive and run `FieldRook.exe`.
+- [SHA256SUMS.txt](https://github.com/Rookweld/FieldRook/releases/download/v0.6.0-rc.1/SHA256SUMS.txt) â€” published checksums.
+- [BOM.txt](https://github.com/Rookweld/FieldRook/releases/download/v0.6.0-rc.1/BOM.txt) â€” build provenance.
 
-To install:
+Keep the extracted application files together. On first launch, configure the desired inference mode. **Windows 10/11 x64 and WebView2 Runtime are required.** The binaries are unsigned; verify the published checksums before running. No model is bundled by default, and offline evidence workflows do not depend on paid cloud inference.
 
-1. Extract the complete `FieldRook-0.5.0` distribution. Keep its bundled files together.
-2. Run `FieldRook.exe` to open the native Windows application.
-3. Complete the first-run setup and select the desired inference mode.
-4. Start an investigation or import an existing Collector package.
+The v0.6.0-rc.1 release **does not include a new, separately packaged Collector download**. The earlier Collector build is available with v0.5.0 below; cross-version Collector compatibility has not been certified. Do not assume the older Collector is validated with v0.6.0-rc.1.
 
-**Runtime notes:** Windows and a suitable WebView2 Runtime are required. Builds are currently unsigned, so Windows may display an unverified-publisher warning. No model is bundled by default. Offline investigation and evidence workflows do not depend on a paid cloud model.
+For details, see the [v0.6.0-rc.1 release notes](RELEASE_NOTES_v0.6.0-rc.1.md) and [provider configuration](docs/PROVIDERS.md).
 
-For build provenance, validation details, and current limitations, see [M026 delivery notes](docs/M026_DELIVERY.md) and the [v0.5.0 pre-release](https://github.com/Rookweld/FieldRook/releases/tag/v0.5.0). For inference setup, see [Provider configuration](docs/PROVIDERS.md).
+### Previous desktop and Collector pre-release â€” v0.5.0
 
-### Windows desktop pre-release candidate - v0.6.0-rc.1 (not yet published)
+The earlier [v0.5.0 release](https://github.com/Rookweld/FieldRook/releases/tag/v0.5.0) is retained for reference and includes two separately published packages:
 
-The current source identifies as **v0.6.0-rc.1** and includes the functional Field Kit (dock, Evidence Lens, Network Lab). A matching Windows package is prepared as a local release candidate only — it has **not** been published to GitHub Releases. Until it is, the downloadable pre-release remains v0.5.0 above, which does **not** contain the Field Kit instruments. Candidate notes: [RELEASE_NOTES_v0.6.0-rc.1.md](RELEASE_NOTES_v0.6.0-rc.1.md).
+- [FieldRook-0.5.0.zip](https://github.com/Rookweld/FieldRook/releases/download/v0.5.0/FieldRook-0.5.0.zip) â€” previous portable desktop app.
+- [FieldRook-Collector-0.5.0.zip](https://github.com/Rookweld/FieldRook/releases/download/v0.5.0/FieldRook-Collector-0.5.0.zip) â€” portable read-only Collector.
+- [SHA256SUMS-v0.5.0.txt](https://github.com/Rookweld/FieldRook/releases/download/v0.5.0/SHA256SUMS-v0.5.0.txt) â€” release checksums.
+
+**v0.5.0 does not contain the Field Kit instruments** introduced in v0.6.0-rc.1. Historical native-delivery notes are in [M026](docs/M026_DELIVERY.md).
 
 ### Building from source
 
 This repository contains the Python/FastAPI backend, React/TypeScript frontend, native Windows shell, and packaging scripts. Development requires the corresponding build tools; **end users of the packaged Desktop do not need Python or Node.js installed separately**.
 
-From a Windows development checkout with Python, Node.js/pnpm, and .NET 10 SDK, follow [the desktop build documentation](packaging/desktop/README-SHELL.md) and [the M026 delivery manifest](docs/M026_DELIVERY.md). The native shell and backend are packaged separately, then assembled into the complete distribution. Do not confuse the older browser-based development launcher with the native 0.5.0 application.
+From a Windows development checkout with Python, Node.js/pnpm, and .NET 10 SDK, follow [the desktop build documentation](packaging/desktop/README-SHELL.md) and [the M026 delivery manifest](docs/M026_DELIVERY.md). The native shell and backend are packaged separately, then assembled into the complete distribution. Do not confuse the older browser-based development launcher with the packaged native Windows application.
 
 ## Safety is part of the product
 
@@ -203,7 +204,7 @@ FieldRook was developed as part of the **[Meta Global AI Developer Hackathon 202
 
 ## Validation and known limits
 
-For the M026.1 release-candidate verification (plus green GitHub Actions on the merged source), the records show:
+For the historical **v0.5.0 / M026.1** release-candidate verification (plus green GitHub Actions on the merged source), the records show:
 
 | Gate | Reported result |
 | :--- | :--- |
@@ -218,7 +219,7 @@ These are **local release-candidate validation results**, not a claim that every
 
 **Still to validate:** unsigned-binary reputation and antivirus behavior across vendors; Windows machines without WebView2; multi-machine field trials; upgrade-over-existing installation; selected elevated Collector categories; lower-end CPU-only local-model responsiveness; some performance combinations on other GPUs.
 
-## The Field Kit (in source; not in the v0.5.0 binaries)
+## The Field Kit
 
 The right-hand dock is now a modular, context-aware technician toolbox. Shipped in this source tree as evidence-backed instruments with bounded diagnostics and clear local-versus-remote behavior:
 
@@ -226,7 +227,7 @@ The right-hand dock is now a modular, context-aware technician toolbox. Shipped 
 - **Network Lab** -- read-only networking instrument (adapters, addresses, DNS config, resolution test) with consented re-checks and a remote-target guard.
 - **Field Kit dock** -- instrument framework with pins, keyboard access, and narrow-overlay support.
 
-These instruments are **in the current source** and covered by the demo scenario in [M028_THREE_MINUTE_DEMO.md](docs/demo/M028_THREE_MINUTE_DEMO.md). They are **NOT in the v0.5.0 pre-release binaries**, which predate them. The remaining modules (**Process Watch, Event Decoder, Command Deck, Field Notes**) are still design-prototype concepts, not shipped features.
+These instruments are **included in the published v0.6.0-rc.1 desktop pre-release**, and are covered by the demo scenario in [M028_THREE_MINUTE_DEMO.md](docs/demo/M028_THREE_MINUTE_DEMO.md). They are **not included in the earlier v0.5.0 binaries**. The remaining modules (**Process Watch, Event Decoder, Command Deck, Field Notes**) are still design-prototype concepts, not shipped features.
 
 ## Project and development history
 
