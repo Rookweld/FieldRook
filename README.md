@@ -144,13 +144,13 @@ Collection is not silently uploaded. Some elevated collection categories have no
 
 ## Get started
 
-### Latest Windows desktop pre-release â€” v0.6.0-rc.1 (published November 3, 2026)
+### Latest Windows desktop pre-release — v0.6.0-rc.1 (published November 3, 2026)
 
 The newest published Windows desktop package is **[v0.6.0-rc.1](https://github.com/Rookweld/FieldRook/releases/tag/v0.6.0-rc.1)**. It includes the functional **Field Kit dock, Evidence Lens, and Network Lab**. This is a **pre-release**, not a stable or independently certified build.
 
-- [FieldRook-0.6.0-rc.1.zip](https://github.com/Rookweld/FieldRook/releases/download/v0.6.0-rc.1/FieldRook-0.6.0-rc.1.zip) â€” portable Windows desktop app; extract the full archive and run `FieldRook.exe`.
-- [SHA256SUMS.txt](https://github.com/Rookweld/FieldRook/releases/download/v0.6.0-rc.1/SHA256SUMS.txt) â€” published checksums.
-- [BOM.txt](https://github.com/Rookweld/FieldRook/releases/download/v0.6.0-rc.1/BOM.txt) â€” build provenance.
+- [FieldRook-0.6.0-rc.1.zip](https://github.com/Rookweld/FieldRook/releases/download/v0.6.0-rc.1/FieldRook-0.6.0-rc.1.zip) — portable Windows desktop app; extract the full archive and run `FieldRook.exe`.
+- [SHA256SUMS.txt](https://github.com/Rookweld/FieldRook/releases/download/v0.6.0-rc.1/SHA256SUMS.txt) — published checksums.
+- [BOM.txt](https://github.com/Rookweld/FieldRook/releases/download/v0.6.0-rc.1/BOM.txt) — build provenance.
 
 Keep the extracted application files together. On first launch, configure the desired inference mode. **Windows 10/11 x64 and WebView2 Runtime are required.** The binaries are unsigned; verify the published checksums before running. No model is bundled by default, and offline evidence workflows do not depend on paid cloud inference.
 
@@ -158,13 +158,13 @@ The v0.6.0-rc.1 release **does not include a new, separately packaged Collector 
 
 For details, see the [v0.6.0-rc.1 release notes](RELEASE_NOTES_v0.6.0-rc.1.md) and [provider configuration](docs/PROVIDERS.md).
 
-### Previous desktop and Collector pre-release â€” v0.5.0
+### Previous desktop and Collector pre-release — v0.5.0
 
 The earlier [v0.5.0 release](https://github.com/Rookweld/FieldRook/releases/tag/v0.5.0) is retained for reference and includes two separately published packages:
 
-- [FieldRook-0.5.0.zip](https://github.com/Rookweld/FieldRook/releases/download/v0.5.0/FieldRook-0.5.0.zip) â€” previous portable desktop app.
-- [FieldRook-Collector-0.5.0.zip](https://github.com/Rookweld/FieldRook/releases/download/v0.5.0/FieldRook-Collector-0.5.0.zip) â€” portable read-only Collector.
-- [SHA256SUMS-v0.5.0.txt](https://github.com/Rookweld/FieldRook/releases/download/v0.5.0/SHA256SUMS-v0.5.0.txt) â€” release checksums.
+- [FieldRook-0.5.0.zip](https://github.com/Rookweld/FieldRook/releases/download/v0.5.0/FieldRook-0.5.0.zip) — previous portable desktop app.
+- [FieldRook-Collector-0.5.0.zip](https://github.com/Rookweld/FieldRook/releases/download/v0.5.0/FieldRook-Collector-0.5.0.zip) — portable read-only Collector.
+- [SHA256SUMS-v0.5.0.txt](https://github.com/Rookweld/FieldRook/releases/download/v0.5.0/SHA256SUMS-v0.5.0.txt) — release checksums.
 
 **v0.5.0 does not contain the Field Kit instruments** introduced in v0.6.0-rc.1. Historical native-delivery notes are in [M026](docs/M026_DELIVERY.md).
 
