@@ -15,7 +15,7 @@ Built by **[ROOKWELD](https://rookweld.com)** · Open source · Designed for rea
 [![Pre-release: v0.6.0-rc.1](https://img.shields.io/badge/Pre--release-v0.6.0--rc.1-ccf46a?style=flat-square)](https://github.com/Rookweld/FieldRook/releases/tag/v0.6.0-rc.1)
 ![Local-first](https://img.shields.io/badge/Approach-Local--first-75465d?style=flat-square)
 
-[**See the workstation**](#the-workstation) · [**How it works**](#from-symptom-to-evidence) · [**Get started**](#get-started) · [**Safety**](#safety-is-part-of-the-product) · [**Field Kit**](#the-field-kit)
+[**Evidence Trials (live demo)**](https://rookweld.github.io/FieldRook/) · [**See the workstation**](#the-workstation) · [**How it works**](#from-symptom-to-evidence) · [**Get started**](#get-started) · [**Safety**](#safety-is-part-of-the-product) · [**Field Kit**](#the-field-kit)
 
 ![FieldRook 0.5.0 SIGNALFORGE — real native Windows Launchpad](docs/assets/m027/hero-launchpad.png)
 
@@ -24,6 +24,12 @@ Built by **[ROOKWELD](https://rookweld.com)** · Open source · Designed for rea
 </div>
 
 ---
+
+## Evidence Trials — Operation Prove It
+
+**[Explore the interactive Evidence Trials →](https://rookweld.github.io/FieldRook/)**
+
+Three reproducible **synthetic** investigations expose FieldRook's source-linked evidence, hypotheses, action boundaries and independently measured outcomes: a suspicious five-minute task (**cause unverified**), a simulated worker recovery (**VERIFIED_RESOLVED**), and a reported fix that fresh evidence rejects (**NOT_RESOLVED**). No customer data, real host changes, or live-model performance claims. The [public methodology and export scripts](docs/evidence-trials/README.md) allow independent inspection.
 
 ## Built for the moment when "it's not working" is all you have
 
