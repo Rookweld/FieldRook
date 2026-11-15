@@ -1,0 +1,929 @@
+{
+  "schema_version": 1,
+  "source_commit": "f3353b0d81cee1b73fc7bff278739edd1f268d1c",
+  "gauntlet": {
+    "run_utc": "20261115T161902Z",
+    "evaluated": 37,
+    "passed": 37,
+    "live_model_cases": 0,
+    "note": "Fixture and tool checks; not a measure of production model accuracy."
+  },
+  "disclaimer": "Offline synthetic fixtures. Simulated inference. No production telemetry, customer data, autonomous action or live-model benchmark.",
+  "cases": [
+    {
+      "number": "01",
+      "title": "The Five-Minute Phantom",
+      "eyebrow": "Scheduled tasks / evidence before assumptions",
+      "verdict": "CAUSE NOT VERIFIED",
+      "tone": "uncertain",
+      "story": "PowerShell windows flash every five minutes. A task matches that cadence, but matching a schedule is not proof of causation.",
+      "takeaway": "A plausible suspect is a lead, not a verdict.",
+      "case_id": "task-phantom",
+      "question": "PowerShell windows keep flashing on the desktop every five minutes.",
+      "reference": "FieldRookDemoPhantom (PT5M, powershell.exe, misplaced -WindowStyle Hidden in working_directory, last result 2147942667) matches the cadence; suspicious but causation unverified. Diagnosis only, no proposal.",
+      "analysis_mode": "simulated",
+      "fixture_only": true,
+      "model": "fieldrook-simulated-001",
+      "facts": [
+        {
+          "statement": "4 scheduled tasks matched (scanned 5). Periodic PowerShell tasks: RookweldSync (every PT10M), FieldRookDemoPhantom (every PT5M).",
+          "evidence_ids": [
+            "ev-1"
+          ]
+        },
+        {
+          "statement": "Event search examined 0 entries and matched 0.",
+          "evidence_ids": [
+            "ev-2"
+          ]
+        }
+      ],
+      "hypotheses": [
+        {
+          "title": "A periodic PowerShell task matches the reported cadence",
+          "description": "At least one scheduled task runs PowerShell on a short repetition interval, which is consistent with recurring console windows. This is correlation, not proof: the task may be hidden, disabled, or unrelated. Check trigger intervals against the symptom timing and inspect action metadata (arguments vs working directory) before concluding anything.",
+          "likelihood": "medium",
+          "evidence_ids": [
+            "ev-1"
+          ]
+        },
+        {
+          "title": "Observed state is consistent with the reported symptoms",
+          "description": "The collected readings may explain 'PowerShell windows keep flashing on the desktop every five minutes.'. This is a generic hypothesis: correlation in a small sample is not proof of cause.",
+          "likelihood": "medium",
+          "evidence_ids": [
+            "ev-1",
+            "ev-2"
+          ]
+        },
+        {
+          "title": "Cause lies outside the collected evidence",
+          "description": "The bounded, read-only sample may have missed the faulty component, the relevant log, or the failure window. Unverified without wider evidence.",
+          "likelihood": "low",
+          "evidence_ids": []
+        }
+      ],
+      "uncertainties": [
+        "Simulated mode: the causes above are generic hypotheses, not Meta model conclusions.",
+        "Bounded samples cannot prove absence of failure; zero matches only mean zero matches in the examined window.",
+        "Task 'FieldRookDemoPhantom' has window-hiding text inside its working directory (ev-1); arguments may be misplaced. Suspicious but unverified.",
+        "Task 'FieldRookDemoPhantom' reports a failing last run (result 2147942667); decode it with interpret_error_code instead of guessing."
+      ],
+      "missing_evidence": [
+        "Live diagnostic readings (when running on fixtures).",
+        "Full event-log history around the reported failure time.",
+        "User-reported symptom details: when it started, exact messages, reproducibility."
+      ],
+      "next_actions": [
+        "Have a technician review scheduled task 'FieldRookDemoPhantom': move the window-hiding flag into Arguments, set a real working directory, and re-check read-only (FieldRook cannot modify tasks).",
+        "Re-run with live diagnostics on the affected host.",
+        "Widen the event search to the Application log and a longer window.",
+        "Collect the exact error text or code from the reporter.",
+        "Compare against a known-good host or a prior working state."
+      ],
+      "summary": "Simulated investigation of 'PowerShell windows keep flashing on the desktop every five minutes.': 2 of 2 evidence items usable. Causes below are unverified hypotheses.",
+      "evidence": [
+        {
+          "id": "ev-1",
+          "category": "scheduled_tasks",
+          "source": "tool:get_scheduled_tasks:fixture",
+          "tool_name": "get_scheduled_tasks",
+          "tool_args": {
+            "folder": "\\",
+            "name_contains": "",
+            "action_contains": "",
+            "include_microsoft": false,
+            "limit": 40
+          },
+          "data": {
+            "summary": "Matched 4 of 5 scheduled tasks (fixture).",
+            "warnings": [],
+            "count": 4,
+            "total_scanned": 5,
+            "tasks": [
+              {
+                "task_name": "RookweldSync",
+                "state": "Ready",
+                "triggers": [
+                  {
+                    "type": "MSFT_TaskTimeTrigger",
+                    "repetition_interval": "PT10M"
+                  }
+                ],
+                "actions": [
+                  {
+                    "execute": "powershell.exe",
+                    "arguments": "-NoProfile -File C:\\Rookweld\\sync.ps1 Token=[REDACTED]",
+                    "working_directory": "C:\\Rookweld"
+                  }
+                ],
+                "last_task_result": 0,
+                "last_run_succeeded": true
+              },
+              {
+                "task_name": "FieldRookDemoPhantom",
+                "state": "Ready",
+                "triggers": [
+                  {
+                    "type": "MSFT_TaskTimeTrigger",
+                    "repetition_interval": "PT5M"
+                  }
+                ],
+                "actions": [
+                  {
+                    "execute": "powershell.exe",
+                    "arguments": "-NoProfile -File C:\\FieldRookDemo\\phantom.ps1",
+                    "working_directory": "C:\\FieldRookDemo -WindowStyle Hidden"
+                  }
+                ],
+                "last_task_result": 2147942667,
+                "last_run_succeeded": false
+              }
+            ]
+          },
+          "refresh_of": null
+        },
+        {
+          "id": "ev-2",
+          "category": "event_log",
+          "source": "tool:search_event_logs:fixture",
+          "tool_name": "search_event_logs",
+          "tool_args": {
+            "keywords": "PowerShell",
+            "logs": [
+              "System",
+              "Application"
+            ],
+            "hours": 24,
+            "max_events": 10
+          },
+          "data": {
+            "summary": "Event search (fixture): examined 10 entries, 0 matches.",
+            "warnings": [],
+            "logs": [
+              {
+                "log": "System",
+                "scanned": 8,
+                "matched": 0
+              },
+              {
+                "log": "Application",
+                "scanned": 2,
+                "matched": 0
+              }
+            ]
+          },
+          "refresh_of": null
+        }
+      ],
+      "timeline": [
+        {
+          "seq": 1,
+          "kind": "plan",
+          "title": "Simulated investigation plan",
+          "detail": "Running 2 fixture tools: get_scheduled_tasks, search_event_logs",
+          "tool_name": null,
+          "evidence_ids": []
+        },
+        {
+          "seq": 2,
+          "kind": "tool_request",
+          "title": "Simulated run: get_scheduled_tasks",
+          "detail": "",
+          "tool_name": "get_scheduled_tasks",
+          "evidence_ids": []
+        },
+        {
+          "seq": 3,
+          "kind": "tool_result",
+          "title": "get_scheduled_tasks completed in 3ms",
+          "detail": "Matched 4 of 5 scheduled tasks (fixture).",
+          "tool_name": "get_scheduled_tasks",
+          "evidence_ids": [
+            "ev-1"
+          ]
+        },
+        {
+          "seq": 4,
+          "kind": "evidence",
+          "title": "Evidence ev-1 collected",
+          "detail": "Matched 4 of 5 scheduled tasks (fixture).",
+          "tool_name": "get_scheduled_tasks",
+          "evidence_ids": [
+            "ev-1"
+          ]
+        },
+        {
+          "seq": 5,
+          "kind": "tool_request",
+          "title": "Simulated run: search_event_logs",
+          "detail": "",
+          "tool_name": "search_event_logs",
+          "evidence_ids": []
+        },
+        {
+          "seq": 6,
+          "kind": "tool_result",
+          "title": "search_event_logs completed in 0ms",
+          "detail": "Event search (fixture): examined 10 entries, 0 matches.",
+          "tool_name": "search_event_logs",
+          "evidence_ids": [
+            "ev-2"
+          ]
+        },
+        {
+          "seq": 7,
+          "kind": "evidence",
+          "title": "Evidence ev-2 collected",
+          "detail": "Event search (fixture): examined 10 entries, 0 matches.",
+          "tool_name": "search_event_logs",
+          "evidence_ids": [
+            "ev-2"
+          ]
+        },
+        {
+          "seq": 8,
+          "kind": "done",
+          "title": "Simulated investigation complete",
+          "detail": "Simulated investigation of 'PowerShell windows keep flashing on the desktop every five minutes.': 2 of 2 evidence items usable. Causes below are unverified hypotheses.",
+          "tool_name": null,
+          "evidence_ids": []
+        },
+        {
+          "seq": 9,
+          "kind": "hypothesis",
+          "title": "Hypotheses updated",
+          "detail": "new: A periodic PowerShell task matches the reported cadence; new: Observed state is consistent with the reported symptoms; new: Cause lies outside the collected evidence",
+          "tool_name": null,
+          "evidence_ids": []
+        }
+      ],
+      "verification": null,
+      "tool_calls_used": 2,
+      "auto_executions": 0,
+      "gauntlet": {
+        "passed": true,
+        "case_id": "task-phantom",
+        "detail": "tools=['get_scheduled_tasks', 'search_event_logs'] calls=2 proposals=0 mode=simulated"
+      }
+    },
+    {
+      "number": "02",
+      "title": "The Measured Recovery",
+      "eyebrow": "Recovery / measured state transition",
+      "verdict": "VERIFIED_RESOLVED",
+      "tone": "resolved",
+      "story": "The demo worker reports failure. A technician claims an intervention, then FieldRook independently rechecks fixture measurements.",
+      "takeaway": "The claim is recorded. Fresh evidence decides the outcome.",
+      "case_id": "resolve-manual-worker",
+      "question": "The FieldRook demo worker is down.",
+      "reference": "Failing fixture worker, manual plan: baseline failed, manual claim recorded, fixture flips healthy, Confirm Fix measures VERIFIED_RESOLVED from fresh evidence only.",
+      "analysis_mode": "simulated",
+      "fixture_only": true,
+      "model": "fieldrook-simulated-001",
+      "facts": [
+        {
+          "statement": "Demo worker 'demo-worker' reports failed (heartbeat 1.2s old).",
+          "evidence_ids": [
+            "ev-1"
+          ]
+        },
+        {
+          "statement": "Demo worker 'demo-worker' reports failed (heartbeat 1.2s old).",
+          "evidence_ids": [
+            "ev-2"
+          ]
+        },
+        {
+          "statement": "Demo worker 'demo-worker' reports healthy (heartbeat 1.2s old).",
+          "evidence_ids": [
+            "ev-3"
+          ]
+        }
+      ],
+      "hypotheses": [
+        {
+          "title": "Observed state is consistent with the reported symptoms",
+          "description": "The collected readings may explain 'The FieldRook demo worker is down.'. This is a generic hypothesis: correlation in a small sample is not proof of cause.",
+          "likelihood": "medium",
+          "evidence_ids": [
+            "ev-1",
+            "ev-2"
+          ]
+        },
+        {
+          "title": "Cause lies outside the collected evidence",
+          "description": "The bounded, read-only sample may have missed the faulty component, the relevant log, or the failure window. Unverified without wider evidence.",
+          "likelihood": "low",
+          "evidence_ids": []
+        }
+      ],
+      "uncertainties": [
+        "Simulated mode: the causes above are generic hypotheses, not Meta model conclusions.",
+        "Bounded samples cannot prove absence of failure; zero matches only mean zero matches in the examined window."
+      ],
+      "missing_evidence": [
+        "Live diagnostic readings (when running on fixtures).",
+        "Full event-log history around the reported failure time.",
+        "User-reported symptom details: when it started, exact messages, reproducibility."
+      ],
+      "next_actions": [
+        "Re-run with live diagnostics on the affected host.",
+        "Widen the event search to the Application log and a longer window.",
+        "Collect the exact error text or code from the reporter.",
+        "Compare against a known-good host or a prior working state."
+      ],
+      "summary": "Simulated investigation of 'The FieldRook demo worker is down.': 3 of 3 evidence items usable. Causes below are unverified hypotheses.",
+      "evidence": [
+        {
+          "id": "ev-1",
+          "category": "demo_worker",
+          "source": "tool:get_demo_worker_health:fixture",
+          "tool_name": "get_demo_worker_health",
+          "tool_args": {},
+          "data": {
+            "summary": "Demo worker reports failed (fixture).",
+            "warnings": [],
+            "worker_id": "demo-worker",
+            "status": "failed",
+            "heartbeat_age_s": 1.2,
+            "process_verified": true
+          },
+          "refresh_of": null
+        },
+        {
+          "id": "ev-2",
+          "category": "demo_worker",
+          "source": "tool:get_demo_worker_health:fixture",
+          "tool_name": "get_demo_worker_health",
+          "tool_args": {},
+          "data": {
+            "summary": "Demo worker reports failed (fixture).",
+            "warnings": [],
+            "worker_id": "demo-worker",
+            "status": "failed",
+            "heartbeat_age_s": 1.2,
+            "process_verified": true
+          },
+          "refresh_of": null
+        },
+        {
+          "id": "ev-3",
+          "category": "demo_worker",
+          "source": "tool:get_demo_worker_health:fixture",
+          "tool_name": "get_demo_worker_health",
+          "tool_args": {},
+          "data": {
+            "summary": "Demo worker reports healthy (fixture).",
+            "warnings": [],
+            "worker_id": "demo-worker",
+            "status": "healthy",
+            "heartbeat_age_s": 1.2,
+            "process_verified": true
+          },
+          "refresh_of": "ev-2"
+        }
+      ],
+      "timeline": [
+        {
+          "seq": 1,
+          "kind": "plan",
+          "title": "Simulated investigation plan",
+          "detail": "Running 1 fixture tools: get_demo_worker_health",
+          "tool_name": null,
+          "evidence_ids": []
+        },
+        {
+          "seq": 2,
+          "kind": "tool_request",
+          "title": "Simulated run: get_demo_worker_health",
+          "detail": "",
+          "tool_name": "get_demo_worker_health",
+          "evidence_ids": []
+        },
+        {
+          "seq": 3,
+          "kind": "tool_result",
+          "title": "get_demo_worker_health completed in 0ms",
+          "detail": "Demo worker reports failed (fixture).",
+          "tool_name": "get_demo_worker_health",
+          "evidence_ids": [
+            "ev-1"
+          ]
+        },
+        {
+          "seq": 4,
+          "kind": "evidence",
+          "title": "Evidence ev-1 collected",
+          "detail": "Demo worker reports failed (fixture).",
+          "tool_name": "get_demo_worker_health",
+          "evidence_ids": [
+            "ev-1"
+          ]
+        },
+        {
+          "seq": 5,
+          "kind": "done",
+          "title": "Simulated investigation complete",
+          "detail": "Simulated investigation of 'The FieldRook demo worker is down.': 1 of 1 evidence items usable. Causes below are unverified hypotheses.",
+          "tool_name": null,
+          "evidence_ids": []
+        },
+        {
+          "seq": 6,
+          "kind": "proposed",
+          "title": "Action proposed: recover_demo_worker on demo-worker",
+          "detail": "Simulated evidence shows the demo worker is not healthy; recovery is applicable.",
+          "tool_name": null,
+          "evidence_ids": [
+            "ev-1"
+          ]
+        },
+        {
+          "seq": 7,
+          "kind": "approval_requested",
+          "title": "Approval requested: recover_demo_worker on demo-worker",
+          "detail": "Risk low. Approval expires 5 minutes after being granted and is single-use.",
+          "tool_name": null,
+          "evidence_ids": [
+            "ev-1"
+          ]
+        },
+        {
+          "seq": 8,
+          "kind": "hypothesis",
+          "title": "Hypotheses updated",
+          "detail": "new: Observed state is consistent with the reported symptoms; new: Cause lies outside the collected evidence",
+          "tool_name": null,
+          "evidence_ids": []
+        },
+        {
+          "seq": 12,
+          "kind": "note",
+          "title": "Resolution plan plan-7e560a000144 drafted",
+          "detail": "2 criteria; remediation: manual.",
+          "tool_name": null,
+          "evidence_ids": [
+            "ev-1"
+          ]
+        },
+        {
+          "seq": 13,
+          "kind": "tool_request",
+          "title": "Plan baseline: get_demo_worker_health",
+          "detail": "plan-7e560a000144",
+          "tool_name": "get_demo_worker_health",
+          "evidence_ids": []
+        },
+        {
+          "seq": 14,
+          "kind": "tool_result",
+          "title": "Plan baseline: get_demo_worker_health completed",
+          "detail": "Demo worker reports failed (fixture).",
+          "tool_name": "get_demo_worker_health",
+          "evidence_ids": [
+            "ev-2"
+          ]
+        },
+        {
+          "seq": 15,
+          "kind": "note",
+          "title": "Plan plan-7e560a000144 baselined",
+          "detail": "2 of 2 criteria measurable pre-fix.",
+          "tool_name": null,
+          "evidence_ids": [
+            "ev-2"
+          ]
+        },
+        {
+          "seq": 16,
+          "kind": "note",
+          "title": "Assessment refreshed after plan baseline",
+          "detail": "Simulated hypotheses recomputed over 2 evidence items.",
+          "tool_name": null,
+          "evidence_ids": []
+        },
+        {
+          "seq": 17,
+          "kind": "note",
+          "title": "Plan plan-7e560a000144: manual intervention recorded",
+          "detail": "Synthetic technician claim: intervention completed. This is not proof. (Claim only: proof requires measured verification.)",
+          "tool_name": null,
+          "evidence_ids": []
+        },
+        {
+          "seq": 18,
+          "kind": "tool_request",
+          "title": "Plan verification: get_demo_worker_health",
+          "detail": "plan-7e560a000144",
+          "tool_name": "get_demo_worker_health",
+          "evidence_ids": []
+        },
+        {
+          "seq": 19,
+          "kind": "tool_result",
+          "title": "Plan verification: get_demo_worker_health completed",
+          "detail": "Demo worker reports healthy (fixture).",
+          "tool_name": "get_demo_worker_health",
+          "evidence_ids": [
+            "ev-3"
+          ]
+        },
+        {
+          "seq": 20,
+          "kind": "note",
+          "title": "Plan plan-7e560a000144 Confirm Fix: VERIFIED_RESOLVED",
+          "detail": "2/2 criteria pass.",
+          "tool_name": null,
+          "evidence_ids": [
+            "ev-3"
+          ]
+        },
+        {
+          "seq": 21,
+          "kind": "note",
+          "title": "Assessment refreshed after Confirm Fix",
+          "detail": "Simulated hypotheses recomputed over 3 evidence items.",
+          "tool_name": null,
+          "evidence_ids": []
+        }
+      ],
+      "verification": {
+        "kind": "manual_intervention_claim",
+        "intervention_proven": false,
+        "intended_state": "Demo worker reports healthy with a fresh heartbeat.",
+        "status": "VERIFIED_RESOLVED",
+        "criteria": [
+          {
+            "description": "Worker status reads healthy.",
+            "tool_name": "get_demo_worker_health",
+            "path": "status",
+            "operator": "eq",
+            "expected": "healthy",
+            "baseline": "failed",
+            "outcome": "pass",
+            "observed": "healthy",
+            "detail": "before 'failed' -> after 'healthy'; observed 'healthy', expected 'healthy'.",
+            "before_evidence_id": "ev-2",
+            "after_evidence_id": "ev-3"
+          },
+          {
+            "description": "Worker heartbeat is fresh (under 10s old).",
+            "tool_name": "get_demo_worker_health",
+            "path": "heartbeat_age_s",
+            "operator": "lt",
+            "expected": 10,
+            "baseline": 1.2,
+            "outcome": "pass",
+            "observed": 1.2,
+            "detail": "before 1.2 -> after 1.2; observed 1.2 lt 10.",
+            "before_evidence_id": "ev-2",
+            "after_evidence_id": "ev-3"
+          }
+        ],
+        "after_evidence_ids": [
+          "ev-3"
+        ],
+        "uncertainties": [
+          "Intervention is technician-reported (manual); the outcome above is proven only by the fresh measurements cited."
+        ]
+      },
+      "tool_calls_used": 1,
+      "auto_executions": 0,
+      "gauntlet": {
+        "passed": true,
+        "case_id": "resolve-manual-worker",
+        "detail": "tools=['get_demo_worker_health'] calls=1 proposals=1 mode=simulated resolution=VERIFIED_RESOLVED"
+      }
+    },
+    {
+      "number": "03",
+      "title": "The Fix That Wasn't",
+      "eyebrow": "Counterexample / verification over confidence",
+      "verdict": "NOT_RESOLVED",
+      "tone": "unresolved",
+      "story": "The same initial failure and a reported intervention, but the status remains failed. FieldRook must reject the claimed fix.",
+      "takeaway": "A successful-looking workflow must not overrule a failed measurement.",
+      "case_id": "resolve-still-failing",
+      "question": "The FieldRook demo worker is down.",
+      "reference": "Worker still failing at verify time: honest NOT_RESOLVED with failed criteria, no proposals created by the flow.",
+      "analysis_mode": "simulated",
+      "fixture_only": true,
+      "model": "fieldrook-simulated-001",
+      "facts": [
+        {
+          "statement": "Demo worker 'demo-worker' reports failed (heartbeat 1.2s old).",
+          "evidence_ids": [
+            "ev-1"
+          ]
+        },
+        {
+          "statement": "Demo worker 'demo-worker' reports failed (heartbeat 1.2s old).",
+          "evidence_ids": [
+            "ev-2"
+          ]
+        },
+        {
+          "statement": "Demo worker 'demo-worker' reports failed (heartbeat 1.2s old).",
+          "evidence_ids": [
+            "ev-3"
+          ]
+        }
+      ],
+      "hypotheses": [
+        {
+          "title": "Observed state is consistent with the reported symptoms",
+          "description": "The collected readings may explain 'The FieldRook demo worker is down.'. This is a generic hypothesis: correlation in a small sample is not proof of cause.",
+          "likelihood": "medium",
+          "evidence_ids": [
+            "ev-1",
+            "ev-2"
+          ]
+        },
+        {
+          "title": "Cause lies outside the collected evidence",
+          "description": "The bounded, read-only sample may have missed the faulty component, the relevant log, or the failure window. Unverified without wider evidence.",
+          "likelihood": "low",
+          "evidence_ids": []
+        }
+      ],
+      "uncertainties": [
+        "Simulated mode: the causes above are generic hypotheses, not Meta model conclusions.",
+        "Bounded samples cannot prove absence of failure; zero matches only mean zero matches in the examined window."
+      ],
+      "missing_evidence": [
+        "Live diagnostic readings (when running on fixtures).",
+        "Full event-log history around the reported failure time.",
+        "User-reported symptom details: when it started, exact messages, reproducibility."
+      ],
+      "next_actions": [
+        "Re-run with live diagnostics on the affected host.",
+        "Widen the event search to the Application log and a longer window.",
+        "Collect the exact error text or code from the reporter.",
+        "Compare against a known-good host or a prior working state."
+      ],
+      "summary": "Simulated investigation of 'The FieldRook demo worker is down.': 3 of 3 evidence items usable. Causes below are unverified hypotheses.",
+      "evidence": [
+        {
+          "id": "ev-1",
+          "category": "demo_worker",
+          "source": "tool:get_demo_worker_health:fixture",
+          "tool_name": "get_demo_worker_health",
+          "tool_args": {},
+          "data": {
+            "summary": "Demo worker reports failed (fixture).",
+            "warnings": [],
+            "worker_id": "demo-worker",
+            "status": "failed",
+            "heartbeat_age_s": 1.2,
+            "process_verified": true
+          },
+          "refresh_of": null
+        },
+        {
+          "id": "ev-2",
+          "category": "demo_worker",
+          "source": "tool:get_demo_worker_health:fixture",
+          "tool_name": "get_demo_worker_health",
+          "tool_args": {},
+          "data": {
+            "summary": "Demo worker reports failed (fixture).",
+            "warnings": [],
+            "worker_id": "demo-worker",
+            "status": "failed",
+            "heartbeat_age_s": 1.2,
+            "process_verified": true
+          },
+          "refresh_of": null
+        },
+        {
+          "id": "ev-3",
+          "category": "demo_worker",
+          "source": "tool:get_demo_worker_health:fixture",
+          "tool_name": "get_demo_worker_health",
+          "tool_args": {},
+          "data": {
+            "summary": "Demo worker reports failed (fixture).",
+            "warnings": [],
+            "worker_id": "demo-worker",
+            "status": "failed",
+            "heartbeat_age_s": 1.2,
+            "process_verified": true
+          },
+          "refresh_of": "ev-2"
+        }
+      ],
+      "timeline": [
+        {
+          "seq": 1,
+          "kind": "plan",
+          "title": "Simulated investigation plan",
+          "detail": "Running 1 fixture tools: get_demo_worker_health",
+          "tool_name": null,
+          "evidence_ids": []
+        },
+        {
+          "seq": 2,
+          "kind": "tool_request",
+          "title": "Simulated run: get_demo_worker_health",
+          "detail": "",
+          "tool_name": "get_demo_worker_health",
+          "evidence_ids": []
+        },
+        {
+          "seq": 3,
+          "kind": "tool_result",
+          "title": "get_demo_worker_health completed in 0ms",
+          "detail": "Demo worker reports failed (fixture).",
+          "tool_name": "get_demo_worker_health",
+          "evidence_ids": [
+            "ev-1"
+          ]
+        },
+        {
+          "seq": 4,
+          "kind": "evidence",
+          "title": "Evidence ev-1 collected",
+          "detail": "Demo worker reports failed (fixture).",
+          "tool_name": "get_demo_worker_health",
+          "evidence_ids": [
+            "ev-1"
+          ]
+        },
+        {
+          "seq": 5,
+          "kind": "done",
+          "title": "Simulated investigation complete",
+          "detail": "Simulated investigation of 'The FieldRook demo worker is down.': 1 of 1 evidence items usable. Causes below are unverified hypotheses.",
+          "tool_name": null,
+          "evidence_ids": []
+        },
+        {
+          "seq": 6,
+          "kind": "proposed",
+          "title": "Action proposed: recover_demo_worker on demo-worker",
+          "detail": "Simulated evidence shows the demo worker is not healthy; recovery is applicable.",
+          "tool_name": null,
+          "evidence_ids": [
+            "ev-1"
+          ]
+        },
+        {
+          "seq": 7,
+          "kind": "approval_requested",
+          "title": "Approval requested: recover_demo_worker on demo-worker",
+          "detail": "Risk low. Approval expires 5 minutes after being granted and is single-use.",
+          "tool_name": null,
+          "evidence_ids": [
+            "ev-1"
+          ]
+        },
+        {
+          "seq": 8,
+          "kind": "hypothesis",
+          "title": "Hypotheses updated",
+          "detail": "new: Observed state is consistent with the reported symptoms; new: Cause lies outside the collected evidence",
+          "tool_name": null,
+          "evidence_ids": []
+        },
+        {
+          "seq": 12,
+          "kind": "note",
+          "title": "Resolution plan plan-bc5d469216e5 drafted",
+          "detail": "2 criteria; remediation: manual.",
+          "tool_name": null,
+          "evidence_ids": [
+            "ev-1"
+          ]
+        },
+        {
+          "seq": 13,
+          "kind": "tool_request",
+          "title": "Plan baseline: get_demo_worker_health",
+          "detail": "plan-bc5d469216e5",
+          "tool_name": "get_demo_worker_health",
+          "evidence_ids": []
+        },
+        {
+          "seq": 14,
+          "kind": "tool_result",
+          "title": "Plan baseline: get_demo_worker_health completed",
+          "detail": "Demo worker reports failed (fixture).",
+          "tool_name": "get_demo_worker_health",
+          "evidence_ids": [
+            "ev-2"
+          ]
+        },
+        {
+          "seq": 15,
+          "kind": "note",
+          "title": "Plan plan-bc5d469216e5 baselined",
+          "detail": "2 of 2 criteria measurable pre-fix.",
+          "tool_name": null,
+          "evidence_ids": [
+            "ev-2"
+          ]
+        },
+        {
+          "seq": 16,
+          "kind": "note",
+          "title": "Assessment refreshed after plan baseline",
+          "detail": "Simulated hypotheses recomputed over 2 evidence items.",
+          "tool_name": null,
+          "evidence_ids": []
+        },
+        {
+          "seq": 17,
+          "kind": "note",
+          "title": "Plan plan-bc5d469216e5: manual intervention recorded",
+          "detail": "Synthetic technician claim: intervention completed. This is not proof. (Claim only: proof requires measured verification.)",
+          "tool_name": null,
+          "evidence_ids": []
+        },
+        {
+          "seq": 18,
+          "kind": "tool_request",
+          "title": "Plan verification: get_demo_worker_health",
+          "detail": "plan-bc5d469216e5",
+          "tool_name": "get_demo_worker_health",
+          "evidence_ids": []
+        },
+        {
+          "seq": 19,
+          "kind": "tool_result",
+          "title": "Plan verification: get_demo_worker_health completed",
+          "detail": "Demo worker reports failed (fixture).",
+          "tool_name": "get_demo_worker_health",
+          "evidence_ids": [
+            "ev-3"
+          ]
+        },
+        {
+          "seq": 20,
+          "kind": "note",
+          "title": "Plan plan-bc5d469216e5 Confirm Fix: NOT_RESOLVED",
+          "detail": "1/2 criteria pass.",
+          "tool_name": null,
+          "evidence_ids": [
+            "ev-3"
+          ]
+        },
+        {
+          "seq": 21,
+          "kind": "note",
+          "title": "Assessment refreshed after Confirm Fix",
+          "detail": "Simulated hypotheses recomputed over 3 evidence items.",
+          "tool_name": null,
+          "evidence_ids": []
+        }
+      ],
+      "verification": {
+        "kind": "manual_intervention_claim",
+        "intervention_proven": false,
+        "intended_state": "Demo worker reports healthy with a fresh heartbeat.",
+        "status": "NOT_RESOLVED",
+        "criteria": [
+          {
+            "description": "Worker status reads healthy.",
+            "tool_name": "get_demo_worker_health",
+            "path": "status",
+            "operator": "eq",
+            "expected": "healthy",
+            "baseline": "failed",
+            "outcome": "fail",
+            "observed": "failed",
+            "detail": "before 'failed' -> after 'failed'; observed 'failed', expected 'healthy'.",
+            "before_evidence_id": "ev-2",
+            "after_evidence_id": "ev-3"
+          },
+          {
+            "description": "Worker heartbeat is fresh (under 10s old).",
+            "tool_name": "get_demo_worker_health",
+            "path": "heartbeat_age_s",
+            "operator": "lt",
+            "expected": 10,
+            "baseline": 1.2,
+            "outcome": "pass",
+            "observed": 1.2,
+            "detail": "before 1.2 -> after 1.2; observed 1.2 lt 10.",
+            "before_evidence_id": "ev-2",
+            "after_evidence_id": "ev-3"
+          }
+        ],
+        "after_evidence_ids": [
+          "ev-3"
+        ],
+        "uncertainties": [
+          "Intervention is technician-reported (manual); the outcome above is proven only by the fresh measurements cited."
+        ]
+      },
+      "tool_calls_used": 1,
+      "auto_executions": 0,
+      "gauntlet": {
+        "passed": true,
+        "case_id": "resolve-still-failing",
+        "detail": "tools=['get_demo_worker_health'] calls=1 proposals=1 mode=simulated resolution=NOT_RESOLVED"
+      }
+    }
+  ]
+}

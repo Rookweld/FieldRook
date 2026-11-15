@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#130f18">
+  <meta name="description" content="FieldRook Evidence Trials: three reproducible synthetic Windows troubleshooting cases, inspectable evidence, honest uncertainty, and measured verification.">
+  <meta property="og:title" content="FieldRook | Evidence Trials">
+  <meta property="og:description" content="One suspicious task. One verified recovery. One false fix. Inspect the evidence.">
+  <title>Evidence Trials — FieldRook by ROOKWELD</title>
+  <link rel="icon" type="image/svg+xml" href="./favicon.svg">
+  <link rel="stylesheet" href="./style.css">
+  <script src="./app.js" defer></script>
+</head>
+<body>
+<a class="skip-link" href="#trials">Skip to investigations</a>
+<div class="site-shell">
+  <header class="topbar">
+    <a class="brand" href="https://github.com/Rookweld/FieldRook" aria-label="FieldRook on GitHub">
+      <span class="brand-mark" aria-hidden="true">F<span class="mark-spark">✳</span></span>
+      <span class="brand-words"><strong>FIELDROOK</strong><small>BY ROOKWELD</small></span>
+    </a>
+    <nav class="topnav" aria-label="Main navigation">
+      <a href="#trials">The trials</a>
+      <a href="#method">Methodology</a>
+      <a href="https://github.com/Rookweld/FieldRook" target="_blank" rel="noopener noreferrer">Source <span aria-hidden="true">↗</span></a>
+    </nav>
+  </header>
+  <main>
+    <section class="hero" aria-labelledby="hero-title">
+      <div class="hero-orbit orbit-a" aria-hidden="true"></div>
+      <div class="hero-orbit orbit-b" aria-hidden="true"></div>
+      <div class="hero-grid">
+        <div class="hero-copy">
+          <p class="eyebrow"><span class="live-pin" aria-hidden="true"></span> OPERATION PROVE IT <span class="eyebrow-divider">/</span> PUBLIC EVIDENCE LAB</p>
+          <h1 id="hero-title">A diagnosis<br>is <em>not</em> a verdict<span class="accent-dot">.</span></h1>
+          <p class="lead">Real FieldRook investigation logic. Synthetic Windows scenarios. Every conclusion tied to evidence — including the ones that <strong>cannot</strong> be confirmed.</p>
+          <div class="hero-actions">
+            <a class="primary-action" href="#trials">Explore the evidence <span aria-hidden="true">↘</span></a>
+            <a class="secondary-action" href="./data/trials.json" download>Inspect raw JSON <span aria-hidden="true">↓</span></a>
+          </div>
+          <p class="hero-disclosure"><span aria-hidden="true">◇</span> Offline fixtures · Simulated inference · No customer or production telemetry</p>
+        </div>
+        <div class="instrument" aria-label="Evaluation summary">
+          <div class="instrument-top"><span>F//EVIDENCE LAB</span><span class="tiny-indicator">● REPRODUCIBLE</span></div>
+          <div class="instrument-graphic" aria-hidden="true">
+            <svg viewBox="0 0 540 210" role="img">
+              <defs><linearGradient id="signal" x1="0" x2="1"><stop stop-color="#d5f071"/><stop offset=".5" stop-color="#f48275"/><stop offset="1" stop-color="#8ec3d4"/></linearGradient></defs>
+              <g stroke="#3a303f" stroke-width="1"><path d="M0 40H540M0 80H540M0 120H540M0 160H540M0 200H540M60 0V210M120 0V210M180 0V210M240 0V210M300 0V210M360 0V210M420 0V210M480 0V210" /></g>
+              <polyline fill="none" stroke="url(#signal)" stroke-width="3.5" points="0,145 66,145 92,126 142,126 180,158 220,158 263,75 300,75 342,113 377,113 419,36 467,36 506,93 540,93" />
+              <g fill="#130f18" stroke="#d5f071" stroke-width="3"><circle cx="263" cy="75" r="8"/><circle cx="419" cy="36" r="8"/></g>
+              <g fill="#f48275"><circle cx="92" cy="126" r="5"/><circle cx="506" cy="93" r="5"/></g>
+            </svg>
+          </div>
+          <div class="instrument-values">
+            <div><span class="instrument-number" id="metric-evaluated">—</span><small>FIXTURE & TOOL TESTS</small></div>
+            <div><span class="instrument-number" id="metric-cases">3</span><small>PUBLIC TRIALS</small></div>
+            <div><span class="instrument-number" id="metric-live">0</span><small>LIVE-MODEL CASES</small></div>
+          </div>
+          <div class="instrument-bottom"><span id="run-utc">Loading verified run…</span><span class="instrument-hash" id="commit-short">FIELDROOK</span></div>
+        </div>
+      </div>
+    </section>
+    <section id="trials" class="trials-section" aria-labelledby="trials-title">
+      <div class="section-kicker">01 / EVIDENCE TRIALS</div>
+      <div class="section-intro">
+        <div><h2 id="trials-title">Three cases.<br><span>Three honest outcomes.</span></h2><p>Pick an investigation, follow the chain of observations, and inspect the underlying fixture data.</p></div>
+        <p class="micro-note">Read-only demonstration.<br>No controls operate a real computer.</p>
+      </div>
+      <div id="load-error" class="load-error" role="alert" hidden></div>
+      <div class="workbench" id="workbench" hidden>
+        <aside class="case-sidebar" aria-label="Available investigations">
+          <div class="side-header"><span>CASE INDEX</span><span>03 ENTRIES</span></div>
+          <div id="case-tabs" class="case-tabs" role="group" aria-label="Choose a case"></div>
+          <div class="side-footer"><span class="side-foot-icon">⌁</span><p><strong>Do not mistake a claim for a measurement.</strong><br>All three cases come from FieldRook's actual fixture runner.</p></div>
+        </aside>
+        <div class="case-workspace">
+          <div class="case-overview">
+            <div class="workspace-topline"><span id="case-index">CASE —</span><span id="case-mode">OFFLINE / FIXTURE</span></div>
+            <div class="case-title-row"><div><p id="case-eyebrow" class="case-eyebrow"></p><h3 id="case-title">Loading case…</h3></div><span id="case-verdict" class="verdict"></span></div>
+            <p id="case-story" class="case-story"></p>
+            <div class="question-block"><span>REPORTED SYMPTOM</span><p id="case-question"></p></div>
+          </div>
+          <div class="detail-tabs" id="detail-tabs" role="tablist" aria-label="Investigation views">
+            <button type="button" role="tab" aria-selected="true" id="tab-evidence" aria-controls="view-content" data-view="evidence">01 <span>Evidence</span></button>
+            <button type="button" role="tab" aria-selected="false" id="tab-reasoning" aria-controls="view-content" data-view="reasoning">02 <span>Reasoning</span></button>
+            <button type="button" role="tab" aria-selected="false" id="tab-verification" aria-controls="view-content" data-view="verification">03 <span>Verification</span></button>
+            <button type="button" role="tab" aria-selected="false" id="tab-timeline" aria-controls="view-content" data-view="timeline">04 <span>Timeline</span></button>
+          </div>
+          <div class="view-container" id="view-content" role="tabpanel" aria-labelledby="tab-evidence" aria-live="polite"></div>
+          <div class="workspace-footer">
+            <div><span class="mini-label">SOURCE TRACE</span><p><span id="case-source-id">—</span> · <span id="case-tool-count">—</span></p></div>
+            <div class="footer-links"><a id="case-source-link" href="https://github.com/Rookweld/FieldRook" target="_blank" rel="noopener noreferrer">Case definition ↗</a><a href="./data/trials.json" download>Export evidence ↙</a></div>
+          </div>
+        </div>
+      </div>
+    </section>
+    <section id="method" class="methodology" aria-labelledby="method-title">
+      <div class="section-kicker">02 / METHODOLOGY</div>
+      <div class="method-head"><h2 id="method-title">Proof requires<br><em>boundaries.</em></h2><p>This is an auditable demonstration of specific code paths. It is not a claim that FieldRook can solve any Windows problem or that a language model is always correct.</p></div>
+      <div class="method-grid">
+        <article><span class="method-index">01</span><h3>Synthetic by design</h3><p>Every displayed measurement comes from deterministic FieldRook fixtures, not someone else's workstation. Inference is explicitly simulated.</p></article>
+        <article><span class="method-index">02</span><h3>Evidence before inference</h3><p>Facts and hypotheses cite exported evidence IDs. The UI lets you inspect the underlying bounded tool readings and known gaps.</p></article>
+        <article><span class="method-index">03</span><h3>Claims are not fixes</h3><p>Recovery cases record a manual intervention claim. Fresh re-measurement determines VERIFIED_RESOLVED or NOT_RESOLVED. No automated recovery runs here.</p></article>
+        <article><span class="method-index">04</span><h3>Reproduce the test</h3><p>Check out the referenced commit, run the offline gauntlet, and use the published export script to regenerate the evidence. No cloud API key needed.</p></article>
+      </div>
+      <div class="method-command"><span>REPRODUCTION</span><code>cd backend &amp;&amp; python -m eval.run</code><button id="copy-command" type="button">Copy command</button></div>
+      <div class="method-repo"><p>Audit the code, fixtures, and methodology in the public repository. The three curated cases and source-backed results are intentionally small enough for independent inspection.</p><a href="https://github.com/Rookweld/FieldRook/tree/master/scripts/evidence_trials" target="_blank" rel="noopener noreferrer">View reproducibility scripts ↗</a></div>
+    </section>
+  </main>
+  <footer class="site-footer"><div class="footer-brand"><strong>FIELDROOK</strong><span>LESS GUESSING. MORE EVIDENCE.</span></div><div><a href="https://rookweld.com">ROOKWELD</a><span>·</span><a href="https://github.com/Rookweld/FieldRook">GITHUB</a><span>·</span><a href="https://github.com/Rookweld/FieldRook/releases/tag/v0.6.0-rc.1">PRE-RELEASE</a></div><p>© ROOKWELD · Apache-2.0 · Open-source technical demonstration</p></footer>
+</div>
+</body>
+</html>
