@@ -8,7 +8,7 @@ authorized); the BOM states that. Requires: Windows, Python 3.12+,
 Node+pnpm (unless -SkipFrontend with a prebuilt frontend\dist).
 
 Usage (from the repo root):
-  powershell -ExecutionPolicy Bypass -File packaging\desktop\build.ps1 [-OutDir <dir>] [-SkipFrontend]
+  powershell -ExecutionPolicy Bypass -File packaging\desktop\build.ps1 [-OutDir <dir>] [-SkipFrontend] [-PythonExe <Python3.12>]
 
 Outputs (default OutDir: packaging\desktop\dist):
   dist\FieldRook-<VERSION>\           portable install dir (zip it to ship)
@@ -19,18 +19,22 @@ Outputs (default OutDir: packaging\desktop\dist):
 [CmdletBinding()]
 param(
     [string]$OutDir = "",
-    [switch]$SkipFrontend
+    [switch]$SkipFrontend,
+    [string]$PythonExe = ""
 )
 
 $ErrorActionPreference = "Stop"
 
 # ------------------------------------------------------------------ pins --
 $PyInstallerPin = "pyinstaller==6.22.3"
-$MinPython = [Version]"3.12.0"
+$ReleasePythonMajor = 3
+$ReleasePythonMinor = 12
 
 $PackagingDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $RepoRoot = Split-Path -Parent (Split-Path -Parent $PackagingDir)
+$ReleaseRequirements = Join-Path $RepoRoot "backend\requirements-release.txt"
 if ([string]::IsNullOrWhiteSpace($OutDir)) { $OutDir = Join-Path $PackagingDir "dist" }
+$OutDir = [IO.Path]::GetFullPath($OutDir)
 $Version = (Get-Content (Join-Path $RepoRoot "VERSION") -Raw).Trim().Split("`n")[0].Trim()
 if ([string]::IsNullOrWhiteSpace($Version)) { throw "VERSION file is empty." }
 
@@ -42,10 +46,28 @@ $AssembleDir = Join-Path $OutDir ("FieldRook-" + $Version)
 Write-Host "FieldRook Desktop build $Version (repo $RepoRoot)"
 
 # ------------------------------------------------------------- prerequisites
-$pythonExe = (Get-Command python.exe -ErrorAction Stop).Source
+if ([string]::IsNullOrWhiteSpace($PythonExe)) {
+    $testedPython = Join-Path $RepoRoot "backend\.venv\Scripts\python.exe"
+    if (Test-Path $testedPython) {
+        $PythonExe = $testedPython
+    } else {
+        throw "Explicit -PythonExe is required when the checkout's tested backend\.venv is absent. Use Python 3.12."
+    }
+}
+$pythonExe = (Resolve-Path -LiteralPath $PythonExe -ErrorAction Stop).Path
 $pyVersion = [Version](& $pythonExe -c "import sys; print('.'.join(map(str, sys.version_info[:3])))")
-if ($pyVersion -lt $MinPython) { throw "Python $MinPython+ required (found $pyVersion)." }
-Write-Host "Python: $pyVersion ($pythonExe)"
+if ($LASTEXITCODE -ne 0) { throw "Cannot execute build Python: $pythonExe" }
+if ($pyVersion.Major -ne $ReleasePythonMajor -or $pyVersion.Minor -ne $ReleasePythonMinor) {
+    throw "Release build requires Python 3.12.x (got $pyVersion from $pythonExe)."
+}
+if (-not (Test-Path $ReleaseRequirements)) { throw "Release dependency lock missing: $ReleaseRequirements" }
+Write-Host "Pinned Python: $pyVersion ($pythonExe)"
+Write-Host "Release dependencies: $ReleaseRequirements"
+# The BOM must identify the exact source tree, not silently label dirty code
+# with the HEAD commit. The packaging stage is intentionally source-clean.
+$sourceStatus = @(git -C $RepoRoot status --porcelain=v1)
+if ($LASTEXITCODE -ne 0) { throw "Cannot inspect source Git state." }
+if ($sourceStatus.Count -gt 0) { throw "Refusing release build from an uncommitted tree; commit and review changes first." }
 
 $frontendDist = Join-Path $RepoRoot "frontend\dist\index.html"
 if (-not $SkipFrontend) {
@@ -81,8 +103,13 @@ if (-not (Test-Path (Join-Path $BuildVenv "Scripts\python.exe"))) {
 }
 $buildPython = Join-Path $BuildVenv "Scripts\python.exe"
 & $buildPython -m pip install --quiet --upgrade pip
-& $buildPython -m pip install --quiet -r (Join-Path $RepoRoot "backend\requirements.txt")
+if ($LASTEXITCODE -ne 0) { throw "pip bootstrap failed." }
+& $buildPython -m pip install --quiet -r $ReleaseRequirements
+if ($LASTEXITCODE -ne 0) { throw "Pinned runtime requirements installation failed." }
 & $buildPython -m pip install --quiet $PyInstallerPin
+if ($LASTEXITCODE -ne 0) { throw "PyInstaller installation failed." }
+& $buildPython -m pip check
+if ($LASTEXITCODE -ne 0) { throw "Build dependency graph has broken requirements." }
 $installedPyInstaller = (& $buildPython -m pip show pyinstaller | Select-String "^Version:").ToString().Split(":")[1].Trim()
 Write-Host "PyInstaller: $installedPyInstaller"
 
@@ -124,8 +151,8 @@ Copy-Item (Join-Path $PackagingDir "FieldRook.bat") $AssembleDir
 Copy-Item (Join-Path $PackagingDir "FieldRook-Launcher.ps1") $AssembleDir
 Copy-Item $serverDist (Join-Path $AssembleDir "server") -Recurse
 @"
-FieldRook Desktop $Version (M025 field kit).
-Run FieldRook.bat. Data + logs live in %LOCALAPPDATA%\FieldRook.
+FieldRook Desktop $Version (M030 local provider hardening).
+Run FieldRook.bat or FieldRook.exe. Data + logs live in %LOCALAPPDATA%\FieldRook.
 No installer, no admin, localhost only. See docs\FIELD_KIT.md (GAMMA).
 "@ | Set-Content (Join-Path $AssembleDir "README.txt")
 
@@ -157,6 +184,7 @@ $checksums | Set-Content (Join-Path $OutDir "SHA256SUMS.txt")
 $gitCommit = ""
 try { $gitCommit = (git -C $RepoRoot rev-parse HEAD 2>$null).Trim() } catch { $gitCommit = "unknown" }
 $freezeList = (& $buildPython -m pip freeze) -join "`n"
+$releaseLockSha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath $ReleaseRequirements).Hash.ToLowerInvariant()
 @"
 FieldRook Desktop $Version — build BOM (M025)
 =============================================
@@ -164,6 +192,8 @@ version:        $Version
 git commit:     $gitCommit
 built on:       $(Get-Date -Format "yyyy-MM-dd HH:mm:ss K")
 builder python: $pyVersion ($pythonExe)
+release lock:   backend/requirements-release.txt (sha256 $releaseLockSha256)
+source state:   clean (at build start)
 pyinstaller:    $installedPyInstaller (pinned: $PyInstallerPin)
 signing:        NONE (not authorized — see M025 contracts)
 console:        server ON (errors visible), worker OFF (detached)
