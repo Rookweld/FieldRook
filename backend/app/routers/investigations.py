@@ -782,7 +782,11 @@ async def test_local_provider() -> dict:
     import time as _time
 
     from ..analysis.local_profiles import describe_profile, resolve_profile, vision_mismatch
-    from ..analysis.provider import LocalEndpointProvider, cached_server_caps, validate_local_model_url
+    from ..analysis.provider import (
+        LocalEndpointProvider,
+        cached_server_caps_async,
+        validate_local_model_url,
+    )
     from ..analysis.validate import ModelAnalysisError
 
     settings = load_settings()
@@ -801,8 +805,11 @@ async def test_local_provider() -> dict:
             "model": model, "profile": describe_profile(profile), "server_caps": [],
         }
     provider = LocalEndpointProvider(settings)
-    style = provider.api_style()
-    server_caps = cached_server_caps(settings.local_model_url, model)
+    # An explicit connection test must refresh both independent caches.
+    style = await provider.api_style_async(refresh=True)
+    server_caps = await cached_server_caps_async(
+        settings.local_model_url, model, refresh=True
+    )
     started = _time.monotonic()
     try:
         if style == "ollama":

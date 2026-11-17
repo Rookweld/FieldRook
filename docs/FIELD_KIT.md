@@ -144,9 +144,11 @@ Full reference: `docs/PROVIDERS.md`.
 | `simulated` | no key, `FIELDROOK_OFFLINE=1`, or explicit | none | no | no |
 | `local` | explicit only | this computer (loopback endpoint) | configurable | configurable |
 
-- List live availability at `GET /api/providers` (static
-  configuration; the endpoint never probes the network). The first-run
-  guide shows the same status.
+- List local availability at `GET /api/providers` (static
+  configuration and any cached probe result; the endpoint never starts a
+  network request). The first-run guide shows the same status. Actual
+  probing happens on the first local round or the explicit connection
+  test, off the event loop.
 - Server default: `FIELDROOK_MODEL_PROVIDER=auto|meta|simulated|local`.
   Per investigation: the intake `provider` field or the Guide's
   provider switcher; the choice applies to the next round and past

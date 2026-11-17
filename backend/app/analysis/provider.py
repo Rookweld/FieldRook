@@ -22,7 +22,7 @@ import asyncio
 import json
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from urllib.parse import urlparse
 
 import httpx
@@ -32,6 +32,9 @@ from ..diagnostics import fixtures as fx
 from ..schemas import AnalysisMode, AnalysisResult, DiagnosticBundle
 from .prompts import build_messages
 from .validate import ModelAnalysisError, validate_model_output
+
+if TYPE_CHECKING:  # pragma: no cover - typing only
+    from .local_profiles import LocalModelProfile
 
 
 class RoundCancelled(Exception):
@@ -95,6 +98,16 @@ async def _await_cancellable(coro: Any, cancel_scope: CancelScope | None) -> Any
             )
 
 
+async def await_cancellable(coro: Any, cancel_scope: CancelScope | None) -> Any:
+    """Public cancel race for probes awaited outside this module.
+
+    Same semantics as ``_await_cancellable``: a pre-set flag aborts before
+    the coroutine starts; a flag set mid-wait cancels the task and raises
+    ``RoundCancelled``.
+    """
+    return await _await_cancellable(coro, cancel_scope)
+
+
 @dataclass(frozen=True)
 class ProviderCapabilities:
     """Advertised abilities. The loop enforces these; providers never do more."""
@@ -119,6 +132,15 @@ class ModelProvider(ABC):
     @abstractmethod
     def capabilities(self) -> ProviderCapabilities:
         ...
+
+    async def capabilities_async(self) -> ProviderCapabilities:
+        """Capabilities from an async context.
+
+        Default providers compute capabilities locally, so the sync call is
+        already safe. Providers that need bounded network I/O (the local
+        endpoint) override this to keep the event loop free.
+        """
+        return self.capabilities()
 
     @abstractmethod
     async def chat(
@@ -340,6 +362,11 @@ class LocalEndpointProvider(ModelProvider):
     the task pipeline (triage/plan/reassess) with tight token caps instead.
     Capabilities come from explicit configuration plus curated profiles,
     never from the model name alone.
+
+    Network probes (Ollama detection, server capabilities) are cached and
+    have async variants. Async request paths must use the ``*_async`` methods
+    so a slow or unreachable endpoint never blocks the event loop; sync
+    accessors only read cached results.
     """
 
     name = "local"
@@ -349,13 +376,34 @@ class LocalEndpointProvider(ModelProvider):
         self.last_stats: dict[str, Any] = {}
 
     def capabilities(self) -> ProviderCapabilities:
-        from .local_profiles import effective_vision, resolve_profile
+        from .local_profiles import resolve_profile
 
         settings = self._settings
         profile = resolve_profile(settings.local_model_name)
-        server_caps = cached_server_caps(
+        # Sync callers (response shaping, provider listing) must never touch
+        # the network. Use caps from a previous async probe, if any.
+        server_caps = known_server_caps(
             settings.local_model_url, settings.local_model_name
         )
+        return self._capabilities_with(profile, server_caps)
+
+    async def capabilities_async(self) -> ProviderCapabilities:
+        """Probe server caps off the event loop, then declare capabilities."""
+        from .local_profiles import resolve_profile
+
+        settings = self._settings
+        profile = resolve_profile(settings.local_model_name)
+        server_caps = await cached_server_caps_async(
+            settings.local_model_url, settings.local_model_name
+        )
+        return self._capabilities_with(profile, server_caps)
+
+    def _capabilities_with(
+        self, profile: LocalModelProfile, server_caps: list[str]
+    ) -> ProviderCapabilities:
+        from .local_profiles import effective_vision
+
+        settings = self._settings
         return ProviderCapabilities(
             text=True,
             vision=effective_vision(settings.local_model_vision, profile, server_caps),
@@ -370,15 +418,41 @@ class LocalEndpointProvider(ModelProvider):
         return f"local/{name}"
 
     def api_style(self) -> str:
-        """Resolved API style: explicit config, else a cached Ollama probe."""
+        """Resolved style without network I/O.
+
+        Explicit configuration wins. Otherwise report the last cached probe.
+        An endpoint that has never been probed is honestly "unresolved" —
+        callers must not guess a transport. Async inference resolves it.
+        """
         wanted = (self._settings.local_api or "auto").strip().lower()
         if wanted in ("openai", "ollama"):
             return wanted
         try:
             base = validate_local_model_url(self._settings.local_model_url)
         except ModelAnalysisError:
-            return "openai"
-        return "ollama" if probe_ollama(base) else "openai"
+            return "unresolved"
+        import time as _time
+
+        cached = _OLLAMA_PROBE_CACHE.get(_origin_of(base))
+        if cached and cached[0] > _time.monotonic():
+            return "ollama" if cached[1] else "openai"
+        return "unresolved"
+
+    async def api_style_async(self, *, refresh: bool = False) -> str:
+        """Resolve the API style with a probe run off the event loop.
+
+        ``refresh`` is for the user-triggered connection test: it bypasses a
+        cached negative result so recovery is detected immediately.
+        """
+        wanted = (self._settings.local_api or "auto").strip().lower()
+        if wanted in ("openai", "ollama"):
+            return wanted
+        try:
+            base = validate_local_model_url(self._settings.local_model_url)
+        except ModelAnalysisError:
+            return "unresolved"
+        detected = await probe_ollama_async(base, refresh=refresh)
+        return "ollama" if detected else "openai"
 
     def think_enabled(self) -> bool:
         """Thinking defaults OFF for task calls; the operator may force it on."""
@@ -408,7 +482,8 @@ class LocalEndpointProvider(ModelProvider):
                 "through the task pipeline instead."
             )
         # Local servers do not need the cloud key; never send it there.
-        if self.api_style() == "ollama":
+        style = await _await_cancellable(self.api_style_async(), cancel_scope)
+        if style == "ollama":
             return await self._ollama_chat(
                 base, model, messages, json_only, None, None, cancel_scope
             )
@@ -587,7 +662,8 @@ class LocalEndpointProvider(ModelProvider):
         else:
             messages = [{"role": "user", "content": prompt}]
         try:
-            if self.api_style() == "ollama":
+            style = await _await_cancellable(self.api_style_async(), cancel_scope)
+            if style == "ollama":
                 reply = await self._ollama_chat(
                     base, model, messages, True, num_predict, timeout, cancel_scope
                 )
@@ -633,7 +709,8 @@ class LocalEndpointProvider(ModelProvider):
         )
         messages = [{"role": "user", "content": prompt}]
         try:
-            if self.api_style() == "ollama":
+            style = await _await_cancellable(self.api_style_async(), cancel_scope)
+            if style == "ollama":
                 reply = await self._ollama_chat(
                     base, model, messages, True, num_predict, timeout, cancel_scope
                 )
@@ -652,6 +729,18 @@ def _origin_of(base: str) -> str:
 
     parsed = urlparse(base)
     return f"{parsed.scheme}://{parsed.netloc}"
+
+
+def _validated_origin(raw_url: str) -> str | None:
+    """Loopback origin for a URL, or None when the URL is not loopback.
+
+    Defense in depth: every network entry point validates here even if a
+    caller already validated, so a direct call can never reach a remote host.
+    """
+    try:
+        return _origin_of(validate_local_model_url(raw_url))
+    except ModelAnalysisError:
+        return None
 
 
 def _to_ollama_messages(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -684,12 +773,18 @@ def _to_ollama_messages(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 
 def probe_ollama(base: str) -> bool:
-    """True when the origin answers like Ollama. Cached; never raises."""
+    """True when the origin answers like Ollama. Cached; never raises.
+
+    Sync callers only (scripts, tests). Async request paths must use
+    ``probe_ollama_async`` so a slow endpoint cannot freeze the event loop.
+    """
     import time as _time
 
     import httpx as _httpx
 
-    origin = _origin_of(base)
+    origin = _validated_origin(base)
+    if origin is None:
+        return False
     now = _time.monotonic()
     cached = _OLLAMA_PROBE_CACHE.get(origin)
     if cached and cached[0] > now:
@@ -707,13 +802,51 @@ def probe_ollama(base: str) -> bool:
     return result
 
 
+def cached_ollama_probe(base: str) -> bool:
+    """Last probe answer without network I/O; False when absent or expired."""
+    import time as _time
+
+    cached = _OLLAMA_PROBE_CACHE.get(_origin_of(base))
+    return bool(cached and cached[0] > _time.monotonic() and cached[1])
+
+
+async def probe_ollama_async(base: str, *, refresh: bool = False) -> bool:
+    """Async Ollama probe: same cache and verdicts, never blocks the loop.
+
+    If refresh=True, bypasses any cached results to force a fresh probe.
+    """
+    import time as _time
+
+    origin = _validated_origin(base)
+    if origin is None:
+        return False
+    now = _time.monotonic()
+    cached = _OLLAMA_PROBE_CACHE.get(origin)
+    if cached and cached[0] > now and not refresh:
+        return cached[1]
+    result = False
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            response = await client.get(origin + "/api/tags")
+        if response.status_code == 200:
+            data = response.json()
+            result = isinstance(data, dict) and isinstance(data.get("models"), list)
+    except Exception:  # noqa: BLE001 - probe failure means "not Ollama"
+        result = False
+    _OLLAMA_PROBE_CACHE[origin] = (now + _SERVER_CAPS_TTL_S, result)
+    return result
+
+
 def fetch_server_caps(origin: str, model: str, timeout: float = 8.0) -> list[str]:
     """Server-advertised model capabilities via /api/show (Ollama)."""
     import httpx as _httpx
 
+    safe_origin = _validated_origin(origin)
+    if safe_origin is None:
+        return []
     try:
         with _httpx.Client(timeout=timeout) as client:
-            response = client.post(origin + "/api/show", json={"model": model})
+            response = client.post(safe_origin + "/api/show", json={"model": model})
         if response.status_code != 200:
             return []
         data = response.json()
@@ -724,7 +857,11 @@ def fetch_server_caps(origin: str, model: str, timeout: float = 8.0) -> list[str
 
 
 def cached_server_caps(raw_url: str, model: str) -> list[str]:
-    """Cached server caps; empty on any failure (never raises, never assumes)."""
+    """Cached server caps; empty on any failure (never raises, never assumes).
+
+    Sync callers only. Async request paths must use
+    ``cached_server_caps_async``.
+    """
     import time as _time
 
     try:
@@ -739,6 +876,70 @@ def cached_server_caps(raw_url: str, model: str) -> list[str]:
     if cached and cached[0] > now:
         return cached[1]
     caps = fetch_server_caps(key[0], key[1])
+    _SERVER_CAPS_CACHE[key] = (now + _SERVER_CAPS_TTL_S, caps)
+    return caps
+
+
+def known_server_caps(raw_url: str, model: str) -> list[str]:
+    """Caps already learned by a prior probe; no network I/O, no assumptions.
+
+    Used by sync response shaping so a cached Ollama verdict can still gate
+    vision without risking a blocking request on the event loop.
+    """
+    import time as _time
+
+    try:
+        base = validate_local_model_url(raw_url)
+    except ModelAnalysisError:
+        return []
+    origin = _origin_of(base)
+    now = _time.monotonic()
+    probe = _OLLAMA_PROBE_CACHE.get(origin)
+    if not probe or probe[0] <= now or not probe[1]:
+        return []
+    cached = _SERVER_CAPS_CACHE.get((origin, (model or "").strip()))
+    if cached and cached[0] > now:
+        return cached[1]
+    return []
+
+
+async def fetch_server_caps_async(
+    origin: str, model: str, timeout: float = 8.0
+) -> list[str]:
+    """Async /api/show probe: same verdicts as fetch_server_caps."""
+    safe_origin = _validated_origin(origin)
+    if safe_origin is None:
+        return []
+    try:
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            response = await client.post(safe_origin + "/api/show", json={"model": model})
+        if response.status_code != 200:
+            return []
+        data = response.json()
+        caps = data.get("capabilities")
+        return [str(cap) for cap in caps] if isinstance(caps, list) else []
+    except Exception:  # noqa: BLE001 - unknown server, unknown caps
+        return []
+
+
+async def cached_server_caps_async(
+    raw_url: str, model: str, *, refresh: bool = False
+) -> list[str]:
+    """Async cached caps; explicit tests may refresh stale capabilities."""
+    import time as _time
+
+    try:
+        base = validate_local_model_url(raw_url)
+    except ModelAnalysisError:
+        return []
+    if not await probe_ollama_async(base):
+        return []
+    key = (_origin_of(base), (model or "").strip())
+    now = _time.monotonic()
+    cached = _SERVER_CAPS_CACHE.get(key)
+    if cached and cached[0] > now and not refresh:
+        return cached[1]
+    caps = await fetch_server_caps_async(key[0], key[1])
     _SERVER_CAPS_CACHE[key] = (now + _SERVER_CAPS_TTL_S, caps)
     return caps
 

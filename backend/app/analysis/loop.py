@@ -14,7 +14,7 @@ import re
 from typing import Any
 
 from ..analysis.assist import refresh_assist
-from ..analysis.provider import ModelProvider, RoundCancelled, select_provider
+from ..analysis.provider import ModelProvider, RoundCancelled, await_cancellable, select_provider
 from ..analysis.refresh import compare_readings
 from ..analysis.validate import ModelAnalysisError, validate_assessment_output
 from ..analysis.evidence_digest import build_collector_context, build_knowledge_context, collector_capability_ids, knowledge_questions_from, new_collector_items
@@ -258,6 +258,18 @@ def _has_image_parts(messages: list[dict[str, Any]]) -> bool:
         ):
             return True
     return False
+
+
+async def _provider_capabilities(provider: Any) -> Any:
+    """Capabilities from an async context without blocking on network I/O.
+
+    Providers that can probe (the local endpoint) expose
+    ``capabilities_async``; duck-typed test providers keep the sync path.
+    """
+    async_caps = getattr(provider, "capabilities_async", None)
+    if async_caps is not None:
+        return await async_caps()
+    return provider.capabilities()
 
 
 def tools_for_target(target: str) -> list[dict[str, Any]]:
@@ -580,8 +592,16 @@ async def _run_local_tasks(
     if run_task is None:
         await _run_live_no_tools(state, provider, provider.model_label())
         return
+    # A pre-set cancellation must prevent even the initial network probe.
+    if _cancel_requested(state):
+        _clear_cancel(state)
+        state.warnings.append("Round cancelled by the technician before any model call.")
+        state.add_activity("note", "Round cancelled", "No model calls or capability probes were made.")
+        return
     label = provider.model_label()
-    caps = provider.capabilities()
+    # Capability discovery may await /api/tags or /api/show for seconds.
+    # Race the same round-scoped cancellation as actual model calls.
+    caps = await await_cancellable(_provider_capabilities(provider), _scope_of(state))
     images = _attached_images(state) if caps.vision else []
     if state.has_image and not images and _has_image_parts(state.messages):
         state.warnings.append(
@@ -757,7 +777,7 @@ async def _run_live(
     use_fixtures: bool | None,
     max_new_calls: int,
 ) -> None:
-    caps = provider.capabilities()
+    caps = await _provider_capabilities(provider)
     model_name = provider.model_label()
     if state.has_image and not caps.vision and _has_image_parts(state.messages):
         _strip_images(state.messages)

@@ -25,8 +25,9 @@ Capabilities are declared by each provider and **enforced by the loop**:
   back to simulated analysis with an explicit warning. The round never
   hangs and never fabricates a result.
 
-List providers and their live availability at `GET /api/providers` (static
-configuration only; the endpoint never probes the network).
+List providers and their configured availability at `GET /api/providers`
+(static configuration plus any cached probe result; the endpoint never
+initiates a network request).
 
 ## Selecting a provider
 
@@ -93,10 +94,17 @@ triage is ~25-33s for qwen3:4b. Full numbers and quality grades:
 
 Engineering notes from measurement:
 
-- **Ollama native API is preferred** (probed once, then cached):
+- **Ollama native API is preferred** (probed and cached; the explicit
+  connection test refreshes both probe verdict and model capabilities):
   `/v1/chat/completions` ignores the think-off switch (103s thinking
   burn vs 11s native on the same prompt). Override with
-  `FIELDROOK_LOCAL_API` only if probing misbehaves.
+  `FIELDROOK_LOCAL_API` only if probing misbehaves. Probes are
+  loopback-only, cached for 300s, and run off the event loop, so a slow
+  or unreachable endpoint cannot stall other requests. M030 also checks
+  loopback at each direct sync/async probe and capability-fetch entry
+  point, returning a conservative failure without constructing an HTTP
+  client for rejected hosts. Local inference never forwards cloud
+  bearer credentials.
 - **Thinking defaults off for task calls** (`FIELDROOK_LOCAL_THINK=auto`).
   Some models ignore the switch (qwen3-vl:8b always thinks); their
   profiles carry a compensating token budget instead. Never assume a
@@ -110,8 +118,14 @@ Engineering notes from measurement:
 ## M017: capability profiles
 
 `GET /api/providers` now includes, for `local`, a `profile` object
-from `app/analysis/local_profiles.py` plus the probed `api_style`.
-Profiles record measured (not inferred) capabilities: vision,
+from `app/analysis/local_profiles.py` plus `api_style` as last known
+(explicit `FIELDROOK_LOCAL_API`, or the most recent cached probe; the
+listing itself does not probe). With `local_api=auto`, an unprobed or
+expired verdict reports `"unresolved"`, never a guessed `"openai"`.
+A negative cached Ollama probe selects the OpenAI-compatible fallback;
+that verdict alone does not prove the endpoint is reachable.
+Profiles record measured (not inferred)
+capabilities: vision,
 server tools, context window, performance class, storage, thinking
 behavior, install hints, and a notes field with benchmark findings.
 Unknown models get a conservative default (text-only, direct answers).
@@ -136,6 +150,11 @@ for a readable dialog 3/3; qwen3-coder:30b rejects images (HTTP 400).
   no further calls start, evidence is kept, and the investigation
   stays resumable. The Guide shows live elapsed time and the cancel
   control during a turn, and blocks duplicate submits.
+- M030 extends round-scoped cancellation to cold local capability probes
+  (`/api/tags` and `/api/show`): a pre-set flag prevents the request,
+  and a mid-probe flag interrupts FieldRook's wait without fabricating
+  an assessment or discarding existing evidence. A remote model server
+  may continue work briefly after its client disconnects.
 
 ## Deployment direction (ordinary laptops)
 
