@@ -1,6 +1,6 @@
-# FieldRook v0.6.0-rc.2 — Release Candidate Notes (local build)
+# FieldRook v0.6.0-rc.2 — Release Candidate Notes
 
-**Status: local release candidate; NOT published.**
+**Status: published GitHub pre-release (November 17, 2026).**
 This candidate incorporates M030 local provider probe correctness, cancellation,
 API-style honesty, and loopback hardening after the published v0.6.0-rc.1.
 
@@ -48,9 +48,10 @@ Release hashes and exact build provenance must come from the packaging BOM.
 - Deferred D4 redundant-probe coalescing and D6 capability/vision status
   flicker are not resolved by M030.
 
-## Distribution gate
+## Download and provenance
 
-Do not call this candidate published until the new `FieldRook-0.6.0-rc.2.zip`
-has been built, its checksum verified, its frozen server and shell tested
-and release artifacts explicitly uploaded. The previously published rc.1
-files and README download links must remain intact until publication.
+The published [GitHub pre-release](https://github.com/Rookweld/FieldRook/releases/tag/v0.6.0-rc.2)
+contains `FieldRook-0.6.0-rc.2.zip`, `SHA256SUMS.txt`, `BOM.txt`, and
+`RELEASE_VALIDATION.md`. The frozen server and launcher lifecycle were tested
+from the extracted ZIP, and GitHub asset SHA-256 hashes were verified against
+the locally built originals. The earlier rc.1 release remains available.
