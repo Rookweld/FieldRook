@@ -1,10 +1,11 @@
-// FieldRook native shell — main window (M026, section 2).
+// FieldRook native shell — main window and operator recovery (M035).
 //
 // Standard OS chrome (min/max/restore/close, taskbar, resizing) hosting a
 // WebView2 pointed at the loopback backend UI. Owns: the typed JS bridge,
 // the loopback navigation guard, .zip drag-and-drop delivery, graceful
 // WebView2-missing + backend-crash UX, and fenced shutdown on close.
 
+using System.Diagnostics;
 using System.Windows;
 using FieldRook.Backend;
 using FieldRook.Bridge;
@@ -22,6 +23,7 @@ public partial class MainWindow : Window
     private readonly int _port;
     private BridgeExecutor? _bridge;
     private bool _shuttingDown;
+    private bool _recovering;
 
     public MainWindow(BackendManager backend, int port)
     {
@@ -186,28 +188,61 @@ public partial class MainWindow : Window
 
     private void OnBackendExited()
     {
-        if (_shuttingDown)
+        if (_shuttingDown || _recovering || _backend.IsRunning)
         {
             return;
         }
 
-        AppLogger.Error("Backend child exited unexpectedly.");
-        var tail = string.Join(Environment.NewLine, AppPaths.TailLog(_backend.ServerErrLog));
-        SetStatus("The FieldRook service stopped unexpectedly.", showRetry: true);
-        MessageBox.Show(
-            $"The FieldRook service stopped unexpectedly.{Environment.NewLine}{Environment.NewLine}" +
-            $"--- server log ---{Environment.NewLine}{tail}",
-            "FieldRook service stopped",
-            MessageBoxButton.OK, MessageBoxImage.Error);
+        AppLogger.Error("Backend child exited unexpectedly; operator recovery available.");
+        SetStatus(
+            "The local FieldRook service stopped. Restart it to resume your work. " +
+            "If the problem continues, open the logs for details.",
+            showRetry: true);
     }
 
     private async void OnRetryClick(object sender, RoutedEventArgs e)
     {
-        SetStatus("Retrying…", showRetry: false);
+        if (_shuttingDown || _recovering) return;
+        _recovering = true;
+        SetStatus("Checking the local service…", showRetry: false);
         try
         {
-            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+            var healthy = false;
+            if (_backend.IsRunning)
+            {
+                using var quickCheck = new CancellationTokenSource(TimeSpan.FromSeconds(4));
+                try
+                {
+                    await _backend.WaitForHealthyAsync(3, quickCheck.Token).ConfigureAwait(true);
+                    healthy = true;
+                }
+                catch (Exception ex) when (ex is TimeoutException or OperationCanceledException or InvalidOperationException)
+                {
+                    AppLogger.Warn($"Existing service did not recover; restarting owned process: {ex.Message}");
+                }
+            }
+
+            if (!healthy)
+            {
+                // Fail closed when another program took the old port while
+                // our service was down. Never attach the UI to its listener.
+                if (!_backend.IsRunning && PortDiscovery.IsPortInUse(_port))
+                {
+                    SetStatus(
+                        $"The local port {_port} is occupied by another process. " +
+                        "Close the conflicting program, then try again.",
+                        showRetry: true);
+                    return;
+                }
+
+                SetStatus("Restarting the FieldRook service…", showRetry: false);
+                await Task.Run(_backend.Restart).ConfigureAwait(true);
+            }
+
+            SetStatus("Reconnecting your workspace…", showRetry: false);
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(35));
             await _backend.WaitForHealthyAsync(30, cts.Token).ConfigureAwait(true);
+
             if (Web.CoreWebView2 is not null)
             {
                 Web.CoreWebView2.Navigate($"http://127.0.0.1:{_port}/");
@@ -216,12 +251,47 @@ public partial class MainWindow : Window
             {
                 await InitializeWebViewAsync().ConfigureAwait(true);
             }
+
+            AppLogger.Info("Desktop workspace recovery completed.");
         }
         catch (Exception ex)
         {
-            SetStatus($"Still unavailable: {ex.Message}", showRetry: true);
+            AppLogger.Error($"Recovery failed: {ex}");
+            SetStatus(
+                "The service could not be restarted. Check the FieldRook logs, " +
+                "then try again. Your saved investigations have not been cleared.",
+                showRetry: true);
+        }
+        finally
+        {
+            _recovering = false;
         }
     }
+
+    private void OnLogsClick(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var folder = AppPaths.LogsDir();
+            Directory.CreateDirectory(folder);
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = folder,
+                UseShellExecute = true,
+            });
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Warn($"Could not open log folder: {ex.Message}");
+            MessageBox.Show(
+                $"Could not open the local log folder. Location: {AppPaths.LogsDir()}",
+                "FieldRook logs",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+        }
+    }
+
+    private void OnExitClick(object sender, RoutedEventArgs e) => Close();
 
     private async void OnClosing(object? sender, System.ComponentModel.CancelEventArgs e)
     {
@@ -259,12 +329,16 @@ public partial class MainWindow : Window
         Overlay.Visibility = Visibility.Visible;
         StatusText.Text = text;
         RetryButton.Visibility = showRetry ? Visibility.Visible : Visibility.Collapsed;
+        RecoveryActions.Visibility = showRetry ? Visibility.Visible : Visibility.Collapsed;
+        RecoveryHint.Visibility = showRetry ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private void SetStatusOverlayOnly(string text)
     {
         StatusText.Text = text;
         RetryButton.Visibility = Visibility.Collapsed;
+        RecoveryActions.Visibility = Visibility.Collapsed;
+        RecoveryHint.Visibility = Visibility.Collapsed;
     }
 
     private static string ExtractIdOrEmpty(string body)

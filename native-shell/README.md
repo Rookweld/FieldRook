@@ -1,9 +1,9 @@
-# FieldRook native shell (M026 ALPHA)
+# FieldRook native desktop shell
 
-WPF + WebView2 host for the frozen desktop app. The shell owns the window
-and the backend lifecycle; the React UI (served by the backend on
-loopback) stays the only UI — there is no second interface to keep in
-sync.
+WPF + WebView2 host for the frozen desktop app. M035 adds visible startup and operator-triggered owned-service recovery; see [M035 product notes](../docs/M035_DESKTOP_EXPERIENCE.md).
+
+The shell owns the window and backend lifecycle; the React UI (served by the backend on
+loopback) remains the investigation interface — there is no second investigation UI to keep in sync.
 
 ## Layout
 

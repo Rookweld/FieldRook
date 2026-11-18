@@ -20,6 +20,9 @@ public partial class App : Application
 
     private BackendManager? _backend;
     private Mutex? _mutex;
+    private StartupWindow? _splash;
+    private CancellationTokenSource? _startupCancellation;
+    private bool _startupCancelled;
 
     [LibraryImport("kernel32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
@@ -92,13 +95,30 @@ public partial class App : Application
 
         try
         {
+            // Show a native window BEFORE spawning the packaged service.
+            // A slow first boot must never appear to be a dead application.
+            _startupCancellation = new CancellationTokenSource();
+            var splash = new StartupWindow();
+            _splash = splash;
+            splash.Closed += (_, _) =>
+            {
+                if (!ReferenceEquals(_splash, splash)) return;
+                _startupCancelled = true;
+                _startupCancellation?.Cancel();
+                Shutdown(0);
+            };
+            splash.Show();
+
+            splash.SetPhase("Checking local port and existing instances…");
             var (port, discovered) = await InstanceProbeRunner.ResolveAppPortAsync(explicitPort).ConfigureAwait(true);
+            if (_startupCancelled) return;
             if (discovered)
             {
                 AppLogger.Info($"Port {AppPaths.DefaultPort} was occupied; discovered free port {port}.");
             }
 
             var decision = await InstanceProbeRunner.ProbeAsync(port, AppPaths.ServerExeName).ConfigureAwait(true);
+            if (_startupCancelled) return;
             if (decision.State != InstanceState.Ready)
             {
                 AppLogger.Warn($"Startup refused: {decision.Detail}");
@@ -107,40 +127,59 @@ public partial class App : Application
                     decision.State == InstanceState.AlreadyRunning ? "FieldRook is already running" : "FieldRook cannot start",
                     MessageBoxButton.OK,
                     decision.State == InstanceState.AlreadyRunning ? MessageBoxImage.Information : MessageBoxImage.Warning);
+                _splash = null; // Failure-driven shutdown is not an operator cancellation.
                 Shutdown(decision.State == InstanceState.AlreadyRunning ? 0 : 2);
                 return;
             }
 
+            splash.SetPhase("Starting the local diagnostic service…");
             var spec = BackendSpec.Resolve(AppContext.BaseDirectory, allowDev);
             _backend = new BackendManager(spec, port);
             _backend.Start();
             try
             {
-                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(waitSeconds + 5));
+                splash.SetPhase("Preparing evidence storage and loading FieldRook…");
+                using var cts = CancellationTokenSource.CreateLinkedTokenSource(_startupCancellation.Token);
+                cts.CancelAfter(TimeSpan.FromSeconds(waitSeconds + 5));
                 await _backend.WaitForHealthyAsync(waitSeconds, cts.Token).ConfigureAwait(true);
+            }
+            catch (OperationCanceledException) when (_startupCancelled)
+            {
+                return; // The operator intentionally cancelled startup.
             }
             catch (Exception ex)
             {
-                var tail = string.Join(Environment.NewLine, AppPaths.TailLog(_backend.ServerErrLog));
-                _backend.Shutdown();
                 _backend.Dispose();
                 _backend = null;
-                AppLogger.Error($"Backend failed to start: {ex.Message}");
+                AppLogger.Error($"Backend failed to start: {ex}");
                 MessageBox.Show(
-                    $"FieldRook could not start its backend service.{Environment.NewLine}{Environment.NewLine}" +
-                    $"{ex.Message}{Environment.NewLine}{Environment.NewLine}--- server log ---{Environment.NewLine}{tail}",
-                    "FieldRook backend failed to start",
+                    "FieldRook could not start its local service." +
+                    $"{Environment.NewLine}{Environment.NewLine}{ex.Message}" +
+                    $"{Environment.NewLine}{Environment.NewLine}Diagnostic logs: {AppPaths.LogsDir()}",
+                    "FieldRook could not start",
                     MessageBoxButton.OK, MessageBoxImage.Error);
+                _splash = null;
                 Shutdown(1);
                 return;
             }
 
+            if (_startupCancelled) return;
+            splash.SetPhase("Opening your workspace…");
             MainWindow = new MainWindow(_backend, port);
             MainWindow.Show();
+            _splash = null; // Closing a successful splash must not cancel startup.
+            splash.Close();
+            _startupCancellation.Dispose();
+            _startupCancellation = null;
+        }
+        catch (OperationCanceledException) when (_startupCancelled)
+        {
+            // Exit is already in progress because the splash was dismissed.
         }
         catch (Exception ex)
         {
-            await FailAsync($"FieldRook could not start: {ex.Message}", null, args).ConfigureAwait(true);
+            if (!_startupCancelled)
+                await FailAsync($"FieldRook could not start: {ex.Message}", null, args).ConfigureAwait(true);
         }
     }
 
@@ -148,6 +187,8 @@ public partial class App : Application
     {
         _backend?.Dispose();
         _backend = null;
+        _startupCancellation?.Dispose();
+        _startupCancellation = null;
         _mutex?.Dispose();
         _mutex = null;
         base.OnExit(e);
@@ -189,6 +230,7 @@ public partial class App : Application
     private Task FailAsync(string message, string? logTail, string[] args)
     {
         AppLogger.Error(message);
+        _splash = null; // Do not reinterpret a failure exit as a cancelled splash.
         if (HasFlag(args, "--smoke"))
         {
             Console.WriteLine($"SMOKE FAIL: {message}");
@@ -222,7 +264,7 @@ public partial class App : Application
     }
 
     private const string Usage = """
-        FieldRook Desktop (M026 native shell).
+        FieldRook Desktop — native Windows workspace.
         Usage: FieldRook.exe [--port N] [--wait-seconds N] [--dev-backend] [--smoke]
           --port N         Listen port (default 8000; FIELDROOK_PORT also honored).
                            The default dodges foreign listeners via free-port

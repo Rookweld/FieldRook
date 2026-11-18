@@ -69,6 +69,14 @@ public sealed class BackendManager : IDisposable
     }
 
     public int ChildPid => _child?.Id ?? 0;
+    public bool IsRunning
+    {
+        get
+        {
+            try { return _child is { HasExited: false }; }
+            catch (InvalidOperationException) { return false; }
+        }
+    }
     public StatusIdentity LastIdentity { get; private set; } = StatusIdentity.Empty;
     public string ServerOutLog => Path.Combine(AppPaths.LogsDir(), "server.out.log");
     public string ServerErrLog => Path.Combine(AppPaths.LogsDir(), "server.err.log");
@@ -77,6 +85,8 @@ public sealed class BackendManager : IDisposable
 
     public void Start()
     {
+        if (_disposed) throw new ObjectDisposedException(nameof(BackendManager));
+        if (_child is not null) throw new InvalidOperationException("Server lifecycle already started.");
         if (!File.Exists(_spec.FileName))
         {
             throw new FileNotFoundException($"Server executable not found: {_spec.FileName}");
@@ -115,9 +125,31 @@ public sealed class BackendManager : IDisposable
         DrainToFile(child.StandardError, ServerErrLog);
 
         child.EnableRaisingEvents = true;
-        child.Exited += (_, _) => ChildExited?.Invoke(this, EventArgs.Empty);
+        // Only signal a crash from the CURRENT owned server. Explicit shutdown
+        // and restarts detach _child before killing the old process.
+        child.Exited += (_, _) =>
+        {
+            if (ReferenceEquals(_child, child))
+                ChildExited?.Invoke(this, EventArgs.Empty);
+        };
 
         AppPaths.WriteLock(child.Id, _port);
+    }
+
+    /// <summary>
+    /// Explicit operator recovery: shut down only the fenced owned process,
+    /// retire its job object, then spawn a fresh owned server on the same port.
+    /// Never touches unrelated services or listeners.
+    /// </summary>
+    public void Restart()
+    {
+        if (_disposed) throw new ObjectDisposedException(nameof(BackendManager));
+        AppLogger.Info("Operator requested a backend restart.");
+        Shutdown();
+        _job?.Dispose();
+        _job = null;
+        LastIdentity = StatusIdentity.Empty;
+        Start();
     }
 
     public async Task<StatusIdentity> WaitForHealthyAsync(int timeoutSeconds, CancellationToken ct)
