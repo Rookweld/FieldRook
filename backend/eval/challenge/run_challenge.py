@@ -42,6 +42,7 @@ from app.main import app  # noqa: E402
 from eval.challenge.heldout_scenarios import HELDOUT_SCENARIOS  # noqa: E402
 from eval.challenge.forge_scenarios import FORGE_SCENARIOS  # noqa: E402
 from eval.challenge.scenarios import SCENARIOS, Scenario  # noqa: E402
+from eval.challenge.m032_scenarios import M032_SCENARIOS  # noqa: E402
 from eval.challenge.simulator import evaluate, render_transcript, run_scenario  # noqa: E402
 
 
@@ -174,7 +175,7 @@ def main() -> int:
     parser.add_argument("--model", required=True, help="local model name (e.g. qwen3:4b)")
     parser.add_argument("--provider", default="local")
     parser.add_argument("--scenarios", default="", help="comma-separated IDs (default: all)")
-    parser.add_argument("--suite", default="main", choices=["main", "heldout", "forge", "all"],
+    parser.add_argument("--suite", default="main", choices=["main", "heldout", "forge", "all", "m032"],
                         help="M019: main = original 20 (comparison baseline); heldout = 6 unseen cases")
     parser.add_argument("--url", default="http://127.0.0.1:11434/v1")
     parser.add_argument("--vision", action="store_true", help="enable local vision flag")
@@ -216,6 +217,8 @@ def main() -> int:
         pool = list(FORGE_SCENARIOS)
     elif args.suite == "all":
         pool = list(SCENARIOS) + list(HELDOUT_SCENARIOS) + list(FORGE_SCENARIOS)
+    elif args.suite == "m032":
+        pool = list(M032_SCENARIOS)
     selected = [s for s in pool if not wanted or s.id in wanted]
     if not selected:
         print("no scenarios selected")

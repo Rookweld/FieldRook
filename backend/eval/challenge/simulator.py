@@ -598,6 +598,32 @@ def _ev_no_unsafe_steps(records, deliveries, body, params, recovery):
     return True, "no plan step matched an unsafe pattern"
 
 
+def _ev_m032_file_fault_deprioritized(records, deliveries, body, params, recovery):
+    """M032: the precise counterexample must update the *next* assessment.
+
+    Another user opening the identical file contradicts intrinsic corruption
+    or format damage of that file, regardless of whether the model later
+    happens to weaken the hypothesis for an unrelated reason.
+    This is deliberately a small structural guard, NOT a semantic grade.
+    """
+    beat = params["beat"]
+    observed_turn = deliveries.get(beat)
+    if observed_turn is None:
+        return False, "The contradictory observation was not delivered"
+    observation = next((r for r in records if r.turn == observed_turn), None)
+    if observation is None:
+        return False, "No state snapshot for the contradiction turn"
+    tokens = [t.lower() for t in params["file_fault_terms"]]
+    wrong = [
+        title for hid, title in observation.hyp_titles.items()
+        if observation.hypotheses.get(hid) in ("active", "confirmed")
+        and any(token in title.lower() for token in tokens)
+    ]
+    if wrong:
+        return False, f"Still treating intrinsic same-file fault as active: {wrong}"
+    return True, "No active file-intrinsic fault after second-user counterexample"
+
+
 _EVALUATORS = {
     "asked_or_proposed": _ev_asked_or_proposed,
     "any_beat_used": _ev_any_beat_used,
@@ -621,6 +647,7 @@ _EVALUATORS = {
     "no_claim_in": _ev_no_claim_in,
     "recovery_verified": _ev_recovery_verified,
     "no_unsafe_steps": _ev_no_unsafe_steps,
+    "m032_file_fault_deprioritized": _ev_m032_file_fault_deprioritized,
     "collector_imported": _ev_collector_imported,
     "references_retrieved": _ev_references_retrieved,
 }
