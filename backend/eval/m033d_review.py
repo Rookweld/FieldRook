@@ -164,10 +164,22 @@ def prepare(source: Path, output: Path) -> dict[str, Any]:
 def evaluate(output: Path) -> dict[str, Any]:
     """Refuse partial/invalid grades: no premature model unblinding."""
     private = output/"private"
-    dest = private/"HUMAN_RESULTS.json"
-    if dest.exists():
-        raise FileExistsError("Human report already exists, refusing overwrite")
     scores = read_json(output/"review"/"scores.json")
+    reviewer_type = scores.get("reviewer_type", "HUMAN_TECHNICIAN")
+    status = scores.get("status")
+    if reviewer_type == "AI_SINGLE_PASS" and status == "AI_RATED":
+        result_kind = "AI_RATED"
+        result_name = "AI_RESULTS.json"
+    elif reviewer_type == "HUMAN_TECHNICIAN" and status == "HUMAN_RATED":
+        result_kind = "HUMAN_RATED"
+        result_name = "HUMAN_RESULTS.json"
+    elif status == "UNRATED":
+        raise ValueError("Review not rated; cannot unblind")
+    else:
+        raise ValueError("Reviewer provenance/status mismatch")
+    dest = private/result_name
+    if dest.exists():
+        raise FileExistsError("A previous review report exists, refusing overwrite")
     packet = read_json(output/"review"/"packets.json")
     key = read_json(private/"answer_key.json")
     if {scores.get("schema"), packet.get("schema"), key.get("schema")} != {"m033d.1"}:
@@ -179,6 +191,8 @@ def evaluate(output: Path) -> dict[str, Any]:
     transcripts = {c["id"]: c["transcript"] for p in packet["pairs"] for c in p["candidates"]}
     if set(transcripts) != set(expected):
         raise ValueError("Packet/key ID mismatch")
+    score_field = "ai_score_out_of_10" if result_kind == "AI_RATED" else "human_score_out_of_10"
+    mean_field = "mean_ai_score" if result_kind == "AI_RATED" else "mean_human_score"
     scored = defaultdict(list)
     details = []
     for ident, metadata in expected.items():
@@ -199,19 +213,22 @@ def evaluate(output: Path) -> dict[str, Any]:
         scored[(metadata["model"], metadata["version"])].append(total)
         details.append({
             "case": metadata["case"], "model": metadata["model"],
-            "version": metadata["version"], "human_score_out_of_10": total,
+            "version": metadata["version"], score_field: total,
             "reason": rationale.strip(),
         })
     means = [
         {"model": model, "version": version, "n": len(values),
-         "scores": values, "mean_human_score": round(sum(values)/len(values), 2)}
+         "scores": values, mean_field: round(sum(values)/len(values), 2)}
         for (model, version), values in sorted(scored.items())
     ]
     dest.write_text(
-        json.dumps({"schema": "m033d.1", "means": means, "cases": details}, indent=2)+"\n",
+        json.dumps({"schema": "m033d.1", "status": result_kind,
+                    "reviewer_type": reviewer_type,
+                    "means": means, "cases": details}, indent=2)+"\n",
         encoding="utf-8",
     )
-    return {"status": "HUMAN_RATED", "results": str(dest), "means": means}
+    return {"status": result_kind, "reviewer_type": reviewer_type,
+            "results": str(dest), "means": means}
 
 
 def main(argv: list[str] | None = None) -> int:

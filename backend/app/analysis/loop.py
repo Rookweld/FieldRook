@@ -764,6 +764,12 @@ async def _run_local_tasks(
             question_task, proposed, problem=state.problem,
             hypotheses=active_titles,
             asked=[q.question for q in state.questions], target=state.target,
+            answered=[
+                (q.question, q.answer)
+                for q in state.questions
+                if q.status == "answered" and q.answer
+                and not _looks_uninformative(q.answer)
+            ],
         )
         if information_gain:
             if question_task == "triage":
@@ -777,6 +783,10 @@ async def _run_local_tasks(
                 + (f", alternate={alt.score}/10" if alt else "")
                 + (f", technician check={question_review.check.score}/10"
                    if question_review.check else "")
+                + (f"; signals: {','.join(question_review.primary.signals[-3:])}"
+                   if question_review.primary.signals else "")
+                + (f"; check: {','.join(question_review.check.signals[-3:])}"
+                   if question_review.check and question_review.check.signals else "")
             )
             state.add_activity(
                 "note", "Information gain review",

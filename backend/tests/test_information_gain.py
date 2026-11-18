@@ -344,3 +344,96 @@ def test_vague_failure_boundary_question_is_not_mistaken_for_high_gain():
     )
     assert "ambiguous-failure-boundary" in unclear.signals
     assert controlled.score > unclear.score
+
+
+# M033-E — Findings from locked AI audit. Experimental scoring only.
+
+
+def test_answered_camera_question_is_penalized_without_discarding_other_path():
+    known = [(
+        "Does the built-in Camera app show the same black screen?",
+        "Yes, the Camera app is also black.",
+    )]
+    repeated = score_question(
+        "Does the built-in Camera app show the same black screen?",
+        "Check whether the camera issue is general.",
+        answered=known,
+    )
+    distinct = score_question(
+        "Is the camera's hardware privacy shutter physically closed?",
+        "Distinguishes physical obstruction from Windows and app permissions.",
+        answered=known,
+    )
+    assert "already-answered-question" in repeated.signals
+    assert "already-answered-question" not in distinct.signals
+    assert repeated.score < distinct.score
+
+
+def test_same_product_but_different_observation_is_not_assumed_answered():
+    score = score_question(
+        "Does the camera work in Teams desktop?",
+        "Compare application path.",
+        answered=[(
+            "Does the camera work in the Windows Camera app?",
+            "The Camera app is black.",
+        )],
+    )
+    assert "already-answered-question" not in score.signals
+
+
+def test_answered_question_can_lose_to_new_safe_alternative():
+    first = "Does the camera work in the built-in Camera app?"
+    second = "Is the physical camera privacy shutter closed?"
+    decision = choose_question(
+        first, "Check whether camera is app-specific.",
+        second, "Distinguishes physical obstruction from software permissions.",
+        answered=[(first, "No, the Camera app is also black.")],
+        improvement_margin=2,
+    )
+    assert decision.selected == "alternative"
+
+
+def test_ping_is_network_probe_not_application_service_health():
+    from app.analysis.information_gain import score_technician_check
+
+    service = score_technician_check(
+        "Ping the license server to confirm the licensing service is available.",
+        problem="CAD license checkout fails.",
+    )
+    network = score_technician_check(
+        "Ping the gateway to examine basic IP connectivity.",
+        problem="The gateway may be unreachable.",
+    )
+    assert service.eligible, "Do not forbid a safe ping"
+    assert "icmp-not-service-health" in service.signals
+    assert "icmp-not-service-health" not in network.signals
+
+
+def test_answered_check_ranked_lower_than_new_check():
+    from app.analysis.information_gain import score_technician_check
+
+    observation = [(
+        "Check if the camera works in the built-in Camera app.",
+        "It is black in the Camera app too.",
+    )]
+    repeated = score_technician_check(
+        "Check if the camera works in the built-in Camera app.",
+        answered=observation,
+    )
+    new = score_technician_check(
+        "Inspect the physical camera privacy shutter and compare the state.",
+        answered=observation,
+    )
+    assert "already-answered-check" in repeated.signals
+    assert repeated.score < new.score
+
+
+def test_gateway_ping_not_penalized_as_service_health_during_license_incident():
+    from app.analysis.information_gain import score_technician_check
+
+    check = score_technician_check(
+        "Ping the local default gateway to check basic IP connectivity.",
+        problem="CAD license server checkout failure.",
+    )
+    assert check.eligible
+    assert "icmp-not-service-health" not in check.signals

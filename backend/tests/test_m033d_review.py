@@ -120,7 +120,7 @@ def test_prepare_refuses_model_mismatch(tmp_path):
 
 def test_unrated_reviews_never_unblind_or_write_results(tmp_path):
     review.prepare(_fake_source(tmp_path / "source"), tmp_path / "output")
-    with pytest.raises(ValueError, match="Missing human rationale"):
+    with pytest.raises(ValueError, match="Review not rated"):
         review.evaluate(tmp_path / "output")
     assert not (tmp_path / "output" / "private" / "HUMAN_RESULTS.json").exists()
 
@@ -214,3 +214,32 @@ def test_prepared_html_contains_no_actual_model_or_answer_labels(tmp_path):
     assert "EXPERIMENT VERSION" not in html
     assert "<script id=" in html
     assert "scores.json" in html
+
+
+def test_ai_review_is_explicit_and_never_impersonates_human(tmp_path):
+    out = tmp_path / "ai-review"
+    review.prepare(_fake_source(tmp_path / "source"), out)
+    grades = _grade_everything(out)
+    grades["status"] = "AI_RATED"
+    grades["reviewer_type"] = "AI_SINGLE_PASS"
+    (out / "review" / "scores.json").write_text(json.dumps(grades))
+    result = review.evaluate(out)
+    assert result["status"] == "AI_RATED"
+    assert result["reviewer_type"] == "AI_SINGLE_PASS"
+    assert (out / "private" / "AI_RESULTS.json").is_file()
+    assert not (out / "private" / "HUMAN_RESULTS.json").exists()
+    assert all("mean_ai_score" in m and "mean_human_score" not in m
+               for m in result["means"])
+
+
+def test_review_provenance_must_match_status(tmp_path):
+    out = tmp_path / "ai-review"
+    review.prepare(_fake_source(tmp_path / "source"), out)
+    grades = _grade_everything(out)
+    grades["reviewer_type"] = "AI_SINGLE_PASS"
+    # Forging human status from an AI review is forbidden.
+    (out / "review" / "scores.json").write_text(json.dumps(grades))
+    with pytest.raises(ValueError, match="provenance"):
+        review.evaluate(out)
+    assert not (out / "private" / "HUMAN_RESULTS.json").exists()
+    assert not (out / "private" / "AI_RESULTS.json").exists()

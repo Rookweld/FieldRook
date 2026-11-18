@@ -66,6 +66,8 @@ _CHECK_COMPARISON = re.compile(
 _ERROR_ASK = re.compile(r"\b(what|which|provide|give|specify|tell)\b.{0,55}\b(error (?:code|number|message)|exact code)\b", re.IGNORECASE)
 _CODE_RE = re.compile(r"\b0x[0-9a-f]{4,}\b", re.IGNORECASE)
 _QUESTION = re.compile(r"\?|^\s*(ask|check whether|find out|confirm whether)\b", re.IGNORECASE)
+_PING = re.compile(r"\bping(?:ing)?\b", re.IGNORECASE)
+_SERVICE = re.compile(r"\b(server|service|license|api|endpoint|daemon|application)\b", re.IGNORECASE)
 
 
 @dataclass(frozen=True)
@@ -116,6 +118,29 @@ def _near_repeat(text: str, asked: list[str]) -> bool:
     return False
 
 
+def _duplicates_answered_question(
+    proposed: str, answered: list[tuple[str, str]] | None,
+) -> bool:
+    """A stricter semantic-repeat proxy based on genuinely answered questions.
+
+    We require three shared content words and 65% overlap in the smaller
+    question to avoid penalizing a different test on the same application.
+    This is a *ranking hint* only, not evidence that answers are identical.
+    """
+    terms = _terms(proposed)
+    if len(terms) < 3:
+        return False
+    for prior, answer in (answered or [])[-12:]:
+        if not prior.strip() or not answer.strip():
+            continue
+        older = _terms(prior)
+        if (len(older) >= 3
+                and len(terms & older) >= 3
+                and len(terms & older) / min(len(terms), len(older)) >= 0.65):
+            return True
+    return False
+
+
 def score_question(
     question: str,
     why: str,
@@ -123,6 +148,7 @@ def score_question(
     problem: str = "",
     hypotheses: list[str] | None = None,
     asked: list[str] | None = None,
+    answered: list[tuple[str, str]] | None = None,
     target: str = "remote",
 ) -> QuestionScore:
     """A bounded heuristic proxy. A high score NEVER verifies actual quality."""
@@ -174,6 +200,9 @@ def score_question(
     if _near_repeat(text, asked or []):
         points -= 6
         signals.append("duplicates-prior-question")
+    if _duplicates_answered_question(text, answered):
+        points -= 7
+        signals.append("already-answered-question")
     if len(text) > 220 or text.count("?") > 1:
         points -= 2
         signals.append("long-or-multiple-questions")
@@ -189,6 +218,7 @@ def choose_question(
     problem: str = "",
     hypotheses: list[str] | None = None,
     asked: list[str] | None = None,
+    answered: list[tuple[str, str]] | None = None,
     target: str = "remote",
     improvement_margin: int = 2,
 ) -> QuestionDecision:
@@ -199,12 +229,13 @@ def choose_question(
     """
     main = score_question(
         primary, primary_why, problem=problem, hypotheses=hypotheses,
-        asked=asked, target=target,
+        asked=asked, answered=answered, target=target,
     )
     alt = (
         score_question(
             alternative, alternative_why, problem=problem,
-            hypotheses=hypotheses, asked=asked, target=target,
+            hypotheses=hypotheses, asked=asked, answered=answered,
+            target=target,
         )
         if alternative.strip() else None
     )
@@ -232,6 +263,7 @@ def review_task_question(
     hypotheses: list[str],
     asked: list[str],
     target: str,
+    answered: list[tuple[str, str]] | None = None,
 ) -> tuple[dict[str, object] | None, QuestionDecision | None]:
     """Conservatively refine one triage or follow-up question without new AI calls.
 
@@ -256,7 +288,8 @@ def review_task_question(
     alt_why = original.get("alternative_why")
     decision = choose_question(
         main, str(main_why or ""), alternate, str(alt_why or ""),
-        problem=problem, hypotheses=hypotheses, asked=asked, target=target,
+        problem=problem, hypotheses=hypotheses, asked=asked,
+        answered=answered, target=target,
     )
     if decision.selected == "alternative":
         original[key] = alternate.strip()[:500]
@@ -271,7 +304,7 @@ def review_task_question(
         if isinstance(raw_check, str) and raw_check.strip():
             check = score_technician_check(
                 raw_check, problem=problem, hypotheses=hypotheses,
-                asked=asked, target=target,
+                asked=asked, answered=answered, target=target,
             )
             if not check.eligible and any(
                 signal.startswith("non-read-only:") or signal == "conflicting-reported-error-code"
@@ -308,6 +341,7 @@ def score_technician_check(
     problem: str = "",
     hypotheses: list[str] | None = None,
     asked: list[str] | None = None,
+    answered: list[tuple[str, str]] | None = None,
     target: str = "remote",
 ) -> QuestionScore:
     """Assess a model-proposed *manual* check as an alternative next move.
@@ -348,6 +382,15 @@ def score_technician_check(
     if _near_repeat(text, asked or []):
         points -= 5
         signals.append("duplicates-prior-ask")
+    if _duplicates_answered_question(text, answered):
+        points -= 7
+        signals.append("already-answered-check")
+    if _PING.search(text) and _SERVICE.search(text):
+        # Penalize only checks framed around the service itself. Pinging a
+        # network gateway is still a valid connectivity check even when
+        # troubleshooting an application. ICMP never proves app health.
+        points -= 2
+        signals.append("icmp-not-service-health")
     if len(text) > 220:
         points -= 2
         signals.append("overlong-check")

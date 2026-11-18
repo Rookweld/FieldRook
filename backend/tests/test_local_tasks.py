@@ -1004,3 +1004,47 @@ def test_m033c_load_settings_default_and_invalid_mode_fail_safe(monkeypatch) -> 
     assert load_settings().info_gain_mode == "enforce"
     monkeypatch.setenv("FIELDROOK_INFO_GAIN_MODE", "banana")
     assert load_settings().info_gain_mode == "observe"
+
+
+def test_m033e_answered_question_provenance_and_shadow_is_noninvasive() -> None:
+    from app.schemas import ClarifyingQuestion
+
+    def state_with_prior_answer():
+        state = _pipeline_state(target="remote")
+        state.questions.append(ClarifyingQuestion(
+            question_id="q-answered", asked_round=0,
+            question="Does the built-in Camera app show the same black screen?",
+            answer="Yes, the Camera app is black too.", status="answered",
+        ))
+        return state
+
+    initial = {
+        "question": "Does the built-in Camera app show the same black screen?",
+        "why": "Compare camera app outcomes.",
+        "alternative_question": "Is the physical camera privacy shutter closed?",
+        "alternative_why": "Distinguishes a blocked lens from a software permission fault.",
+        "hypotheses": [
+            {"title": "Camera privacy shutter", "why": "May be physically blocked."},
+            {"title": "Camera permissions", "why": "May be an application setting."},
+        ],
+        "unknowns": [],
+        "next_check": "",
+    }
+    shadow = state_with_prior_answer()
+    provider = _TaskProvider({"triage": dict(initial)})
+    asyncio.run(_run_local_tasks(shadow, provider, _settings(), False))
+    assert shadow.assessment is not None
+    assert shadow.assessment.suggested_questions[0].question == initial["question"]
+    assert any(
+        "already-answered-question" in event.detail
+        for event in shadow.activity if event.title == "Information gain review"
+    )
+
+    enforced = state_with_prior_answer()
+    provider = _TaskProvider({"triage": dict(initial)})
+    asyncio.run(_run_local_tasks(
+        enforced, provider, _settings(info_gain_mode="enforce"), False,
+    ))
+    assert enforced.assessment is not None
+    assert "privacy shutter" in enforced.assessment.suggested_questions[0].question
+    assert provider.calls == ["triage"]
