@@ -542,3 +542,249 @@ def test_providers_local_entry_carries_profile() -> None:
     assert local["tool_calling"] is False
     assert local["profile"]["model"]
     assert local["api_style"] in ("openai", "ollama", "unresolved")
+
+
+# ---------------------------------------------------------------------------
+# M033-B: evidence integrity after an uninformative technician answer
+# ---------------------------------------------------------------------------
+
+
+def test_m033_guard_does_not_mutate_raw_model_reply() -> None:
+    from app.analysis.local_tasks import preserve_hypotheses_without_new_information
+
+    raw = {
+        "verdict": "Corrupted files are less likely because technician does not know.",
+        "weakened": ["Corrupted file"],
+        "next_step": "Does the affected user have access through SharePoint web?",
+    }
+    guarded, discarded = preserve_hypotheses_without_new_information(raw)
+    assert discarded is True
+    assert raw["weakened"] == ["Corrupted file"], "Keep raw model data unchanged"
+    assert guarded is not None
+    assert guarded["weakened"] == []
+    assert "no new diagnostic facts" in guarded["verdict"].lower()
+    assert guarded["next_step"] == raw["next_step"]
+
+
+def test_m033_no_information_cannot_weaken_hypotheses_in_local_pipeline() -> None:
+    from app.analysis.assist import note_technician_answer
+    from app.schemas import Hypothesis
+
+    state = _pipeline_state(target="remote")
+    state.hypotheses.append(
+        Hypothesis(hypothesis_id="hyp-existing", title="User-specific access rights")
+    )
+    response = "I don't have that information."
+    state.messages.append({"role": "user", "content": "Technician answer: " + response})
+    note_technician_answer(state, response)
+    provider = _TaskProvider({
+        "reassess": {
+            "verdict": "The lack of an answer proves permissions are not the issue.",
+            "weakened": ["User-specific access rights"],
+            "next_step": "Can the affected user access the file in SharePoint web?",
+        }
+    })
+    asyncio.run(_run_local_tasks(state, provider, _settings(), True))
+    assert provider.calls == ["reassess"]
+    assert state.assessment is not None
+    assert state.assessment.suggested_hypotheses == []
+    assert state.hypotheses[0].status == "active"
+    assert "no new diagnostic facts" in state.assessment.understanding.lower()
+    assert any("unsupported hypothesis weakening" in w for w in state.warnings)
+    assert any(e.title == "Hypothesis integrity guard" for e in state.activity)
+    assert any(
+        "SharePoint web" in q.question
+        for q in state.assessment.suggested_questions
+    )
+
+
+def test_m033_substantive_reply_can_revise_hypotheses() -> None:
+    from app.analysis.assist import note_technician_answer
+    from app.schemas import Hypothesis
+
+    state = _pipeline_state(target="remote")
+    state.hypotheses.append(
+        Hypothesis(hypothesis_id="hyp-existing", title="Same-file corruption")
+    )
+    response = "Another user opened the identical file successfully."
+    state.messages.append({"role": "user", "content": "Technician observation: " + response})
+    note_technician_answer(state, response)
+    provider = _TaskProvider({
+        "reassess": {
+            "verdict": "Same-file corruption is less likely.",
+            "weakened": ["Same-file corruption"],
+            "next_step": "Can the affected user open the same file through SharePoint web?",
+        }
+    })
+    asyncio.run(_run_local_tasks(state, provider, _settings(), True))
+    assert state.assessment is not None
+    assert [h.status for h in state.assessment.suggested_hypotheses] == ["weakened"]
+    assert not any(e.title == "Hypothesis integrity guard" for e in state.activity)
+
+
+def test_m033_hedged_but_informative_answer_still_allows_revision() -> None:
+    from app.analysis.assist import note_technician_answer
+    from app.schemas import Hypothesis
+
+    state = _pipeline_state(target="remote")
+    state.hypotheses.append(Hypothesis(hypothesis_id="hyp-existing", title="User profile"))
+    response = "I don't know the full error code, but it worked in safe mode."
+    state.messages.append({"role": "user", "content": "Technician answer: " + response})
+    note_technician_answer(state, response)
+    provider = _TaskProvider({
+        "reassess": {
+            "verdict": "Safe mode is relevant.",
+            "weakened": ["User profile"],
+            "next_step": "Check whether an add-in causes the normal-mode failure.",
+        }
+    })
+    asyncio.run(_run_local_tasks(state, provider, _settings(), True))
+    assert state.assessment is not None
+    assert [h.status for h in state.assessment.suggested_hypotheses] == ["weakened"]
+    assert not any(e.title == "Hypothesis integrity guard" for e in state.activity)
+
+
+def test_m033_prompt_explicitly_distinguishes_unknown_from_negative_evidence() -> None:
+    prompt = reassess_prompt(["Damaged file", "User permission"], "Technician answer: No idea.")
+    assert "NOT evidence against a hypothesis" in prompt
+    assert "weakened to []" in prompt
+
+
+def test_m033_readable_new_screenshot_is_real_new_evidence() -> None:
+    from app.analysis.provider import ProviderCapabilities
+    from app.schemas import Hypothesis
+
+    class VisionProvider(_TaskProvider):
+        def capabilities(self):
+            return ProviderCapabilities(
+                text=True, vision=True, tool_calling=False,
+                structured_output=False, processing_location="local",
+            )
+
+    state = _pipeline_state(target="remote")
+    state.hypotheses.append(Hypothesis(hypothesis_id="hyp-existing", title="UI-only error"))
+    state.messages.append({
+        "role": "user",
+        "content": "Technician answer: I don't have that information.",
+    })
+    state.messages.append({
+        "role": "user",
+        "content": [
+            {"type": "text", "text": "Technician supplied a new screenshot."},
+            {"type": "image_url", "image_url": {"url": "data:image/png;base64,aGVsbG8="}},
+        ],
+    })
+    state.has_image = True
+    provider = VisionProvider({
+        "reassess": {
+            "verdict": "The new image contradicts the old interpretation.",
+            "weakened": ["UI-only error"],
+            "next_step": "Read the screenshot dialog carefully.",
+        }
+    })
+    asyncio.run(_run_local_tasks(state, provider, _settings(), True))
+    assert state.assessment is not None
+    assert [h.status for h in state.assessment.suggested_hypotheses] == ["weakened"]
+    assert not any(e.title == "Hypothesis integrity guard" for e in state.activity)
+
+
+def test_m033_fresh_host_measurements_override_missing_verbal_answer(monkeypatch) -> None:
+    from app.schemas import Hypothesis
+    import app.analysis.loop as loop_module
+
+    state = _pipeline_state(target="local")
+    state.hypotheses.append(Hypothesis(hypothesis_id="hyp-existing", title="Service offline"))
+    state.messages.append({"role": "user", "content": "Technician answer: I don't know."})
+
+    monkeypatch.setattr(
+        loop_module, "_simulated_plan", lambda *args, **kwargs: [("get_status", {})]
+    )
+
+    async def record_fresh_measurement(state, ctx, plan, label):
+        state.add_evidence(
+            category="service",
+            source="tool:get_status",
+            data={"service": "running"},
+        )
+
+    monkeypatch.setattr(loop_module, "_run_tool_plan", record_fresh_measurement)
+    provider = _TaskProvider({
+        "reassess": {
+            "verdict": "New host reading shows service is running.",
+            "weakened": ["Service offline"],
+            "next_step": "Inspect the application's own logs.",
+        }
+    })
+    asyncio.run(_run_local_tasks(state, provider, _settings(), True))
+    assert state.assessment is not None
+    assert [h.status for h in state.assessment.suggested_hypotheses] == ["weakened"]
+    assert not any(e.title == "Hypothesis integrity guard" for e in state.activity)
+
+
+def test_m033_followup_screenshot_reaches_vision_provider() -> None:
+    from app.analysis.provider import ProviderCapabilities
+    from app.schemas import Hypothesis
+
+    class CapturingVisionProvider(_TaskProvider):
+        def capabilities(self):
+            return ProviderCapabilities(
+                text=True, vision=True, tool_calling=False,
+                structured_output=False, processing_location="local",
+            )
+
+        async def run_task(self, task, prompt, timeout_s=None, images=None, cancel_scope=None):
+            self.received_images = images
+            return await super().run_task(task, prompt, timeout_s, images, cancel_scope)
+
+    state = _pipeline_state(target="remote")
+    state.hypotheses.append(Hypothesis(hypothesis_id="hyp-1", title="Wrong dialog"))
+    state.messages.append({
+        "role": "user",
+        "content": "Technician answer: I don't know.",
+    })
+    state.messages.append({
+        "role": "user",
+        "content": [
+            {"type": "text", "text": "A new technician-approved image."},
+            {"type": "image_url", "image_url": {"url": "data:image/png;base64,aGVsbG8="}},
+        ],
+    })
+    state.has_image = True
+    provider = CapturingVisionProvider({
+        "reassess": {
+            "verdict": "Visual information permits a hypothesis change.",
+            "weakened": ["Wrong dialog"],
+            "next_step": "Read the visible message.",
+        }
+    })
+    asyncio.run(_run_local_tasks(state, provider, _settings(), True))
+    assert provider.received_images == ["aGVsbG8="]
+    assert state.assessment is not None
+    assert [h.status for h in state.assessment.suggested_hypotheses] == ["weakened"]
+    assert not any(e.title == "Hypothesis integrity guard" for e in state.activity)
+
+
+def test_m033_reassessment_does_not_resend_historical_images() -> None:
+    from app.analysis.loop import _attached_images
+
+    state = _pipeline_state(target="remote")
+    prior = {
+        "role": "user",
+        "content": [
+            {"type": "text", "text": "Historical technician screenshot."},
+            {"type": "image_url", "image_url": {"url": "data:image/png;base64,b2xk"}},
+        ],
+    }
+    state.messages.append(prior)
+    assert _attached_images(state, latest_only=True) == ["b2xk"]
+    state.messages.append({"role": "user", "content": "Technician answer: No idea."})
+    assert _attached_images(state, latest_only=True) == []
+    state.messages.append({
+        "role": "user",
+        "content": [
+            {"type": "text", "text": "Fresh, consented screenshot."},
+            {"type": "image_url", "image_url": {"url": "data:image/png;base64,bmV3"}},
+        ],
+    })
+    assert _attached_images(state) == ["b2xk", "bmV3"]
+    assert _attached_images(state, latest_only=True) == ["bmV3"]

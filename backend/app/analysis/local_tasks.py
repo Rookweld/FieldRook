@@ -101,6 +101,27 @@ def plan_prompt(problem: str, context: str, target: str) -> str:
     )
 
 
+def preserve_hypotheses_without_new_information(
+    reassess: dict[str, Any] | None,
+) -> tuple[dict[str, Any] | None, bool]:
+    """Neutralize unsupported belief changes on a truly uninformative reply.
+
+    The model may still propose its next safe question/check, but missing
+    information is neither positive nor negative evidence. This is applied
+    only when the caller has verified that no screenshot or fresh measured
+    evidence accompanied the reply. Do not mutate the model's raw dict.
+    """
+    if reassess is None:
+        return None, False
+    sanitized = dict(reassess)
+    sanitized["weakened"] = []
+    sanitized["verdict"] = (
+        "No new diagnostic facts were provided. Previous hypotheses remain "
+        "unverified; a different question or safe check is needed."
+    )
+    return sanitized, bool(reassess.get("weakened"))
+
+
 def reassess_prompt(
     hypothesis_titles: list[str],
     observation: str,
@@ -131,8 +152,11 @@ def reassess_prompt(
         "this JSON object, no other text: {\"verdict\": \"<one sentence: what the new "
         "observation means>\", \"weakened\": [\"<hypothesis titles now less likely>\"], "
         "\"next_step\": \"<the single most useful next check or question>\"}. "
-        "When the observation contradicts the open hypotheses or answers "
-        "nothing, prefer a question whose answer would discriminate the new "
+        "Missing information, an unknown answer, or an inability to perform a "
+        "check is NOT evidence against a hypothesis. If the reply supplies no "
+        "new diagnostic facts, set weakened to [] and ask a different safe "
+        "discriminating question or check. When the observation contradicts "
+        "the open hypotheses, prefer a question whose answer would discriminate the new "
         "possibilities over another check. Never ask about a hypothesis this "
         "observation just ruled out; pursue the surviving alternatives. "
         + (

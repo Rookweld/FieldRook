@@ -518,10 +518,11 @@ async def _run_live_no_tools(
     await _finalize_from_content(state, str(message.get("content") or ""), provider, model_name)
 
 
-def _attached_images(state: InvestigationState) -> list[str]:
-    """Screenshot bytes still held in memory (never persisted)."""
+def _attached_images(state: InvestigationState, *, latest_only: bool = False) -> list[str]:
+    """Authorized in-memory screenshot bytes; optionally only the latest turn."""
     blobs: list[str] = []
-    for message in state.messages:
+    messages = state.messages[-1:] if latest_only else state.messages
+    for message in messages:
         content = message.get("content")
         if not isinstance(content, list):
             continue
@@ -584,9 +585,11 @@ async def _run_local_tasks(
         assemble_assessment,
         evidence_digest,
         plan_prompt,
+        preserve_hypotheses_without_new_information,
         reassess_prompt,
         triage_prompt,
     )
+    from .assist import _looks_uninformative
 
     run_task = getattr(provider, "run_task", None)
     if run_task is None:
@@ -603,6 +606,9 @@ async def _run_local_tasks(
     # Race the same round-scoped cancellation as actual model calls.
     caps = await await_cancellable(_provider_capabilities(provider), _scope_of(state))
     images = _attached_images(state) if caps.vision else []
+    # Only evidence newly gathered in this local sweep may justify changing
+    # hypotheses after a technician says they have no additional information.
+    evidence_before_sweep = {item.id for item in state.evidence}
     if state.has_image and not images and _has_image_parts(state.messages):
         state.warnings.append(
             "This local model cannot process images; the screenshot was withheld "
@@ -656,6 +662,24 @@ async def _run_local_tasks(
         titles = [h.title for h in state.hypotheses if h.status == "active"]
         asked = [q.question for q in state.questions[-6:]]
         thin = int(state.assist_counters.get("thin_answers", 0) or 0)
+        # Normalize just the router's technician label. The same narrow
+        # heuristic used by the existing thin-answer monitor decides whether
+        # this reply carries facts; an unrelated old thin streak is not enough.
+        reply = observation
+        for prefix in (
+            "Technician answer: ", "Technician observation: ",
+            "Technician test result: ", "Technician correction: ",
+            "Technician unable: ", "Technician question: ",
+        ):
+            if reply.startswith(prefix):
+                reply = reply[len(prefix):]
+                break
+        no_new_answer = _looks_uninformative(reply)
+        # Only a newly attached, authorized follow-up screenshot should be
+        # passed to this reassessment. Prior images stay in history, but
+        # must not be resent as if they were new diagnostic evidence.
+        fresh_images = _attached_images(state, latest_only=True) if caps.vision else []
+        fresh_visual_observation = bool(fresh_images)
         # FORGE DELTA (c): carry collector capabilities + open knowledge
         # questions into reassessment (generic; absent when none exist).
         try:
@@ -674,10 +698,33 @@ async def _run_local_tasks(
             _forge_kq = []
         reassess, task_warnings = await run_task(
             "reassess",
-            reassess_prompt(titles, observation, asked, thin_streak=thin, collector_capabilities=_forge_caps or None, knowledge_questions=_forge_kq or None, knowledge_context=_k_context or None),
+            reassess_prompt(titles, observation, asked, thin_streak=thin, collector_capabilities=_forge_caps or None, knowledge_questions=_forge_kq or None, knowledge_context=_k_context or None)
+            + (" A newly authorized screenshot is attached: use only what is visible and do not invent unreadable text."
+               if fresh_visual_observation else ""),
+            images=fresh_images[:4] if fresh_visual_observation else None,
             cancel_scope=_scope_of(state),
         )
         state.warnings.extend(task_warnings)
+        if reassess is not None and no_new_answer:
+            # A new screenshot that this model can actually read, or newly
+            # gathered host diagnostics, may still supply genuine evidence.
+            fresh_tool_evidence = any(
+                item.id not in evidence_before_sweep
+                and str(item.source or "").startswith("tool:")
+                for item in state.evidence
+            )
+            if not fresh_tool_evidence and not fresh_visual_observation:
+                reassess, discarded = preserve_hypotheses_without_new_information(reassess)
+                if discarded:
+                    state.warnings.append(
+                        "Ignored unsupported hypothesis weakening: the technician "
+                        "supplied no new diagnostic facts."
+                    )
+                state.add_activity(
+                    "note", "Hypothesis integrity guard",
+                    "The technician had no new diagnostic information; prior "
+                    "hypotheses were preserved. Next safe questions remain available.",
+                )
         state.add_activity(
             "note", "Local reassessment",
             "Reassessment answered." if reassess else "Reassessment unusable; keeping prior hypotheses.",
