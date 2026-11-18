@@ -1,4 +1,7 @@
-# FieldRook Desktop packaging (M025 BETA)
+# FieldRook Desktop packaging
+
+M038 adds a **native Windows per-user installer** alongside the portable ZIP. See [M038 installer guide](../../docs/M038_WINDOWS_INSTALLER.md) for install, upgrade, uninstall, data retention and build instructions. The notes below describe the legacy portable launcher and frozen server contract.
+
 
 Frozen single-process desktop runtime: one uvicorn server serves the API +
 the built UI on `http://127.0.0.1:8000/`, started and stopped by the

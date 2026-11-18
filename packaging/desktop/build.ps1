@@ -151,9 +151,15 @@ Copy-Item (Join-Path $PackagingDir "FieldRook.bat") $AssembleDir
 Copy-Item (Join-Path $PackagingDir "FieldRook-Launcher.ps1") $AssembleDir
 Copy-Item $serverDist (Join-Path $AssembleDir "server") -Recurse
 @"
-FieldRook Desktop $Version (M030 local provider hardening).
-Run FieldRook.bat or FieldRook.exe. Data + logs live in %LOCALAPPDATA%\FieldRook.
-No installer, no admin, localhost only. See docs\FIELD_KIT.md (GAMMA).
+FieldRook Desktop $Version — portable edition.
+Launch FieldRook.exe (WPF + WebView2); keep the server folder beside the executable.
+Windows 10/11 x64 and Microsoft Edge WebView2 Runtime are required.
+Data and diagnostic logs are stored separately in %LOCALAPPDATA%\FieldRook.
+No Python, Node, or admin privileges are required on the target.
+For Start Menu integration and registered uninstall, use the separate
+FieldRook-Setup-$Version.exe installer (if provided).
+This ZIP is portable: extract the entire folder before starting FieldRook.
+Do not delete %LOCALAPPDATA%\FieldRook when upgrading or removing binaries.
 "@ | Set-Content (Join-Path $AssembleDir "README.txt")
 
 $zipPath = Join-Path $OutDir ("FieldRook-" + $Version + ".zip")

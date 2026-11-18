@@ -1,4 +1,9 @@
-# FieldRook shell packaging (M026 ALPHA)
+# FieldRook native shell packaging
+
+M038 provides a native per-user Windows installer in addition to this historical portable layout. For the supported installation, upgrade and uninstall workflow, see [Windows Installer](../../docs/M038_WINDOWS_INSTALLER.md).
+
+The material below describes the older portable-shell build contract.
+
 
 Companion to `README.md` (frozen server + launcher). This file covers the
 native shell half of contract section 6.
