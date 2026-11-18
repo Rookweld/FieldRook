@@ -1,14 +1,8 @@
 import { useState } from "react";
 import { setCaseDisposition } from "../api";
 import type { CaseDisposition, InvestigationResponse } from "../types";
+import { caseDispositionLabel, hasRecordedVerifiedResolution } from "../casePresentation";
 import "./CaseDispositionCard.css";
-
-const LABELS: Record<CaseDisposition, string> = {
-  open: "Open",
-  resolved: "Resolved · technician-reported",
-  needs_followup: "Waiting for follow-up",
-  handed_off: "Handed off",
-};
 
 type FilingChoice = Exclude<CaseDisposition, "open">;
 
@@ -27,11 +21,7 @@ export function CaseDispositionCard({
 
   const current = investigation.disposition ?? "open";
   const filed = current !== "open";
-  const verified = investigation.plans.some(
-    (plan) => plan.status === "VERIFIED_RESOLVED",
-  ) || investigation.proposals.some(
-    (proposal) => proposal.status === "VERIFIED_RESOLVED",
-  );
+  const verified = hasRecordedVerifiedResolution(investigation);
 
   const change = async (next: CaseDisposition, reason: string) => {
     if (saving) return;
@@ -58,7 +48,7 @@ export function CaseDispositionCard({
     <section className="card fr-case-disposition" aria-label="Case status" data-testid="case-disposition">
       <div className="card-head">
         <h2>Case status</h2>
-        <span className={filed ? "badge" : "badge badge-sim"}>{LABELS[current]}</span>
+        <span className={filed ? "badge" : "badge badge-sim"}>{caseDispositionLabel(current)}</span>
       </div>
       <p className="muted">
         File this investigation when your work is done for now. Filing is a technician
@@ -66,7 +56,7 @@ export function CaseDispositionCard({
       </p>
       {filed ? (
         <div className="fr-filing-result">
-          <p><strong>{LABELS[current]}</strong>
+          <p><strong>{caseDispositionLabel(current)}</strong>
             {investigation.closed_at && (
               <span className="muted"> · {new Date(investigation.closed_at).toLocaleString()}</span>
             )}
@@ -77,9 +67,7 @@ export function CaseDispositionCard({
                     onClick={() => void change("open", "")}>
               {saving ? "Reopening…" : "Reopen case"}
             </button>
-            <a href={`/api/investigations/${encodeURIComponent(investigation.investigation_id)}/export?format=markdown`}>
-              Download case report ↗
-            </a>
+            <span className="muted">The case report and export options are available below.</span>
           </div>
         </div>
       ) : (

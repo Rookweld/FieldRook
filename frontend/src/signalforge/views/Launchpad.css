@@ -265,3 +265,53 @@
 }
 .sf-history-search:focus-visible { outline: 2px solid var(--lime); outline-offset: 2px; }
 .sf-history-search::placeholder { color: var(--muted); }
+
+/* M037 — denser, task-first home when the user already has case history. */
+.sf-homehero.sf-homehero-compact { min-height: 224px; padding: 25px 30px; }
+.sf-homehero-compact h1 { font-size: clamp(35px, 3.5vw, 52px); margin: 9px 0 7px; max-width: 360px; }
+.sf-homehero-compact .sf-home-actions { margin-top: 13px; }
+.sf-homehero-compact .sf-sunscene { opacity: 0.45; transform: scale(0.8); }
+.sf-homehero-compact::before { opacity: 0.55; }
+.sf-history-filters { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 13px; }
+.sf-history-filter {
+  appearance: none; font: inherit; font-size: 11px; font-weight: 700; cursor: pointer;
+  border: 1px solid var(--line); border-radius: 999px; padding: 6px 10px;
+  background: color-mix(in srgb, var(--aubergine) 76%, var(--void)); color: var(--peach);
+}
+.sf-history-filter span { font-size: 10px; opacity: 0.68; margin-left: 3px; }
+.sf-history-filter:hover { border-color: var(--lime); }
+.sf-history-filter-active { color: var(--void); background: var(--lime); border-color: var(--lime); }
+.sf-history-filter:focus-visible { outline: 2px solid var(--lime); outline-offset: 3px; }
+.sf-recent-links button {
+  appearance: none; border: none; background: transparent; font: inherit;
+  font-size: 10px; color: var(--mauve); cursor: pointer; text-decoration: underline;
+  text-underline-offset: 3px; padding: 3px;
+}
+.sf-recent-links button:hover { color: var(--lime); }
+.sf-recent-links button:focus-visible { outline: 2px solid var(--lime); }
+.sf-recent-links button:disabled { opacity: 0.45; cursor: wait; }
+@media (max-width: 700px) {
+  .sf-homehero.sf-homehero-compact { min-height: 214px; padding: 20px; }
+  .sf-homehero-compact h1 { font-size: 38px; }
+  .sf-home-panels { padding: 13px; }
+}
+
+/* Contextual home for returning technicians replaces repetitive tutorial. */
+.sf-continue-panel { display: flex; flex-direction: column; }
+.sf-continue-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
+.sf-continue-stats > div {
+  border: 1px solid var(--line); border-radius: 9px;
+  background: color-mix(in srgb, var(--aubergine) 69%, var(--void));
+  padding: 13px; display: grid; gap: 4px;
+}
+.sf-continue-stats strong { font-size: 29px; line-height: 1; color: var(--offwhite); }
+.sf-continue-stats span { color: var(--muted); font-size: 10px; font-weight: 900; letter-spacing: 0.08em; }
+.sf-continue-label { font-size: 10px; letter-spacing: 0.1em; font-weight: 900; color: var(--lime); margin: 19px 0 7px; }
+.sf-continue-problem {
+  color: var(--offwhite); font-family: var(--title); font-weight: 850;
+  font-size: clamp(18px, 1.8vw, 28px); line-height: 1.2;
+  margin: 0 0 9px; overflow-wrap: anywhere;
+}
+.sf-continue-meta { color: var(--muted); font-size: 11px; margin: 0 0 17px; }
+.sf-continue-panel > .sf-btn { align-self: start; }
+.sf-continue-panel > .sf-minihelp { margin-top: auto; padding-top: 15px; }

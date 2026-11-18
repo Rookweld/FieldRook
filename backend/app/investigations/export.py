@@ -31,6 +31,41 @@ def build_markdown(state: Any) -> str:
     assessment = data.get("assessment") or {}
     add(f"# FieldRook incident report — {data['investigation_id']}")
     add("")
+    # M037: first page is usable in a ticket before the detailed audit trail.
+    # Administrative filing never masquerades as a technical verification.
+    filing = (data.get("disposition") or "open").replace("_", " ")
+    verified_plans = [
+        plan for plan in data.get("plans", [])
+        if plan.get("status") == "VERIFIED_RESOLVED"
+    ]
+    verified_actions = [
+        proposal for proposal in data.get("proposals", [])
+        if proposal.get("status") == "VERIFIED_RESOLVED"
+    ]
+    verified_executions = [
+        execution for execution in data.get("executions", [])
+        if execution.get("outcome") == "VERIFIED_RESOLVED"
+    ]
+    has_verified_resolution = bool(
+        verified_plans or verified_actions or verified_executions
+    )
+    add("## Ticket overview")
+    add(f"- Case status: {filing} (technician administrative filing)")
+    add(
+        "- Technical verification: "
+        + ("Verified resolution recorded in case history" if has_verified_resolution
+           else "No verified resolution recorded")
+    )
+    add(f"- Evidence records: {len(data.get('evidence', []))}")
+    add(f"- Analysis mode: {data.get('analysis_mode', 'unknown')}")
+    if data.get("closed_at"):
+        add(f"- Filed at: {data['closed_at']}")
+    if data.get("closure_note"):
+        summary_note = " ".join(str(data["closure_note"]).split())
+        add(f"- Technician filing note: {summary_note}")
+    add("")
+    add("Case filing is not measurement. Historical verification is not proof the issue remains fixed today.")
+    add("")
     add("## 1. Incident summary")
     add(assessment.get("summary", "(no assessment)") or "(no assessment)")
     add("")
@@ -97,11 +132,19 @@ def build_markdown(state: Any) -> str:
         add("```")
     add("")
     outcomes = [e.get("outcome") for e in data.get("executions", [])]
-    add("## 10. Final verified outcome")
-    if outcomes:
-        add(outcomes[-1])
+    add("## 10. Recorded technical verification")
+    if has_verified_resolution:
+        if verified_plans:
+            add(f"- {len(verified_plans)} resolution plan(s) recorded VERIFIED_RESOLVED.")
+        if verified_actions:
+            add(f"- {len(verified_actions)} approved action proposal(s) recorded VERIFIED_RESOLVED.")
+        if verified_executions:
+            add(f"- {len(verified_executions)} execution record(s) recorded VERIFIED_RESOLVED.")
+        add("This is historical verification, not a guarantee of current system health.")
     else:
         add("UNRESOLVED - investigated; no verified correction.")
+        if outcomes:
+            add(f"Last execution outcome: {outcomes[-1]} (not verified resolved).")
         add(assessment.get("summary") or "No assessment recorded.")
     add("")
     add("## 11. Remaining uncertainty")

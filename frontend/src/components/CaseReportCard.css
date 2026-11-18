@@ -1,0 +1,27 @@
+/* M037: a single evidence-aware report workflow, not scattered raw links. */
+.fr-report .card-head { align-items: center; }
+.fr-report .card-head .badge { max-width: 100%; overflow-wrap: anywhere; white-space: normal; }
+.fr-report-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 17px 0; }
+.fr-report-summary > div {
+  border: 1px solid var(--panel-edge); background: var(--panel-2);
+  border-radius: 9px; padding: 12px 13px; min-width: 0;
+}
+.fr-report-summary dt { font-size: 11px; font-weight: 600; color: var(--muted); }
+.fr-report-summary dd { font-size: 13px; margin: 5px 0 0; font-weight: 700; overflow-wrap: anywhere; }
+.fr-report-verified { color: var(--green); }
+.fr-report-caution { color: var(--amber); }
+.fr-report-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 9px; }
+.fr-report-actions button { min-height: 35px; }
+.fr-report-preview { margin-top: 18px; border: 1px solid var(--panel-edge); border-radius: 8px; overflow: hidden; }
+.fr-report-preview summary { padding: 12px 14px; cursor: pointer; font-size: 12px; font-weight: 700; }
+.fr-report-preview summary:hover { color: var(--cyan); }
+.fr-report-preview > .muted, .fr-report-preview > div { padding: 10px 14px; }
+.fr-report-text {
+  margin: 0; padding: 17px; max-height: 480px; overflow: auto;
+  white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px;
+  line-height: 1.6; color: var(--ink); background: var(--panel-2);
+}
+.fr-report-footnote { margin: 14px 0 0; font-size: 11px; color: var(--muted); }
+.fr-report-error { margin: 10px 0; color: var(--red); }
+.fr-report-notice { margin: 10px 0; color: var(--green); }
+@media (max-width: 760px) { .fr-report-summary { grid-template-columns: 1fr; } }

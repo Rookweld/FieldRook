@@ -18,6 +18,7 @@ import type {
 } from "../types";
 import { ActionCenter } from "./ActionCenter";
 import { CaseDispositionCard } from "./CaseDispositionCard";
+import { CaseReportCard } from "./CaseReportCard";
 import { ResolutionWorkspace } from "./ResolutionWorkspace";
 import { WorkedBefore } from "./WorkedBefore";
 import { DiagnosisPanel } from "./DiagnosisPanel";
@@ -853,29 +854,10 @@ export function ProblemWorkstation({
                   onEvidenceClick={setSelectedEvidence}
                 />
               </details>
-              <section className="card">
-                <div className="card-head">
-                  <h2>Report export</h2>
-                  <div className="history-links">
-                    <a
-                      className="link-button"
-                      href={`/api/investigations/${encodeURIComponent(investigation.investigation_id)}/export?format=markdown`}
-                    >
-                      Download Markdown
-                    </a>
-                    <a
-                      className="link-button"
-                      href={`/api/investigations/${encodeURIComponent(investigation.investigation_id)}/export?format=json`}
-                    >
-                      Download JSON
-                    </a>
-                  </div>
-                </div>
-                <p className="muted">
-                  Ticket-ready report: summary, timeline, evidence, proposals, approvals, execution
-                  records, and the verified outcome.
-                </p>
-              </section>
+              <CaseReportCard
+                key={`${investigation.investigation_id}:${investigation.activity.length}:${investigation.closed_at ?? "open"}`}
+                investigation={investigation}
+              />
             </div>
           )}
         </>

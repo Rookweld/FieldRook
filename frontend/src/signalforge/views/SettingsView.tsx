@@ -11,6 +11,8 @@ export function SettingsView({ status, investigation }: SettingsViewProps) {
     typeof window.matchMedia === "function" &&
     window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   const [shellVersion, setShellVersion] = useState<string | null>(null);
+  const [supportCopied, setSupportCopied] = useState(false);
+  const [supportError, setSupportError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -26,6 +28,33 @@ export function SettingsView({ status, investigation }: SettingsViewProps) {
       cancelled = true;
     };
   }, []);
+
+  async function copySupportSummary(): Promise<void> {
+    setSupportCopied(false);
+    setSupportError(null);
+    // Only product/runtime metadata. Never include evidence, host identity,
+    // server logs, API keys, path names or technician notes in clipboard copy.
+    const summary = [
+      "FieldRook — support diagnostics",
+      `Backend: ${status ? "connected" : "not connected"}`,
+      `Backend version: ${status?.version ?? "unavailable"}`,
+      `Service identity: ${status?.service ?? "unavailable"}`,
+      `Platform: ${status?.platform ?? "unavailable"}`,
+      `Reasoning: ${status?.model_mode ?? "unavailable"}`,
+      `Diagnostics: ${status?.live_diagnostics_available ? "read-only live tools available" : "fixture-only or disconnected"}`,
+      `Desktop shell: ${shellVersion ?? "not detected"}`,
+      "Evidence, notes, credentials and logs are intentionally excluded.",
+    ].join("\n");
+    try {
+      if (!navigator.clipboard?.writeText) {
+        throw new Error("Clipboard access is unavailable in this window.");
+      }
+      await navigator.clipboard.writeText(summary);
+      setSupportCopied(true);
+    } catch (error) {
+      setSupportError(error instanceof Error ? error.message : String(error));
+    }
+  }
 
   return (
     <section className="sf-screen" aria-label="Settings">
@@ -84,14 +113,36 @@ export function SettingsView({ status, investigation }: SettingsViewProps) {
             {prefersReduced ? ", and this system currently prefers reduced motion" : ""}.
           </p>
         </div>
-        <div className="sf-utility-card">
-          <h2>Standalone service diagnostics</h2>
+        <div className="sf-utility-card sf-support">
+          <h2>Support &amp; troubleshooting</h2>
           <p>
-            Service lookup, preserved: diagnose a Windows service directly, without opening a
-            full investigation.
+            If the service is unavailable, FieldRook checks again automatically.
+            Restart the Windows desktop app if it cannot recover.
+          </p>
+          <p>
+            Desktop diagnostic logs are stored locally under{" "}
+            <code>%LOCALAPPDATA%\FieldRook\logs</code>.
+            The native error screen also has an Open logs shortcut.
+          </p>
+          <button className="sf-btn sf-btn-dark sf-btn-sm" type="button"
+            onClick={() => void copySupportSummary()}>
+            Copy safe support summary
+          </button>
+          {supportCopied && (
+            <p className="sf-support-ok" role="status">
+              Support summary copied. No case content, secrets or logs were included.
+            </p>
+          )}
+          {supportError && <p className="sf-support-error" role="alert">Copy failed: {supportError}</p>}
+        </div>
+        <details className="sf-utility-card sf-advanced-tools">
+          <summary>Advanced tools · standalone service inspection</summary>
+          <p>
+            Inspect a Windows service without creating a case. This is an advanced
+            diagnostic surface, not part of the normal case workflow.
           </p>
           <ServiceWorkstation />
-        </div>
+        </details>
         <div className="sf-utility-card">
           <h2>About</h2>
           <p>FieldRook by ROOKWELD. A technician-first workspace for evidence-led investigations.</p>

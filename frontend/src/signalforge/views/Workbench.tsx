@@ -1,5 +1,6 @@
 import { type ReactNode } from "react";
 import type { InvestigationResponse } from "../../types";
+import { caseDispositionLabel } from "../../casePresentation";
 import type { WorkbenchProps } from "../types";
 
 import "./Workbench.css";
@@ -209,7 +210,7 @@ export function Workbench({
         <div className="sf-hero-head">
           <span className="sf-hero-chip">
             {investigation.disposition && investigation.disposition !== "open"
-              ? `FILED · ${investigation.disposition.replace(/_/g, " ")}`
+              ? `FILED · ${caseDispositionLabel(investigation.disposition, true)}`
               : investigation.stage.replace(/_/g, " ")}
           </span>
           <span className="sf-hero-id">
@@ -228,7 +229,7 @@ export function Workbench({
       <div className="sf-work-content">
         {investigation.disposition && investigation.disposition !== "open" ? (
           <div className="sf-case-filed" role="status">
-            This case is filed as <strong>{investigation.disposition.replace(/_/g, " ")}</strong>.
+            This case is filed as <strong>{caseDispositionLabel(investigation.disposition)}</strong>.
             <button type="button" className="sf-inline-link" onClick={onOpenResolve}>
               Review filing or reopen ↗
             </button>

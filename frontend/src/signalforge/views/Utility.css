@@ -356,3 +356,17 @@
 .sf-lens-cxlist p {
   margin: 2px 0;
 }
+
+/* M037: support tools are discoverable without crowding ordinary settings. */
+.sf-support code { overflow-wrap: anywhere; }
+.sf-support button { margin-top: 7px; }
+.sf-support-ok { color: var(--lime); font-size: 12px; }
+.sf-support-error { color: var(--coral); font-size: 12px; }
+.sf-advanced-tools { margin-top: 0; }
+.sf-advanced-tools > summary {
+  cursor: pointer; font-size: 15px; font-weight: 800;
+  color: var(--offwhite); padding: 2px 0;
+}
+.sf-advanced-tools > summary:hover { color: var(--lime); }
+.sf-advanced-tools > summary:focus-visible { outline: 2px solid var(--lime); outline-offset: 3px; }
+.sf-advanced-tools[open] > summary { margin-bottom: 13px; }
