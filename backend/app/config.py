@@ -71,6 +71,7 @@ class Settings:
     local_think: str = "auto"  # "auto" | "on" | "off" (auto disables thinking for task calls)
     local_num_gpu: int | None = None  # None = server decides; 0 forces CPU-only
     info_gain_mode: str = "observe"  # off|observe|enforce; default does not change model decisions
+    hypothesis_decision_mode: str = "observe"  # off|observe|require_review; opt-in guard
 
 
 def load_settings() -> Settings:
@@ -102,6 +103,11 @@ def load_settings() -> Settings:
     info_gain_mode = os.environ.get("FIELDROOK_INFO_GAIN_MODE", "observe").strip().lower()
     if info_gain_mode not in ("off", "observe", "enforce"):
         info_gain_mode = "observe"
+    hypothesis_decision_mode = os.environ.get(
+        "FIELDROOK_HYPOTHESIS_DECISION_MODE", "observe"
+    ).strip().lower()
+    if hypothesis_decision_mode not in ("off", "observe", "require_review"):
+        hypothesis_decision_mode = "observe"
     return Settings(
         model_api_key=raw_key or None,
         model_base_url=os.environ.get("MODEL_BASE_URL", DEFAULT_MODEL_BASE_URL).strip()
@@ -121,4 +127,5 @@ def load_settings() -> Settings:
         local_think=local_think,
         local_num_gpu=local_num_gpu,
         info_gain_mode=info_gain_mode,
+        hypothesis_decision_mode=hypothesis_decision_mode,
     )

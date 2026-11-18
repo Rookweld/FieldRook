@@ -435,6 +435,10 @@ def save_state(state: Any) -> None:
             "target": getattr(state, "target", "local"),
             "provider_override": getattr(state, "provider_override", None),
             "hypotheses": [h.model_dump(mode="json") for h in getattr(state, "hypotheses", []) or []],
+            "hypothesis_decisions": [
+                item.model_dump(mode="json")
+                for item in getattr(state, "hypothesis_decisions", []) or []
+            ],
             "plan": plan.model_dump(mode="json") if plan is not None else None,
             "questions": [q.model_dump(mode="json") for q in getattr(state, "questions", []) or []],
             "understanding": getattr(state, "understanding", ""),
@@ -503,6 +507,7 @@ def load_state(investigation_id: str) -> Any | None:
         CitationRecord,
         CollectorPackageRecord,
         Hypothesis,
+        HypothesisDecisionRecord,
         RegressionCheck,
         ResolutionPlan,
         TargetIdentity,
@@ -689,6 +694,11 @@ def load_state(investigation_id: str) -> Any | None:
                 Hypothesis.model_validate(h)
                 for h in assist_doc.get("hypotheses") or []
                 if isinstance(h, dict)
+            ],
+            hypothesis_decisions=[
+                HypothesisDecisionRecord.model_validate(x)
+                for x in assist_doc.get("hypothesis_decisions") or []
+                if isinstance(x, dict)
             ],
             plan=TroubleshootPlan.model_validate(assist_plan)
             if isinstance(assist_plan, dict)

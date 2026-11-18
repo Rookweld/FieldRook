@@ -890,6 +890,57 @@ export function GuidePanel({
         </section>
       )}
 
+      {(investigation.hypothesis_decisions?.length ?? 0) > 0 && (
+        <section className="card" aria-label="Hypothesis decision evidence review">
+          <div className="card-head">
+            <h2>Hypothesis decision journal</h2>
+            <span className="muted">source IDs ≠ causal proof</span>
+          </div>
+          <p className="muted">
+            Model-proposed changes are shown with their source references.
+            Technician reports are not host measurements. In review-required
+            mode, use "Record your judgment" under the hypothesis to accept
+            or override the proposed change.
+          </p>
+          <ul className="guide-list">
+            {(investigation.hypothesis_decisions ?? []).slice(-12).reverse().map((decision) => (
+              <li className="guide-hyp" key={decision.decision_id}>
+                <div className="guide-step-head">
+                  <strong>{decision.hypothesis_title}</strong>
+                  <span className="muted">
+                    {decision.proposed_status.replace("_", " ")} · {decision.review_state.split("_").join(" ")}
+                  </span>
+                </div>
+                <p className="muted">
+                  {decision.decision_id} · round {decision.round} ·
+                  source check: {decision.link_status.split("_").join(" ")}
+                </p>
+                {decision.reason && <p>{decision.reason}</p>}
+                {decision.evidence_ids.length > 0 && (
+                  <div className="guide-refs">
+                    {decision.evidence_ids.map((id) => (
+                      <EvidenceChip key={id} id={id} onSelect={onEvidenceClick} />
+                    ))}
+                  </div>
+                )}
+                {decision.measured_evidence_ids.length > 0 && (
+                  <p className="muted">Recorded host measurements: {decision.measured_evidence_ids.length}</p>
+                )}
+                {decision.report_refs.length > 0 && (
+                  <p className="muted">
+                    Technician report references: {decision.report_refs.join(", ")} (reported, not measured)
+                  </p>
+                )}
+                {decision.rejected_refs.length > 0 && (
+                  <p className="muted">Rejected source references: {decision.rejected_refs.join(", ")}</p>
+                )}
+                <p className="muted">{decision.provenance_note}</p>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
       {investigation.hypotheses.length > 0 && (
         <section className="card">
           <div className="card-head">

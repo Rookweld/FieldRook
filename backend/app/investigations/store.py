@@ -21,6 +21,7 @@ from ..schemas import (
     EvidenceItem,
     EvidenceRefresh,
     Hypothesis,
+    HypothesisDecisionRecord,
     InvestigationResponse,
     InvestigationSummary,
     ProviderInfo,
@@ -65,6 +66,7 @@ class InvestigationState:
     target: str = "local"
     provider_override: str | None = None
     hypotheses: list[Hypothesis] = field(default_factory=list)
+    hypothesis_decisions: list[HypothesisDecisionRecord] = field(default_factory=list)
     plan: TroubleshootPlan | None = None
     questions: list[ClarifyingQuestion] = field(default_factory=list)
     understanding: str = ""
@@ -241,6 +243,7 @@ class InvestigationState:
             target=self.target if self.target in ("local", "remote", "unknown") else "local",  # type: ignore[arg-type]
             understanding=self.understanding,
             hypotheses=list(self.hypotheses),
+            hypothesis_decisions=list(self.hypothesis_decisions),
             plan=self.plan,
             questions=list(self.questions),
             provider_info=self.provider_info(),

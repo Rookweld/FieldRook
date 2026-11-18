@@ -1179,3 +1179,166 @@ def test_m033f_no_extra_inference_call_on_observation() -> None:
     asyncio.run(_run_local_tasks(state, provider, _settings(), True))
     assert provider.calls == ["reassess"]
     assert not any(a.title == "Evidence integrity review" for a in state.activity)
+
+
+# ---------------------------------------------------------------------------
+# M033-G — evidence-linked hypothesis proposal journal (actual local pipeline)
+# ---------------------------------------------------------------------------
+
+
+def test_m033g_shadow_journal_does_not_change_reassessment_result() -> None:
+    from app.schemas import Hypothesis
+
+    state = _pipeline_state(target="remote")
+    state.hypotheses.append(Hypothesis(
+        hypothesis_id="h-file", title="File corruption"
+    ))
+    state.messages.append({
+        "role": "user",
+        "content": "Technician observation: Another user opened the same file successfully.",
+    })
+    provider = _TaskProvider({"reassess": {
+        "verdict": "One user can open the same file.",
+        "weakened": ["File corruption"],
+        "next_step": "Try the same file through SharePoint web.",
+        "decision_links": [{
+            "hypothesis": "File corruption",
+            "report_refs": ["report:1"],
+            "why": "The same file opened for another user.",
+        }],
+    }})
+    asyncio.run(_run_local_tasks(state, provider, _settings(), True))
+    assert provider.calls == ["reassess"]
+    assert state.assessment is not None
+    assert [x.status for x in state.assessment.suggested_hypotheses] == ["weakened"]
+    assert len(state.hypothesis_decisions) == 1
+    record = state.hypothesis_decisions[0]
+    assert record.hypothesis_id == "h-file"
+    assert record.link_status == "report_only"
+    assert record.review_state == "observed"
+    assert record.report_refs == ["report:1"]
+    assert any(a.title == "Hypothesis decision source review" for a in state.activity)
+
+
+def test_m033g_require_review_holds_model_weakening_without_losing_next_step() -> None:
+    from app.schemas import Hypothesis
+
+    state = _pipeline_state(target="remote")
+    state.hypotheses.append(Hypothesis(
+        hypothesis_id="h-driver", title="Network driver conflict"
+    ))
+    state.messages.append({
+        "role": "user",
+        "content": "Technician observation: Windows Update installed a new network driver.",
+    })
+    provider = _TaskProvider({"reassess": {
+        "verdict": "A new driver update coincides with the crash.",
+        "weakened": ["Network driver conflict"],
+        "next_step": "Check when the crash began after the update.",
+        "decision_links": [{
+            "hypothesis": "Network driver conflict",
+            "report_refs": ["report:1"],
+            "why": "The driver changed before the crash.",
+        }],
+    }})
+    asyncio.run(_run_local_tasks(
+        state, provider, _settings(hypothesis_decision_mode="require_review"), True,
+    ))
+    assert provider.calls == ["reassess"]
+    assert state.assessment is not None
+    assert not state.assessment.suggested_hypotheses
+    assert len(state.hypothesis_decisions) == 1
+    assert state.hypothesis_decisions[0].review_state == "pending_technician"
+    assert state.hypotheses[0].status == "active"
+    assert "Check when the crash" in state.assessment.suggested_plan.steps[0].instruction
+    assert any(a.title == "Hypothesis review required" for a in state.activity)
+    assert any(
+        a.title == "Evidence integrity review"
+        and "correlated-change-weakened" in a.detail
+        for a in state.activity
+    ), "Holding a model downgrade must not conceal it from the M033-F auditor"
+
+
+def test_m033g_uninformative_reply_still_has_m033b_guard_first() -> None:
+    from app.schemas import Hypothesis
+
+    state = _pipeline_state(target="remote")
+    state.hypotheses.append(Hypothesis(
+        hypothesis_id="h1", title="User profile corruption"
+    ))
+    state.messages.append({
+        "role": "user", "content": "Technician answer: I don't know.",
+    })
+    provider = _TaskProvider({"reassess": {
+        "verdict": "Must be wrong credentials.",
+        "weakened": ["User profile corruption"],
+        "next_step": "Try an alternative user profile.",
+        "decision_links": [{
+            "hypothesis": "User profile corruption", "report_refs": ["report:1"],
+        }],
+    }})
+    asyncio.run(_run_local_tasks(
+        state, provider, _settings(hypothesis_decision_mode="require_review"), True,
+    ))
+    assert provider.calls == ["reassess"]
+    assert not state.hypothesis_decisions, "Suppressed invalid downgrade should not be proposed"
+    assert any(a.title == "Hypothesis integrity guard" for a in state.activity)
+
+
+def test_m033g_off_switch_retains_legacy_without_audit() -> None:
+    from app.schemas import Hypothesis
+
+    state = _pipeline_state(target="remote")
+    state.hypotheses.append(Hypothesis(hypothesis_id="h1", title="Broken client"))
+    state.messages.append({
+        "role": "user",
+        "content": "Technician observation: The same user works in a browser.",
+    })
+    provider = _TaskProvider({"reassess": {
+        "verdict": "A browser succeeds.",
+        "weakened": ["Broken client"],
+        "next_step": "Check client startup.",
+    }})
+    asyncio.run(_run_local_tasks(
+        state, provider, _settings(hypothesis_decision_mode="off"), True,
+    ))
+    assert provider.calls == ["reassess"]
+    assert state.hypothesis_decisions == []
+    assert state.assessment is not None
+    assert [x.status for x in state.assessment.suggested_hypotheses] == ["weakened"]
+    assert not any(a.title == "Hypothesis decision source review" for a in state.activity)
+
+
+def test_m033g_mode_is_explicit_and_fails_safe(monkeypatch) -> None:
+    from app.config import load_settings
+
+    monkeypatch.setenv("FIELDROOK_OFFLINE", "1")
+    monkeypatch.delenv("FIELDROOK_HYPOTHESIS_DECISION_MODE", raising=False)
+    assert load_settings().hypothesis_decision_mode == "observe"
+    monkeypatch.setenv("FIELDROOK_HYPOTHESIS_DECISION_MODE", "require_review")
+    assert load_settings().hypothesis_decision_mode == "require_review"
+    monkeypatch.setenv("FIELDROOK_HYPOTHESIS_DECISION_MODE", "unexpected")
+    assert load_settings().hypothesis_decision_mode == "observe"
+
+
+def test_m033g_require_review_stays_active_after_assist_merges() -> None:
+    from app.analysis.assist import refresh_assist
+    from app.schemas import Hypothesis
+
+    state=_pipeline_state(target="remote")
+    state.hypotheses.append(Hypothesis(hypothesis_id="h-driver",title="Network driver conflict"))
+    state.messages.append({
+        "role":"user","content":"Technician observation: Windows updated a driver yesterday.",
+    })
+    provider=_TaskProvider({"reassess":{
+        "verdict":"The driver could be involved.",
+        "weakened":["Network driver conflict"],
+        "next_step":"Inspect the exact update timestamp.",
+    }})
+    asyncio.run(_run_local_tasks(
+        state,provider,_settings(hypothesis_decision_mode="require_review"),True,
+    ))
+    refresh_assist(state,1)
+    assert state.hypotheses[0].status=="active", "Model cannot bypass pending review through merge"
+    assert state.hypothesis_decisions[0].review_state=="pending_technician"
+    assert any(a.title=="Hypothesis decision source review" for a in state.activity)

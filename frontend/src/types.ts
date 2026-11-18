@@ -376,6 +376,7 @@ export interface InvestigationResponse {
   target: DiagnosisTarget;
   understanding: string;
   hypotheses: Hypothesis[];
+  hypothesis_decisions?: HypothesisDecisionRecord[];
   plan: TroubleshootPlan | null;
   questions: ClarifyingQuestion[];
   provider_info: ProviderInfo | null;
@@ -446,6 +447,22 @@ export type InvestigationStage =
   | "BLOCKED";
 
 export type HypothesisStatus = "active" | "weakened" | "ruled_out" | "confirmed";
+
+export interface HypothesisDecisionRecord {
+  decision_id: string;
+  round: number;
+  hypothesis_id: string;
+  hypothesis_title: string;
+  proposed_status: HypothesisStatus;
+  reason: string;
+  evidence_ids: string[];
+  measured_evidence_ids: string[];
+  report_refs: string[];
+  rejected_refs: string[];
+  link_status: "uncited" | "invalid" | "report_only" | "evidence_cited" | "mixed";
+  review_state: "observed" | "pending_technician" | "technician_applied" | "technician_overrode";
+  provenance_note: string;
+}
 
 export interface HypothesisEvent {
   round: number;

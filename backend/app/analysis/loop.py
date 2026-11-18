@@ -592,7 +592,11 @@ async def _run_local_tasks(
     from .assist import _looks_uninformative
     from .information_gain import review_task_question
     from .evidence_integrity import audit_reassessment, format_audit_note
+    from .hypothesis_decisions import review_hypothesis_changes, technician_report_refs
 
+    decision_mode = str(getattr(settings, "hypothesis_decision_mode", "observe")).lower()
+    if decision_mode not in ("off", "observe", "require_review"):
+        decision_mode = "observe"
     info_gain_mode = str(getattr(settings, "info_gain_mode", "observe")).lower()
     if info_gain_mode not in ("off", "observe", "enforce"):
         info_gain_mode = "observe"
@@ -706,7 +710,17 @@ async def _run_local_tasks(
             "reassess",
             reassess_prompt(titles, observation, asked, thin_streak=thin, collector_capabilities=_forge_caps or None, knowledge_questions=_forge_kq or None, knowledge_context=_k_context or None, information_gain=information_gain)
             + (" A newly authorized screenshot is attached: use only what is visible and do not invent unreadable text."
-               if fresh_visual_observation else ""),
+               if fresh_visual_observation else "")
+            + (
+                " Optional JSON: decision_links=[{hypothesis, evidence_ids, report_refs, why}]. "
+                "Cite only supplied IDs; citations do not prove causal claims. "
+                "Current report ref: "
+                + ", ".join(technician_report_refs(state.messages)[-1:])
+                + ". Available evidence IDs: "
+                + ", ".join(item.id for item in state.evidence[-8:])
+                + ". Never invent IDs or claim reports are direct measurements."
+                if decision_mode == "require_review" else ""
+            ),
             images=fresh_images[:4] if fresh_visual_observation else None,
             cancel_scope=_scope_of(state),
         )
@@ -731,6 +745,41 @@ async def _run_local_tasks(
                     "The technician had no new diagnostic information; prior "
                     "hypotheses were preserved. Next safe questions remain available.",
                 )
+        # Audit the model's guarded-but-original proposal: require_review
+        # may suppress execution, but must not hide suspect claims from M033-F.
+        reassess_for_integrity_audit = reassess
+        if reassess is not None and decision_mode != "off":
+            # M033-G: report reference IDs are stable message-order locators,
+            # not collected/verified host evidence. Model references are
+            # validated against the investigation before entering the journal.
+            reviewed, decisions = review_hypothesis_changes(
+                reassess,
+                hypotheses=state.hypotheses,
+                evidence=state.evidence,
+                messages=state.messages,
+                round_no=state.rounds_used + 1,
+                start_index=len(state.hypothesis_decisions),
+                mode=decision_mode,
+                target=state.target,
+            )
+            if decisions:
+                state.hypothesis_decisions.extend(decisions)
+                for decision in decisions:
+                    state.add_activity(
+                        "note", "Hypothesis decision source review",
+                        f"{decision.decision_id}: proposed {decision.proposed_status}; "
+                        f"references={decision.link_status}; "
+                        f"state={decision.review_state}. A citation is not proof.",
+                        evidence_ids=list(decision.evidence_ids),
+                    )
+            if decision_mode == "require_review":
+                reassess = reviewed
+                if decisions:
+                    state.add_activity(
+                        "note", "Hypothesis review required",
+                        "Model-proposed hypothesis downgrades were held for "
+                        "explicit technician judgment; next checks remain available.",
+                    )
         if reassess is not None and info_gain_mode != "off":
             # M033-F is an auditable consistency review, never a diagnosis or
             # another inference call. Even 'enforce' doesn't rewrite substantive
@@ -746,7 +795,7 @@ async def _run_local_tasks(
                 and isinstance(message.get("content"), str)
             ]
             integrity_findings = audit_reassessment(
-                reassess,
+                reassess_for_integrity_audit,
                 problem=state.problem,
                 observation=observation,
                 evidence=state.evidence,

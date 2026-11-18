@@ -296,6 +296,7 @@ class InvestigationResponse(BaseModel):
     target: DiagnosisTarget = "local"
     understanding: str = ""
     hypotheses: list[Hypothesis] = Field(default_factory=list)
+    hypothesis_decisions: list["HypothesisDecisionRecord"] = Field(default_factory=list)
     plan: TroubleshootPlan | None = None
     questions: list[ClarifyingQuestion] = Field(default_factory=list)
     provider_info: ProviderInfo | None = None
@@ -536,6 +537,32 @@ class SuggestedQuestion(BaseModel):
 
     question: str
     why: str = ""
+
+
+class HypothesisDecisionRecord(BaseModel):
+    """M033-G: model proposal with validated source references, not a diagnosis.
+
+    IDs only become *valid references* when matched to existing evidence or
+    technician messages. A valid reference never proves a causal conclusion.
+    """
+    decision_id: str
+    round: int = 0
+    hypothesis_id: str
+    hypothesis_title: str
+    proposed_status: HypothesisStatus = "weakened"
+    reason: str = ""
+    evidence_ids: list[str] = Field(default_factory=list)
+    measured_evidence_ids: list[str] = Field(default_factory=list)
+    report_refs: list[str] = Field(default_factory=list)
+    rejected_refs: list[str] = Field(default_factory=list)
+    link_status: Literal[
+        "uncited", "invalid", "report_only", "evidence_cited", "mixed"
+    ] = "uncited"
+    review_state: Literal[
+        "observed", "pending_technician", "technician_applied",
+        "technician_overrode"
+    ] = "observed"
+    provenance_note: str = "Citations identify sources; causal support remains unverified."
 
 
 class HypothesisEvent(BaseModel):

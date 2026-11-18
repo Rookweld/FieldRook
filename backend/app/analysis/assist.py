@@ -230,7 +230,34 @@ def mark_hypothesis(
     hyp = next((h for h in state.hypotheses if h.hypothesis_id == hypothesis_id), None)
     if hyp is None:
         return False
-    return _set_hypothesis_status(hyp, status, reason, round_no)
+    changed = _set_hypothesis_status(hyp, status, reason, round_no)
+    reviewed = False
+    if reason.startswith("Technician "):
+        # An explicit judgment may accept/override a pending proposal even
+        # when the selected status already matches the current hypothesis.
+        # The status history must still capture that manual decision, so
+        # subsequent model reassessments cannot silently replace it.
+        for decision in reversed(getattr(state, "hypothesis_decisions", [])):
+            if (decision.hypothesis_id == hypothesis_id
+                    and decision.review_state == "pending_technician"):
+                if not changed:
+                    hyp.updated_round = round_no
+                    hyp.history.append(HypothesisEvent(
+                        round=round_no, status=status, reason=reason[:500],
+                    ))
+                decision.review_state = (
+                    "technician_applied" if status == decision.proposed_status
+                    else "technician_overrode"
+                )
+                state.add_activity(
+                    "note", "Hypothesis decision reviewed",
+                    f"{decision.decision_id}: {decision.review_state}. "
+                    "Explicit technician judgment recorded.",
+                    evidence_ids=list(decision.evidence_ids),
+                )
+                reviewed = True
+                break
+    return changed or reviewed
 
 
 # ---------------------------------------------------------------------------
