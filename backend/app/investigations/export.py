@@ -247,6 +247,15 @@ def build_markdown(state: Any) -> str:
     if not data.get("citations"):
         add("(none recorded)")
     add("")
+    add("## 20. Case disposition (technician-reported)")
+    disposition = data.get("disposition") or "open"
+    add(f"Filing: {disposition.replace('_', ' ')}")
+    if data.get("closed_at"):
+        add(f"Filed at: {data['closed_at']}")
+    if data.get("closure_note"):
+        add(f"Technician's note: {data['closure_note']}")
+    add("This filing is administrative. A 'resolved' filing is NOT automatically a measured, verified fix.")
+    add("")
     add("---")
     add(f"Exported {data['exported_at']} by FieldRook. OBSERVED facts are measured; INFERRED causes are hypotheses.")
     return "\n".join(lines) + "\n"

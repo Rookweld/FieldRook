@@ -194,6 +194,15 @@ export function App() {
     }, 80);
   }, [go]);
 
+  const openResolve = useCallback(() => {
+    go("workbench");
+    window.setTimeout(() => {
+      const tab = document.getElementById("sf-engine-tab-resolve");
+      tab?.click();
+      tab?.scrollIntoView({ block: "center" });
+    }, 80);
+  }, [go]);
+
   // Window-level .zip drop → consented import into the open case. The engine
   // owns case state, so a successful import reseeds + remounts it from the
   // server response (same machinery as opening a case): no stale views.
@@ -287,6 +296,7 @@ export function App() {
             onGoEvidence={() => navigate("evidence")}
             onGoLaunchpad={() => navigate("launchpad")}
             onOpenGuide={openGuide}
+            onOpenResolve={openResolve}
           >
             <ProblemWorkstation
               key={`${seeded?.investigation_id ?? "new"}:${session}`}

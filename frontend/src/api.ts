@@ -263,6 +263,21 @@ export function addInvestigationNote(
   );
 }
 
+export function setCaseDisposition(
+  id: string,
+  disposition: "open" | "resolved" | "needs_followup" | "handed_off",
+  note = "",
+): Promise<InvestigationResponse> {
+  return requestInvestigation(
+    `/api/investigations/${encodeURIComponent(id)}/disposition`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ disposition, note }),
+    },
+  );
+}
+
 export interface ReverifyOptions {
   /** Optional abort signal: dropping the local wait (the server read may still land). */
   signal?: AbortSignal;

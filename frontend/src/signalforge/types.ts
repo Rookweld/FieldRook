@@ -42,6 +42,7 @@ export type WorkbenchProps = {
   onGoEvidence: () => void;
   onGoLaunchpad: () => void;
   onOpenGuide: () => void;
+  onOpenResolve: () => void;
 };
 
 /** Standalone evidence forensics: read-only inspection from typed props. */

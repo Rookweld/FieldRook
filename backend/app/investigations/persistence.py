@@ -434,6 +434,9 @@ def save_state(state: Any) -> None:
         assist_doc = {
             "target": getattr(state, "target", "local"),
             "provider_override": getattr(state, "provider_override", None),
+            "disposition": getattr(state, "disposition", "open"),
+            "closed_at": _iso(state.closed_at) if getattr(state, "closed_at", None) else None,
+            "closure_note": getattr(state, "closure_note", ""),
             "hypotheses": [h.model_dump(mode="json") for h in getattr(state, "hypotheses", []) or []],
             "hypothesis_decisions": [
                 item.model_dump(mode="json")
@@ -676,6 +679,10 @@ def load_state(investigation_id: str) -> Any | None:
             else None,
             warnings=[],
             status=row["status"] or "complete",
+            disposition=assist_doc.get("disposition") or "open",
+            closed_at=_parse_dt(assist_doc["closed_at"])
+            if assist_doc.get("closed_at") else None,
+            closure_note=str(assist_doc.get("closure_note") or ""),
             tool_calls_made=row["tool_calls_made"] or 0,
             ev_counter=row["ev_counter"] or 0,
             seq_counter=row["seq_counter"] or 0,
@@ -765,11 +772,24 @@ def list_states(limit: int = 50) -> list[dict[str, Any]]:
             evidence_count = conn.execute(
                 "SELECT COUNT(*) FROM evidence WHERE inv_id = ?", (row["id"],)
             ).fetchone()[0]
+            assist_row = conn.execute(
+                "SELECT doc_json FROM assist WHERE inv_id = ?", (row["id"],)
+            ).fetchone()
+            case_doc = {}
+            if assist_row:
+                try:
+                    value = json.loads(assist_row["doc_json"] or "{}")
+                    if isinstance(value, dict):
+                        case_doc = value
+                except ValueError:
+                    pass
             summaries.append(
                 {
                     "investigation_id": row["id"],
                     "problem": row["problem"],
                     "status": row["status"],
+                    "disposition": case_doc.get("disposition") or "open",
+                    "closed_at": case_doc.get("closed_at"),
                     "analysis_mode": row["mode"],
                     "model": row["model"],
                     "created_at": row["created_at"],

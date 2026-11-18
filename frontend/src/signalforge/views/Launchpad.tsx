@@ -22,7 +22,7 @@ export function Launchpad({
   const search = query.trim().toLocaleLowerCase();
   const filtered = search
     ? recents.filter((item) =>
-        `${item.problem} ${item.status} ${item.investigation_id}`.toLocaleLowerCase().includes(search),
+        `${item.problem} ${item.status} ${item.disposition ?? "open"} ${item.investigation_id}`.toLocaleLowerCase().includes(search),
       )
     : recents;
   const visible = search || showAll ? filtered : filtered.slice(0, RECENT_PREVIEW);
@@ -124,7 +124,11 @@ export function Launchpad({
                       JSON
                     </a>
                   </span>
-                  <span className="sf-recent-status">{item.status}</span>
+                  <span className="sf-recent-status">
+                    {item.disposition && item.disposition !== "open"
+                      ? item.disposition.replace(/_/g, " ")
+                      : "Open"}
+                  </span>
                 </div>
               ))}
             </div>

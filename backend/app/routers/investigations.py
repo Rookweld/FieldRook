@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 
@@ -24,6 +25,7 @@ from ..diagnostics.service_allowlist import InvalidServiceNameError, validate_se
 from ..investigations import export as exporters
 from ..investigations.store import store
 from ..schemas import (
+    CaseDispositionRequest,
     FollowupRequest,
     HypothesisStatusRequest,
     InvestigationResponse,
@@ -237,6 +239,55 @@ async def add_investigation_note(investigation_id: str, request: NoteRequest) ->
     uses_fixtures = settings.fixtures_mode == "always" or state.mode == "simulated"
     store.save(state)
     return state.to_response(uses_fixtures=uses_fixtures)
+
+
+@router.post("/api/investigations/{investigation_id}/disposition", response_model=InvestigationResponse)
+def set_case_disposition(
+    investigation_id: str, request: CaseDispositionRequest
+) -> InvestigationResponse:
+    """Technician-reported case filing, NOT a verified technical outcome.
+
+    Reopening preserves earlier closure notes in the case's append-only
+    technician notes and activity history. This is an administrative label:
+    it does not authorize actions, alter evidence or bypass verification.
+    """
+    state = store.get(investigation_id)
+    if state is None:
+        raise HTTPException(status_code=404, detail=f"Unknown investigation {investigation_id!r}.")
+
+    note = request.note.strip()
+    disposition = request.disposition
+    if disposition != "open" and not note:
+        raise HTTPException(status_code=422, detail="A closure or handoff note is required.")
+
+    if disposition == state.disposition and (
+        disposition == "open" or state.closure_note == note
+    ):
+        settings = load_settings()
+        fixtures = settings.fixtures_mode == "always" or state.mode == "simulated"
+        return state.to_response(uses_fixtures=fixtures)
+
+    previous = state.disposition
+    if disposition == "open":
+        state.disposition = "open"
+        state.closed_at = None
+        state.closure_note = ""
+        state.add_activity("note", "Case reopened", f"Previously filed as {previous}.")
+    else:
+        state.disposition = disposition
+        state.closed_at = datetime.now(timezone.utc)
+        state.closure_note = note
+        state.add_note(f"Technician case filing ({disposition.replace('_', ' ')}): {note}")
+        state.add_activity(
+            "note",
+            f"Case filed: {disposition.replace('_', ' ')}",
+            "Technician-reported status; technical resolution requires separate evidence verification.",
+        )
+
+    store.save(state)
+    settings = load_settings()
+    fixtures = settings.fixtures_mode == "always" or state.mode == "simulated"
+    return state.to_response(uses_fixtures=fixtures)
 
 
 @router.post("/api/investigations/{investigation_id}/reverify", response_model=InvestigationResponse)

@@ -1,0 +1,25 @@
+/* M036: case filing is an administrative technician decision, not a verifier. */
+.fr-case-disposition { border-color: var(--line); }
+.fr-case-disposition .card-head { align-items: center; }
+.fr-filing-form { display: grid; gap: 12px; max-width: 680px; }
+.fr-filing-form .field { margin: 0; }
+.fr-filing-form textarea {
+  width: 100%; box-sizing: border-box; min-height: 76px; resize: vertical;
+}
+.fr-filing-form > button { justify-self: start; }
+.fr-verification-notice {
+  padding: 10px 12px; border: 1px solid var(--line);
+  border-left: 3px solid var(--tangerine); border-radius: 6px;
+  color: var(--peach); margin: 0; font-size: 12px; line-height: 1.5;
+}
+.fr-filing-result { display: grid; gap: 10px; }
+.fr-filing-result > p { margin: 0; }
+.fr-filing-note { white-space: pre-wrap; overflow-wrap: anywhere; color: var(--peach); }
+.fr-filing-actions { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.fr-filing-actions a { color: var(--lime); font-size: 12px; }
+.sf-case-filed {
+  padding: 14px 17px; border: 1px solid var(--line);
+  border-left: 4px solid var(--lime); border-radius: 10px;
+  background: color-mix(in srgb, var(--aubergine) 75%, var(--void));
+  color: var(--peach); font-size: 12px;
+}

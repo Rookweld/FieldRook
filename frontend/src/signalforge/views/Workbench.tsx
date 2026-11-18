@@ -161,6 +161,7 @@ export function Workbench({
   onGoEvidence,
   onGoLaunchpad,
   onOpenGuide,
+  onOpenResolve,
   children,
 }: WorkbenchProps & { children: ReactNode }) {
   if (!investigation) {
@@ -206,7 +207,11 @@ export function Workbench({
     <section className="sf-screen" aria-label="Workbench">
       <div className="sf-hero sf-hero-case">
         <div className="sf-hero-head">
-          <span className="sf-hero-chip">{investigation.stage.replace(/_/g, " ")}</span>
+          <span className="sf-hero-chip">
+            {investigation.disposition && investigation.disposition !== "open"
+              ? `FILED · ${investigation.disposition.replace(/_/g, " ")}`
+              : investigation.stage.replace(/_/g, " ")}
+          </span>
           <span className="sf-hero-id">
             CASE · {investigation.investigation_id.slice(0, 8)} · {targetLabel(investigation)}
           </span>
@@ -221,7 +226,16 @@ export function Workbench({
 
       </div>
       <div className="sf-work-content">
-        <NextPanel investigation={investigation} onOpenGuide={onOpenGuide} />
+        {investigation.disposition && investigation.disposition !== "open" ? (
+          <div className="sf-case-filed" role="status">
+            This case is filed as <strong>{investigation.disposition.replace(/_/g, " ")}</strong>.
+            <button type="button" className="sf-inline-link" onClick={onOpenResolve}>
+              Review filing or reopen ↗
+            </button>
+          </div>
+        ) : (
+          <NextPanel investigation={investigation} onOpenGuide={onOpenGuide} />
+        )}
         <details className="sf-deep-dive">
           <summary>Case context &amp; recent activity</summary>
           <div className="sf-deep-dive-content">

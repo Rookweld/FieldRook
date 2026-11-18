@@ -17,6 +17,7 @@ import type {
   ServiceSummary,
 } from "../types";
 import { ActionCenter } from "./ActionCenter";
+import { CaseDispositionCard } from "./CaseDispositionCard";
 import { ResolutionWorkspace } from "./ResolutionWorkspace";
 import { WorkedBefore } from "./WorkedBefore";
 import { DiagnosisPanel } from "./DiagnosisPanel";
@@ -838,12 +839,20 @@ export function ProblemWorkstation({
 
           {view === "resolve" && (
             <div className="view-panel">
-              <ActionCenter investigation={investigation} onUpdate={setInvestigation} />
-              <ResolutionWorkspace
-                investigation={investigation}
-                onUpdate={setInvestigation}
-                onEvidenceClick={setSelectedEvidence}
-              />
+              <CaseDispositionCard investigation={investigation} onUpdate={setInvestigation} />
+              <details className="fr-details fr-technical-resolution">
+                <summary>Technical verification &amp; approved actions</summary>
+                <p className="muted">
+                  Measure a proposed fix, record remediation and review system-changing
+                  actions with explicit technician approval.
+                </p>
+                <ActionCenter investigation={investigation} onUpdate={setInvestigation} />
+                <ResolutionWorkspace
+                  investigation={investigation}
+                  onUpdate={setInvestigation}
+                  onEvidenceClick={setSelectedEvidence}
+                />
+              </details>
               <section className="card">
                 <div className="card-head">
                   <h2>Report export</h2>

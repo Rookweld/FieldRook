@@ -36,6 +36,8 @@ ActivityKind = Literal[
     "collector_import",
 ]
 InvestigationStatus = Literal["complete", "partial", "error"]
+# Administrative case disposition is separate from diagnostic engine status.
+CaseDisposition = Literal["open", "resolved", "needs_followup", "handed_off"]
 ActionProposalStatus = Literal[
     "PROPOSED",
     "AWAITING_APPROVAL",
@@ -272,6 +274,9 @@ class InvestigationResponse(BaseModel):
     problem: str
     service_name: str | None = None
     status: InvestigationStatus = "complete"
+    disposition: CaseDisposition = "open"
+    closed_at: datetime | None = None
+    closure_note: str = ""
     created_at: datetime
     uses_fixtures: bool = False
     analysis_mode: AnalysisMode = "simulated"
@@ -321,6 +326,11 @@ class FollowupRequest(BaseModel):
 
 class NoteRequest(BaseModel):
     text: str = Field(min_length=1, max_length=2000)
+
+
+class CaseDispositionRequest(BaseModel):
+    disposition: CaseDisposition
+    note: str = Field(default="", max_length=2000)
 
 
 class ReverifyRequest(BaseModel):
@@ -698,6 +708,8 @@ class InvestigationSummary(BaseModel):
     investigation_id: str
     problem: str
     status: InvestigationStatus
+    disposition: CaseDisposition = "open"
+    closed_at: datetime | None = None
     analysis_mode: AnalysisMode
     model: str
     created_at: str

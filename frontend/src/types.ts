@@ -347,11 +347,16 @@ export interface ActionExecution {
   error: string | null;
 }
 
+export type CaseDisposition = "open" | "resolved" | "needs_followup" | "handed_off";
+
 export interface InvestigationResponse {
   investigation_id: string;
   problem: string;
   service_name: string | null;
   status: "complete" | "partial" | "error";
+  disposition?: CaseDisposition;
+  closed_at?: string | null;
+  closure_note?: string;
   created_at: string;
   uses_fixtures: boolean;
   analysis_mode: "live" | "simulated";
@@ -394,6 +399,8 @@ export interface InvestigationSummary {
   investigation_id: string;
   problem: string;
   status: string;
+  disposition?: CaseDisposition;
+  closed_at?: string | null;
   created_at: string;
   updated_at: string;
   evidence_count: number;

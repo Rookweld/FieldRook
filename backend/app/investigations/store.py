@@ -49,6 +49,10 @@ class InvestigationState:
     assessment: AnalysisResult | None = None
     warnings: list[str] = field(default_factory=list)
     status: str = "complete"
+    # M036: technician's administrative disposition; never implies measurement.
+    disposition: str = "open"
+    closed_at: datetime | None = None
+    closure_note: str = ""
     tool_calls_made: int = 0
     ev_counter: int = 0
     seq_counter: int = 0
@@ -220,6 +224,9 @@ class InvestigationState:
             problem=self.problem,
             service_name=self.service_name,
             status=self.status,  # type: ignore[arg-type]
+            disposition=self.disposition,  # type: ignore[arg-type]
+            closed_at=self.closed_at,
+            closure_note=self.closure_note,
             created_at=self.created_at,
             uses_fixtures=uses_fixtures,
             analysis_mode=self.mode,  # type: ignore[arg-type]
