@@ -83,7 +83,11 @@ export function FieldKitDock({
   onGoEvidence,
   onGoWorkbench,
 }: FieldKitDockProps) {
-  const instruments = useMemo(() => listInstruments(), []);
+  // Product UI lists real instruments only. Unfinished placeholders remain
+  // registered for development, but never compete for operator attention.
+  const instruments = useMemo(
+    () => listInstruments().filter((item) => item.status === "ready"), [],
+  );
   const active = instruments.find((entry) => entry.id === activeId) ?? instruments[0];
   // NOTE: the switcher deliberately uses plain buttons (aria-current) and
   // a region, NOT the tablist/tab/tabpanel pattern: the investigation

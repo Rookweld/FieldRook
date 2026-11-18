@@ -98,45 +98,6 @@ function PendingPanel({ what }: { what: string }) {
   );
 }
 
-/** Compact assistant summary above the Findings: stage, next step, open questions. */
-function GuideStrip({
-  investigation,
-  onOpen,
-}: {
-  investigation: InvestigationResponse;
-  onOpen: () => void;
-}) {
-  const openQuestions = investigation.questions.filter((q) => q.status === "open");
-  const currentStep =
-    investigation.plan?.steps.find((s) => s.step_id === investigation.plan?.current_step_id) ??
-    null;
-  if (!currentStep && openQuestions.length === 0 && !investigation.blocked_reason) return null;
-  return (
-    <section className="card guide-strip" aria-label="Assistant summary">
-      <div className="guide-strip-main">
-        <span className="badge">{investigation.stage.replace(/_/g, " ")}</span>
-        {investigation.blocked_reason ? (
-          <span className="guide-strip-text">{investigation.blocked_reason}</span>
-        ) : currentStep ? (
-          <span className="guide-strip-text">
-            <span className="runbook-label">Next — </span>
-            {currentStep.instruction}
-          </span>
-        ) : null}
-        {openQuestions.length > 0 && (
-          <span className="guide-strip-text">
-            <span className="runbook-label">Question — </span>
-            {openQuestions[0].question}
-          </span>
-        )}
-      </div>
-      <button type="button" className="button button-ghost button-small" onClick={onOpen}>
-        Open Guide
-      </button>
-    </section>
-  );
-}
-
 export function ProblemWorkstation({
   initial,
   onInvestigationChange,
@@ -563,14 +524,17 @@ export function ProblemWorkstation({
               </div>
             )}
           </div>
-          <IntakeCollectorCard
-            onImport={(form) => setPendingPackage(form)}
-            onError={setError}
-            disabled={busy !== null}
-          />
-          {pendingPackage && !file && (
-            <p className="muted">Package attached — it joins the evidence once analysis starts.</p>
-          )}
+          <details className="fr-details fr-intake-extras">
+            <summary>Attach a diagnostic Collector package (optional)</summary>
+            <IntakeCollectorCard
+              onImport={(form) => setPendingPackage(form)}
+              onError={setError}
+              disabled={busy !== null}
+            />
+            {pendingPackage && !file && (
+              <p className="muted">Package attached — it joins the evidence once analysis starts.</p>
+            )}
+          </details>
           {file && (
             <>
               <label className="check">
@@ -620,14 +584,7 @@ export function ProblemWorkstation({
             <PendingPanel what="Investigating — the problem is with the analysis engine, which may call several read-only diagnostic tools." />
           )}
             </div>
-            <div className="core-stage" aria-hidden="true">
-              <div className="core-idle">
-                <SignalScope width={264} active={busy === "investigating"} />
-              </div>
-              <p className="core-caption">
-                Signal scope · {busy === "investigating" ? "active" : "standby"}
-              </p>
-            </div>
+            {/* Intake has one job: describe the issue. Decorative scope remains in loading feedback. */}
           </div>
         </section>
       ) : (
@@ -715,25 +672,32 @@ export function ProblemWorkstation({
             </button>
           </nav>
 
-          <WorkspaceShell
-            investigation={investigation}
-            onUpdate={setInvestigation}
-            onEvidenceClick={setSelectedEvidence}
-            onAction={forgeAction}
-            onView={(v) => setView(v)}
-            onError={setError}
-            disabled={busy !== null}
-            references={references}
-            citations={citations}
-            hideDockComposer={view === "guide"}
-            hideDockNotes={view === "findings"}
-          />
-          <CollectorImportCard
-            investigationId={investigation.investigation_id}
-            onAction={forgeAction}
-            onError={setError}
-            disabled={busy !== null}
-          />
+          <details className="fr-details fr-tools" data-testid="fr-additional-tools">
+            <summary>Additional investigation tools <span className="muted">· collection, queue &amp; reference details</span></summary>
+            <p className="muted">
+              Open this section for the extended technician workspace. The main Guide,
+              Findings, Evidence and Resolve flows remain available above.
+            </p>
+            <WorkspaceShell
+              investigation={investigation}
+              onUpdate={setInvestigation}
+              onEvidenceClick={setSelectedEvidence}
+              onAction={forgeAction}
+              onView={(v) => setView(v)}
+              onError={setError}
+              disabled={busy !== null}
+              references={references}
+              citations={citations}
+              hideDockComposer={view === "guide"}
+              hideDockNotes={view === "findings"}
+            />
+            <CollectorImportCard
+              investigationId={investigation.investigation_id}
+              onAction={forgeAction}
+              onError={setError}
+              disabled={busy !== null}
+            />
+          </details>
 
           {view === "guide" && (
             <div className="view-panel">
@@ -748,33 +712,35 @@ export function ProblemWorkstation({
 
           {view === "findings" && (
             <div className="view-panel">
-              <GuideStrip investigation={investigation} onOpen={() => setView("guide")} />
               <OverviewPanel
                 investigation={investigation}
                 onEvidenceClick={setSelectedEvidence}
                 onOpenEvidence={() => setView("evidence")}
                 onAction={runNextAction}
               />
-              <ProgressPanel
-                investigation={investigation}
-                onEvidenceClick={setSelectedEvidence}
-                onReverify={(id) => void reverify(id)}
-                busy={busy !== null}
-              />
-              {investigation.assessment && (
-                <DiagnosisPanel
-                  analysis={investigation.assessment}
-                  incidentId={investigation.investigation_id}
-                  createdAt={investigation.created_at}
-                  warnings={[]}
+              <details className="fr-details fr-deep-findings" data-testid="fr-deep-findings">
+                <summary>Full diagnosis &amp; history <span className="muted">· detailed findings</span></summary>
+                <ProgressPanel
+                  investigation={investigation}
+                  onEvidenceClick={setSelectedEvidence}
+                  onReverify={(id) => void reverify(id)}
+                  busy={busy !== null}
+                />
+                {investigation.assessment && (
+                  <DiagnosisPanel
+                    analysis={investigation.assessment}
+                    incidentId={investigation.investigation_id}
+                    createdAt={investigation.created_at}
+                    warnings={[]}
+                    onEvidenceClick={setSelectedEvidence}
+                  />
+                )}
+                <WorkedBefore
+                  investigation={investigation}
+                  onUpdate={setInvestigation}
                   onEvidenceClick={setSelectedEvidence}
                 />
-              )}
-              <WorkedBefore
-                investigation={investigation}
-                onUpdate={setInvestigation}
-                onEvidenceClick={setSelectedEvidence}
-              />
+              </details>
               <section className="card">
                 <div className="card-head">
                   <h2>Follow-up</h2>

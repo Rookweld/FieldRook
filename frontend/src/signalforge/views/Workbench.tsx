@@ -1,7 +1,7 @@
-import { useState, type ReactNode } from "react";
+import { type ReactNode } from "react";
 import type { InvestigationResponse } from "../../types";
 import type { WorkbenchProps } from "../types";
-import { RookFigure } from "../components/Shell";
+
 import "./Workbench.css";
 
 function targetLabel(inv: InvestigationResponse): string {
@@ -163,47 +163,27 @@ export function Workbench({
   onOpenGuide,
   children,
 }: WorkbenchProps & { children: ReactNode }) {
-  const [draft, setDraft] = useState("");
-
   if (!investigation) {
     return (
       <section className="sf-screen" aria-label="Workbench">
-        <div className="sf-hero sf-hero-slim">
-          <div className="sf-hero-head">
-            <span className="sf-hero-chip">NO ACTIVE CASE</span>
-            <span className="sf-hero-id">
-              {status
-                ? `${status.model_mode === "live" ? "LIVE MODEL" : "SIMULATED MODEL"} · ${status.live_diagnostics_available ? "LIVE DIAGNOSTICS" : "FIXTURES ONLY"}`
-                : "CONNECTING TO BACKEND"}
-            </span>
-          </div>
-          <h1>
-            NAME THE
-            <br />
-            SYMPTOM.
-          </h1>
-          <p className="sf-hero-lede">
-            Describe the problem below — the intake form handles suspected services, screenshots,
-            and Collector packages. Open a past case from the{" "}
-            <button type="button" className="sf-inline-link" onClick={onGoLaunchpad}>
-              Launchpad
-            </button>
-            .
-          </p>
-          <div className="sf-home-actions">
-            <button
-              type="button"
-              className="sf-btn sf-btn-lime"
-              onClick={() => document.getElementById("sf-engine-problem")?.focus()}
-            >
-              Start below ↓
-            </button>
-            <button type="button" className="sf-btn sf-btn-dark" onClick={onImport}>
-              ⇩ Import Collector package
+        {/* Keep a first DOM sibling in both branches so React preserves
+            the keyed engine when intake becomes an active investigation. */}
+        <div className="sf-hero-placeholder" aria-hidden="true" />
+        <div className="sf-work-content sf-work-content-intake">
+          <div className="sf-intake-heading">
+            <div>
+              <span className="sf-section-label">NEW INVESTIGATION</span>
+              <p>Describe the issue to start. Need an older case?{" "}
+                <button type="button" className="sf-inline-link" onClick={onGoLaunchpad}>Open history</button>.
+              </p>
+              <span className="sf-minihelp">
+                {status ? (status.model_mode === "live" ? "AI analysis available" : "Simulation mode") : "Connecting to backend"}
+              </span>
+            </div>
+            <button type="button" className="sf-btn sf-btn-dark sf-btn-sm" onClick={onImport}>
+              Import package
             </button>
           </div>
-        </div>
-        <div className="sf-work-content">
           {/*
             BLOCKER-1 (M026 ZETA): this section MUST keep the same key in
             both hero branches. The engine below owns the live case; when
@@ -224,7 +204,7 @@ export function Workbench({
 
   return (
     <section className="sf-screen" aria-label="Workbench">
-      <div className="sf-hero">
+      <div className="sf-hero sf-hero-case">
         <div className="sf-hero-head">
           <span className="sf-hero-chip">{investigation.stage.replace(/_/g, " ")}</span>
           <span className="sf-hero-id">
@@ -235,66 +215,37 @@ export function Workbench({
         <div className="sf-hero-details">
           <span>{new Date(investigation.created_at).toLocaleString()}</span>
           <span>{investigation.analysis_mode === "live" ? "Live analysis" : "Simulated analysis"}</span>
-          <span>
-            {investigation.uses_fixtures ? "Fixture data" : "Collected data"}
-          </span>
+          <span>{investigation.uses_fixtures ? "Fixture data" : "Collected data"}</span>
+          {steps.length > 0 && <span>{done}/{steps.length} plan steps recorded</span>}
         </div>
-        <RookFigure />
-        {steps.length > 0 && (
-          <div className="sf-gauge" aria-label={`${done} of ${steps.length} plan steps recorded`}>
-            <div className="sf-gauge-inner">
-              <span className="sf-count">
-                {String(done).padStart(2, "0")}/{String(steps.length).padStart(2, "0")}
-              </span>
-              <span className="sf-caption">
-                PLAN STEPS
-                <br />
-                RECORDED
-              </span>
-            </div>
-          </div>
-        )}
+
       </div>
       <div className="sf-work-content">
         <NextPanel investigation={investigation} onOpenGuide={onOpenGuide} />
-        <div className="sf-twins">
-          <HypothesisTile investigation={investigation} />
-          <ObservationsTile investigation={investigation} />
-        </div>
-        <HappenedStrip investigation={investigation} onGoEvidence={onGoEvidence} />
-        <form
-          className="sf-composer"
-          onSubmit={(event) => {
-            event.preventDefault();
-            onGoNotes(draft);
-          }}
-        >
-          <label htmlFor="sf-workbench-note" className="sf-hidden">
-            Technician observation
-          </label>
-          <input
-            id="sf-workbench-note"
-            maxLength={350}
-            autoComplete="off"
-            placeholder="↳ Describe what happened after the check…"
-            value={draft}
-            onChange={(event) => setDraft(event.target.value)}
-          />
-          <button className="sf-btn sf-btn-lime" type="submit">
-            CONTINUE IN NOTES ↓
+        <details className="sf-deep-dive">
+          <summary>Case context &amp; recent activity</summary>
+          <div className="sf-deep-dive-content">
+            <div className="sf-twins">
+              <HypothesisTile investigation={investigation} />
+              <ObservationsTile investigation={investigation} />
+            </div>
+            <HappenedStrip investigation={investigation} onGoEvidence={onGoEvidence} />
+          </div>
+        </details>
+        <div className="sf-case-actions" aria-label="Investigation shortcuts">
+          <button type="button" className="sf-btn sf-btn-dark sf-btn-sm" onClick={() => onGoNotes("")}>
+            + Add technician note
           </button>
-        </form>
-        <p className="sf-minihelp">
-          Quick capture jumps to Technician notes below, where notes save with the case.{" "}
+          <button type="button" className="sf-btn sf-btn-dark sf-btn-sm" onClick={onGoEvidence}>
+            Review evidence ↗
+          </button>
+          <button type="button" className="sf-btn sf-btn-dark sf-btn-sm" onClick={onImport}>
+            Import package
+          </button>
           <button type="button" className="sf-inline-link" onClick={onNew}>
-            Start a new investigation
-          </button>{" "}
-          or{" "}
-          <button type="button" className="sf-inline-link" onClick={onImport}>
-            import a Collector package
+            New case
           </button>
-          .
-        </p>
+        </div>
         {/* Same stable key as the no-case branch above (BLOCKER-1). */}
         <section key="sf-engine" className="sf-engine" aria-label="Investigation workspace">
           {children}

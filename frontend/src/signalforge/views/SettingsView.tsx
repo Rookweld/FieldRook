@@ -94,7 +94,7 @@ export function SettingsView({ status, investigation }: SettingsViewProps) {
         </div>
         <div className="sf-utility-card">
           <h2>About</h2>
-          <p>FieldRook M026 · SIGNALFORGE technician interface · local desktop UI.</p>
+          <p>FieldRook by ROOKWELD. A technician-first workspace for evidence-led investigations.</p>
         </div>
       </div>
     </section>

@@ -49,18 +49,26 @@ export function App() {
     }
   }, [route.view]);
 
+  // Desktop shells and local services may start in either order.
+  // Recheck without page reload, and never leave stale "online" state after
+  // a lost connection. One request at a time; no speculative progress.
   useEffect(() => {
     let cancelled = false;
-    getStatus().then(
-      (st) => {
-        if (!cancelled) setStatus(st);
-      },
-      () => {
-        /* badges show "connecting" until the backend answers */
-      },
-    );
+    let retry: number | undefined;
+    const check = async () => {
+      try {
+        const current = await getStatus();
+        if (!cancelled) setStatus(current);
+      } catch {
+        if (!cancelled) setStatus(null);
+      } finally {
+        if (!cancelled) retry = window.setTimeout(() => void check(), 15000);
+      }
+    };
+    void check();
     return () => {
       cancelled = true;
+      if (retry !== undefined) window.clearTimeout(retry);
     };
   }, []);
 
@@ -85,10 +93,8 @@ export function App() {
     }
   }, []);
 
-  useEffect(() => {
-    void refreshRecents();
-  }, [refreshRecents]);
-
+  // Load case history only when shown; prevents the duplicate startup
+  // fetch that previously ran twice on the launchpad.
   useEffect(() => {
     if (route.view === "launchpad") void refreshRecents();
   }, [route.view, refreshRecents]);
@@ -151,20 +157,27 @@ export function App() {
       const host = document.querySelector(
         '[data-testid="forge-intake-collector"], [data-testid="forge-collector-import"]',
       );
+      const disclosure = host?.closest("details");
+      if (disclosure) disclosure.open = true;
       host?.scrollIntoView({ block: "center" });
       host?.querySelector<HTMLInputElement>('input[type="file"]')?.focus({ preventScroll: true });
     }, 80);
   }, [go]);
 
-  /** Interim quick-capture: jump to the engine's real notes box. */
+  /** Navigate to the real, persistent case-note editor (never a fake draft box). */
   const goNotes = useCallback(
     (_draft: string) => {
       go("workbench");
       window.setTimeout(() => {
-        const el =
-          document.getElementById("sf-engine-note") ?? document.getElementById("sf-engine-problem");
-        el?.scrollIntoView({ block: "center" });
-        el?.focus({ preventScroll: true });
+        // The case may currently show Guide/Resolve/Evidence; select Findings
+        // before focusing the notes field, or the target isn't in the DOM.
+        document.getElementById("sf-engine-tab-findings")?.click();
+        window.setTimeout(() => {
+          const el =
+            document.getElementById("sf-engine-note") ?? document.getElementById("sf-engine-problem");
+          el?.scrollIntoView({ block: "center" });
+          el?.focus({ preventScroll: true });
+        }, 80);
       }, 80);
     },
     [go],
@@ -173,9 +186,9 @@ export function App() {
   const openGuide = useCallback(() => {
     go("workbench");
     window.setTimeout(() => {
-      const el =
-        document.getElementById("sf-engine-tab-guide") ??
-        document.getElementById("sf-engine-problem");
+      const guide = document.getElementById("sf-engine-tab-guide");
+      guide?.click(); // Select the actual tab, not just its focus ring.
+      const el = guide ?? document.getElementById("sf-engine-problem");
       el?.scrollIntoView({ block: "center" });
       el?.focus({ preventScroll: true });
     }, 80);
@@ -241,7 +254,7 @@ export function App() {
       onGoEvidence={() => navigate("evidence")}
       onGoWorkbench={() => navigate("workbench")}
     >
-      <FirstRunGate />
+      {route.view === "launchpad" && <FirstRunGate />}
       <ErrorBoundary
         key={`${route.view}:${route.investigationId ?? "none"}:${session}`}
         onReset={() => {

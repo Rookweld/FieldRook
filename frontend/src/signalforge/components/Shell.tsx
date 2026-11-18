@@ -21,46 +21,21 @@ export function RookFigure() {
   );
 }
 
+/** One honest operational signal; details live in Settings. */
 function ModeBadges({ status }: { status: StatusResponse | null }) {
   if (!status) {
-    return (
-      <>
-        <span className="sf-badge">connecting&hellip;</span>
-        <span
-          className="sf-badge sf-badge-sim"
-          title="Ambient motion follows the motion preference in Settings; the OS reduced-motion setting is always respected."
-        >
-          Atmosphere &middot; system
-        </span>
-      </>
-    );
+    return <span className="sf-badge sf-badge-sim" role="status">Connecting to service…</span>;
   }
+  const model = status.model_mode === "live" ? "AI connected" : "Simulated analysis";
+  const tools = status.live_diagnostics_available ? "local read-only tools" : "fixture diagnostics";
   return (
-    <>
-      <span
-        className={status.model_mode === "live" ? "sf-badge sf-badge-live" : "sf-badge sf-badge-sim"}
-        title={
-          status.model_mode === "live"
-            ? `Reasoning engine: live model (${status.model_name || "unknown"})`
-            : "Reasoning engine: deterministic simulated analysis (no model calls)"
-        }
-      >
-        {status.model_mode === "live" ? "LIVE MODEL" : "SIMULATED MODEL"}
-      </span>
-      <span
-        className={
-          status.live_diagnostics_available ? "sf-badge sf-badge-live" : "sf-badge sf-badge-sim"
-        }
-        title={
-          status.live_diagnostics_available
-            ? "Host capability: this machine can run live read-only diagnostics"
-            : "Host capability: synthetic fixtures only on this machine"
-        }
-      >
-        {status.live_diagnostics_available ? "LIVE DIAGNOSTICS" : "FIXTURES ONLY"}
-      </span>
-      <span className="sf-badge">{status.model_name}</span>
-    </>
+    <span
+      className={status.model_mode === "live" ? "sf-badge sf-badge-live" : "sf-badge sf-badge-sim"}
+      title={`${status.model_name} · ${model} · ${tools}. See Settings for details.`}
+      role="status"
+    >
+      {model} · {status.live_diagnostics_available ? "local tools" : "demo data"}
+    </span>
   );
 }
 
@@ -174,8 +149,7 @@ export function SignalFrame({
           <div className="sf-logo">
             Field<span>Rook</span>
           </div>
-          <span className="sf-top-meta">M026 &middot; Signalforge</span>
-          <span className="sf-top-meta">Diagnose. Verify. Resolve.</span>
+          <span className="sf-top-meta">Diagnose · Verify · Resolve</span>
           <div className="sf-top-spacer" />
           <div className="sf-badges">
             <ModeBadges status={status} />
@@ -184,13 +158,8 @@ export function SignalFrame({
         <div className={bodyClass}>
           <nav className="sf-nav" aria-label="Primary">
             <div className="sf-nav-head">
-              <div className="sf-eyebrow">R/W &middot; Tool Nº 01</div>
-              <h2>
-                FIELD
-                <br />
-                <strong>ROOK.</strong>
-              </h2>
-              <p>THE TECHNICIAN&apos;S INSTRUMENT</p>
+              <div className="sf-eyebrow">WORKSPACE</div>
+              <p>Cases, evidence and tools</p>
             </div>
             <div className="sf-rail-nav">
               {NAV_ITEMS.map((item) => (
@@ -210,15 +179,10 @@ export function SignalFrame({
               ))}
             </div>
             <div className="sf-nav-foot">
-              <div className="sf-stamp" aria-hidden="true">
-                R.
-              </div>
               <div className="sf-nav-bottom-label">
-                ROOKWELD / SIGNALFORGE
+                BUILT BY ROOKWELD
                 <br />
-                FORGE. BUILD. IMAGINE.
-                <br />
-                <strong>● LOCAL DESKTOP UI</strong>
+                <strong>FORGE. BUILD. IMAGINE.</strong>
               </div>
             </div>
           </nav>
@@ -226,11 +190,7 @@ export function SignalFrame({
             <div className="sf-ribbon">
               <span>{ribbonText(view, investigation !== null)}</span>
               <span className="sf-ribbon-pill">
-                {status
-                  ? status.live_diagnostics_available
-                    ? "LIVE DIAGNOSTICS"
-                    : "FIXTURES ONLY"
-                  : "CONNECTING"}
+                {investigation ? "CASE OPEN" : "READY FOR A CASE"}
               </span>
             </div>
             <button
@@ -238,13 +198,11 @@ export function SignalFrame({
               type="button"
               data-testid="fieldkit-toggle"
               className="sf-rail-toggle"
-              aria-expanded={visibility !== "closed"}
+              aria-expanded={visibility === "open"}
               aria-controls="sf-fieldkit-dock"
               onClick={toggleOpen}
             >
-              {dockOpen || visibility === "collapsed"
-                ? "Close Field Kit dock ✕"
-                : "Open Field Kit dock ◈"}
+              {visibility === "open" ? "Hide Field Kit ✕" : "Open Field Kit ◈"}
             </button>
             {children}
           </main>
@@ -273,13 +231,13 @@ export function SignalFrame({
         <footer className="sf-status">
           <span>
             <span className="sf-demo-dot" aria-hidden="true" />
-            <strong>FieldRook M026</strong>
+            <strong>FieldRook</strong>
           </span>
           <span className="sf-sep" aria-hidden="true" />
           <span className="sf-truncate">{statusLine}</span>
           <span className="sf-grow" />
           <span className="sf-sep" aria-hidden="true" />
-          <span>SIGNALFORGE</span>
+          <span>ROOKWELD</span>
         </footer>
       </div>
     </div>

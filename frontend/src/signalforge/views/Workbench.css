@@ -446,3 +446,51 @@
     padding: 0 0 10px;
   }
 }
+
+/* M034: product-first case hierarchy. The actual case/task takes priority. */
+.sf-work-content-intake { padding-top: 24px; }
+.sf-intake-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 6px 4px 12px;
+  flex-wrap: wrap;
+}
+.sf-intake-heading p { margin: 5px 0; color: var(--peach); font-size: 13px; }
+.sf-intake-heading .sf-minihelp { margin: 0; }
+.sf-hero-case { min-height: 0; padding: 19px 26px 22px; }
+.sf-hero-case::after { display: none; }
+.sf-hero-case h1 {
+  font-size: clamp(26px, 2.9vw, 40px);
+  max-width: 100%;
+  margin: 12px 0 0;
+  line-height: 1.12;
+}
+.sf-hero-case .sf-hero-details { margin-top: 11px; gap: 12px; }
+.sf-deep-dive {
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--aubergine) 73%, var(--void));
+  border-radius: 10px;
+  color: var(--peach);
+}
+.sf-deep-dive > summary {
+  cursor: pointer;
+  padding: 12px 15px;
+  font-weight: 800;
+  font-size: 12px;
+  color: var(--offwhite);
+}
+.sf-deep-dive > summary:hover { color: var(--lime); }
+.sf-deep-dive-content { display: grid; gap: 12px; padding: 0 14px 15px; }
+.sf-case-actions { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; }
+.sf-case-actions .sf-inline-link { margin-left: auto; color: var(--peach); font-size: 12px; }
+@media (max-width: 700px) {
+  .sf-hero-case { min-height: 0; flex-basis: auto; padding: 17px; }
+  .sf-hero-case h1 { font-size: 30px; }
+  .sf-intake-heading { align-items: flex-start; }
+  .sf-case-actions .sf-inline-link { margin-left: 0; }
+}
+
+/* Invisible sibling preserves the existing engine instance across case creation. */
+.sf-hero-placeholder { display: none; }

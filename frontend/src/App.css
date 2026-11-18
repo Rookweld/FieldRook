@@ -3849,3 +3849,38 @@ details.advanced > summary {
 details.advanced > summary:hover {
   color: var(--lime);
 }
+
+/* M034 — progressive disclosure for optional technical surfaces.
+   No diagnostics, consent or case data are suppressed; only visual density. */
+.fr-details {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+  padding: 0;
+  min-width: 0;
+}
+.fr-details > summary {
+  cursor: pointer;
+  list-style-position: inside;
+  padding: 13px 16px;
+  font-weight: 800;
+  color: var(--peach);
+}
+.fr-details > summary:hover,
+.fr-details > summary:focus-visible { color: var(--lime); }
+.fr-details[open] > summary { border-bottom: 1px solid var(--line); }
+.fr-details > p { margin: 14px 16px; }
+.fr-details > .forge-shell,
+.fr-details > .card,
+.fr-details > .progress,
+.fr-details > .diagnosis {
+  margin: 12px;
+}
+.fr-deep-findings > :not(summary) { margin: 12px; }
+.fr-tools > :not(summary) { margin-left: 12px; margin-right: 12px; }
+.fr-details summary .muted { font-size: 11px; font-weight: 400; }
+
+/* One-column intake. No decorative sidebar competing with the form. */
+#sf-engine-intake .hero { grid-template-columns: minmax(0, 1fr); }
+#sf-engine-intake .hero-copy { max-width: 100%; }
+.fr-intake-extras > :not(summary) { margin: 12px; }

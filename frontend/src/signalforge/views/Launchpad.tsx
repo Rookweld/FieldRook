@@ -18,7 +18,14 @@ export function Launchpad({
   onRetryRecents,
 }: LaunchpadProps) {
   const [showAll, setShowAll] = useState(false);
-  const visible = showAll ? recents : recents.slice(0, RECENT_PREVIEW);
+  const [query, setQuery] = useState("");
+  const search = query.trim().toLocaleLowerCase();
+  const filtered = search
+    ? recents.filter((item) =>
+        `${item.problem} ${item.status} ${item.investigation_id}`.toLocaleLowerCase().includes(search),
+      )
+    : recents;
+  const visible = search || showAll ? filtered : filtered.slice(0, RECENT_PREVIEW);
 
   return (
     <section className="sf-screen" aria-label="Launchpad">
@@ -26,9 +33,9 @@ export function Launchpad({
         <RookFigure />
         <div className="sf-eyebrow">Diagnose / Verify / Resolve</div>
         <h1>
-          BE CURIOUS.
+          FOLLOW THE
           <br />
-          <span>BE CERTAIN.</span>
+          <span>EVIDENCE.</span>
         </h1>
         <p>
           The technician&apos;s workbench. Less guessing. Better evidence. One useful step at a
@@ -47,17 +54,25 @@ export function Launchpad({
         <div className="sf-paper-panel">
           <h3>
             RECENT INVESTIGATIONS{" "}
-            {recents.length > RECENT_PREVIEW && (
+            {filtered.length > RECENT_PREVIEW && !search && (
               <button
                 type="button"
                 className="sf-viewall"
                 onClick={() => setShowAll((all) => !all)}
                 aria-expanded={showAll}
               >
-                {showAll ? "SHOW LESS" : `VIEW ALL ${recents.length} ↗`}
+                {showAll ? "SHOW LESS" : `VIEW ALL ${filtered.length} ↗`}
               </button>
             )}
           </h3>
+          <input
+            className="sf-history-search"
+            type="search"
+            aria-label="Search recent investigations"
+            placeholder="Search cases by problem or status…"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+          />
           {notice && (
             <p className="sf-warn" role="alert">
               {notice}
@@ -76,8 +91,9 @@ export function Launchpad({
             </div>
           ) : visible.length === 0 ? (
             <p className="sf-minihelp">
-              No investigations on record yet. Start one above — it will appear here with its
-              status and export links.
+              {search
+                ? "No recent investigations match that search."
+                : "No investigations on record yet. Start one above to save the first case here."}
             </p>
           ) : (
             <div className="sf-recent">
@@ -114,22 +130,28 @@ export function Launchpad({
             </div>
           )}
         </div>
-        <div className="sf-paper-panel">
-          <h3>THE INSTRUMENT PANEL</h3>
-          <div className="sf-system-stat">
-            <div className="sf-stat">
-              <strong>{recentsLoading ? "…" : recents.length}</strong>
-              <span>INVESTIGATIONS ON RECORD</span>
-            </div>
-            <div className="sf-stat sf-stat-lime">
-              <strong>{status ? status.model_mode.toUpperCase() : "…"}</strong>
-              <span>REASONING ENGINE MODE</span>
-            </div>
-          </div>
-          <p className="sf-minihelp">
+        <div className="sf-paper-panel sf-start-panel">
+          <h3>ONE CLEAR PATH THROUGH A CASE</h3>
+          <ol className="sf-start-steps">
+            <li>
+              <span>01</span>
+              <div><strong>Describe the problem</strong><p>Report what fails and which machine is affected.</p></div>
+            </li>
+            <li>
+              <span>02</span>
+              <div><strong>Follow the next check</strong><p>Keep reported facts separate from measured evidence.</p></div>
+            </li>
+            <li>
+              <span>03</span>
+              <div><strong>Verify and export</strong><p>Record the outcome before closing or handing off the case.</p></div>
+            </li>
+          </ol>
+          <p className="sf-minihelp" role="status">
             {status
-              ? `Connected: ${status.service} v${status.version} on ${status.platform}. Diagnostics: ${status.live_diagnostics_available ? "live read-only tools on this machine" : "synthetic fixtures only"}.`
-              : "Waiting for the FieldRook backend on this machine. The workbench stays usable and connects automatically."}
+              ? status.live_diagnostics_available
+                ? "This machine supports read-only host diagnostics. Authorization is still required for sensitive actions."
+                : "Demo diagnostics are in use. Results are not live observations of a real PC."
+              : "Backend connection pending. Availability will appear when the service responds."}
           </p>
         </div>
       </div>

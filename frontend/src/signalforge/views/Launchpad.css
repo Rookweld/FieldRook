@@ -243,3 +243,25 @@
     padding: 13px;
   }
 }
+
+/* M034: useful onboarding instead of repeating developer runtime badges. */
+.sf-start-steps { list-style: none; padding: 0; margin: 0 0 15px; display: grid; gap: 13px; }
+.sf-start-steps li { display: grid; grid-template-columns: 32px minmax(0, 1fr); align-items: start; gap: 10px; }
+.sf-start-steps li > span {
+  display: grid; place-items: center; width: 30px; height: 30px;
+  background: color-mix(in srgb, var(--lime) 12%, var(--aubergine));
+  border: 1px solid var(--line); border-radius: 8px; color: var(--lime);
+  font-size: 10px; font-weight: 900;
+}
+.sf-start-steps strong { color: var(--offwhite); font-size: 12px; }
+.sf-start-steps p { margin: 4px 0 0; color: var(--muted); font-size: 11px; line-height: 1.5; }
+.sf-start-panel > .sf-minihelp { border-top: 1px solid var(--line); padding-top: 13px; }
+
+.sf-history-search {
+  width: 100%; margin: 0 0 13px; box-sizing: border-box;
+  padding: 10px 12px; border-radius: 8px;
+  background: var(--base); color: var(--offwhite);
+  border: 1px solid var(--line); font: inherit; font-size: 12px;
+}
+.sf-history-search:focus-visible { outline: 2px solid var(--lime); outline-offset: 2px; }
+.sf-history-search::placeholder { color: var(--muted); }
