@@ -1048,3 +1048,134 @@ def test_m033e_answered_question_provenance_and_shadow_is_noninvasive() -> None:
     assert enforced.assessment is not None
     assert "privacy shutter" in enforced.assessment.suggested_questions[0].question
     assert provider.calls == ["triage"]
+
+
+# ---------------------------------------------------------------------------
+# M033-F — source-aware inference audit in the real local-model pipeline
+# ---------------------------------------------------------------------------
+
+
+def test_m033f_audits_multiple_device_claim_without_rewriting_technician_facts() -> None:
+    from app.schemas import Hypothesis
+
+    state = _pipeline_state(target="remote")
+    state.hypotheses.append(Hypothesis(
+        hypothesis_id="camera-1", title="Camera permissions issue"
+    ))
+    state.messages.append({
+        "role": "user",
+        "content": "Technician observation: The built-in Camera app has the same black screen.",
+    })
+    reply = {
+        "verdict": "The problem is consistent across multiple applications and devices.",
+        "weakened": ["Camera permissions issue"],
+        "next_step": "Inspect camera privacy settings and physical shutter state.",
+    }
+    provider = _TaskProvider({"reassess": dict(reply)})
+    asyncio.run(_run_local_tasks(state, provider, _settings(), True))
+    assert provider.calls == ["reassess"]
+    assert state.assessment is not None
+    assert reply["verdict"] in state.assessment.understanding
+    audits = [a for a in state.activity if a.title == "Evidence integrity review"]
+    assert len(audits) == 1
+    assert "unverified-multi-host-claim" in audits[0].detail
+    assert "multiple applications" not in audits[0].detail
+    assert state.hypotheses[0].status == "active"
+
+
+def test_m033f_audits_ping_service_claim_and_preserves_model_data() -> None:
+    from app.schemas import Hypothesis
+
+    state = _pipeline_state(target="remote")
+    state.hypotheses.append(Hypothesis(
+        hypothesis_id="license-1", title="License server unreachable"
+    ))
+    state.messages.append({
+        "role": "user",
+        "content": "Technician test result: Pinging license-srv01 times out; IT says server is up.",
+    })
+    provider = _TaskProvider({
+        "reassess": {
+            "verdict": "The license server is unreachable due to network configuration problems.",
+            "weakened": [],
+            "next_step": "Check the service's configured port without changing it.",
+        }
+    })
+    asyncio.run(_run_local_tasks(state, provider, _settings(), True))
+    assert provider.calls == ["reassess"]
+    audits = [a for a in state.activity if a.title == "Evidence integrity review"]
+    assert len(audits) == 1
+    assert "icmp-not-service-proof" in audits[0].detail
+    assert "license-srv01" not in audits[0].detail
+    assert state.assessment is not None
+    assert "network configuration" in state.assessment.understanding
+
+
+def test_m033f_correlation_warning_does_not_override_model_downgrade() -> None:
+    from app.schemas import Hypothesis
+
+    state = _pipeline_state(target="remote")
+    state.hypotheses.append(Hypothesis(
+        hypothesis_id="driver-1", title="Network adapter driver conflict"
+    ))
+    state.messages.append({
+        "role": "user",
+        "content": "Technician observation: Windows Update installed a network adapter driver yesterday.",
+    })
+    provider = _TaskProvider({
+        "reassess": {
+            "verdict": "The new network driver seems unrelated.",
+            "weakened": ["Network adapter driver conflict"],
+            "next_step": "Check the driver installation timestamp in event logs.",
+        }
+    })
+    asyncio.run(_run_local_tasks(state, provider, _settings(), True))
+    assert provider.calls == ["reassess"]
+    assert state.assessment is not None
+    assert [h.status for h in state.assessment.suggested_hypotheses] == ["weakened"]
+    assert any(
+        "correlated-change-weakened" in a.detail
+        for a in state.activity if a.title == "Evidence integrity review"
+    ), "Advisory should not become an arbitrary causal decision"
+
+
+def test_m033f_off_mode_has_no_evidence_audit_activity() -> None:
+    from app.schemas import Hypothesis
+
+    state = _pipeline_state(target="remote")
+    state.hypotheses.append(Hypothesis(hypothesis_id="h1", title="Camera driver problem"))
+    state.messages.append({
+        "role": "user", "content": "Technician observation: The Camera app is black too.",
+    })
+    provider = _TaskProvider({
+        "reassess": {
+            "verdict": "The issue is confirmed across multiple devices.",
+            "weakened": [],
+            "next_step": "Inspect the camera privacy shutter.",
+        }
+    })
+    asyncio.run(_run_local_tasks(
+        state, provider, _settings(info_gain_mode="off"), True,
+    ))
+    assert provider.calls == ["reassess"]
+    assert not any(a.title == "Evidence integrity review" for a in state.activity)
+
+
+def test_m033f_no_extra_inference_call_on_observation() -> None:
+    from app.schemas import Hypothesis
+
+    state = _pipeline_state(target="remote")
+    state.hypotheses.append(Hypothesis(hypothesis_id="h1", title="Camera device issue"))
+    state.messages.append({
+        "role": "user", "content": "Technician observation: The Camera app is also black.",
+    })
+    provider = _TaskProvider({
+        "reassess": {
+            "verdict": "This may affect multiple machines.",
+            "weakened": [],
+            "next_step": "Inspect the device privacy shutter.",
+        }
+    })
+    asyncio.run(_run_local_tasks(state, provider, _settings(), True))
+    assert provider.calls == ["reassess"]
+    assert not any(a.title == "Evidence integrity review" for a in state.activity)

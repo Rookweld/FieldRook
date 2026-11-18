@@ -42,6 +42,43 @@ class _Worker:
         monkeypatch.setenv("FIELDROOK_DEMO_STATE", str(tmp_path))
         self.proc: subprocess.Popen | None = None
 
+    def _await_status(self, wanted: str, timeout_s: float = 20.0) -> None:
+        """Wait on the isolated worker heartbeat, not repeated WMI probes.
+
+        The production read_health() runs a Windows process-identity check
+        on every call. Repeating that comparatively slow check while the
+        test waits for a 2-second heartbeat can miss the test deadline.
+        We require an isolated, fresh heartbeat and the worker identity.
+        On Windows, venv python.exe may launch a separate child interpreter
+        whose heartbeat PID differs from the initial Popen launcher PID.
+        Production process identity is still verified on destructive actions.
+        """
+        assert self.proc is not None
+        heartbeat = demo_worker.state_dir() / "heartbeat.json"
+        deadline = time.monotonic() + timeout_s
+        latest: dict = {}
+        while time.monotonic() < deadline:
+            if self.proc.poll() is not None:
+                raise RuntimeError(f"demo worker exited before {wanted}: {self.proc.returncode}")
+            try:
+                latest = json.loads(heartbeat.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                latest = {}
+            age = time.time() - float(latest.get("updated_at") or 0)
+            if (
+                latest.get("worker_id") == demo_worker.WORKER_ID
+                and type(latest.get("pid")) is int
+                and latest["pid"] > 0
+                and latest.get("status") == wanted
+                and 0 <= age < demo_worker.HEARTBEAT_MAX_AGE_S
+            ):
+                return
+            time.sleep(0.2)
+        raise RuntimeError(
+            f"demo worker did not report {wanted}; last heartbeat="
+            f"{latest.get('status')!r}, age={latest.get('updated_at')!r}"
+        )
+
     def start(self) -> None:
         script = demo_worker.worker_script()
         self.proc = subprocess.Popen(
@@ -50,21 +87,11 @@ class _Worker:
             stderr=subprocess.DEVNULL,
             stdin=subprocess.DEVNULL,
         )
-        deadline = time.time() + 20
-        while time.time() < deadline:
-            if demo_worker.read_health().get("status") == "healthy":
-                return
-            time.sleep(0.5)
-        raise RuntimeError("worker did not become healthy")
+        self._await_status("healthy")
 
     def fail(self) -> None:
         demo_worker.write_control("failing")
-        deadline = time.time() + 20
-        while time.time() < deadline:
-            if demo_worker.read_health().get("status") == "failed":
-                return
-            time.sleep(0.5)
-        raise RuntimeError("worker did not report failed")
+        self._await_status("failed")
 
     def stop(self) -> None:
         if self.proc is not None and self.proc.poll() is None:

@@ -591,6 +591,7 @@ async def _run_local_tasks(
     )
     from .assist import _looks_uninformative
     from .information_gain import review_task_question
+    from .evidence_integrity import audit_reassessment, format_audit_note
 
     info_gain_mode = str(getattr(settings, "info_gain_mode", "observe")).lower()
     if info_gain_mode not in ("off", "observe", "enforce"):
@@ -729,6 +730,33 @@ async def _run_local_tasks(
                     "note", "Hypothesis integrity guard",
                     "The technician had no new diagnostic information; prior "
                     "hypotheses were preserved. Next safe questions remain available.",
+                )
+        if reassess is not None and info_gain_mode != "off":
+            # M033-F is an auditable consistency review, never a diagnosis or
+            # another inference call. Even 'enforce' doesn't rewrite substantive
+            # reassessment claims until this audit has independent validation.
+            new_evidence_ids = {
+                item.id for item in state.evidence
+                if item.id not in evidence_before_sweep
+            }
+            previous_reports = [
+                message["content"][:1200]
+                for message in state.messages[-16:]
+                if message.get("role") == "user"
+                and isinstance(message.get("content"), str)
+            ]
+            integrity_findings = audit_reassessment(
+                reassess,
+                problem=state.problem,
+                observation=observation,
+                evidence=state.evidence,
+                new_evidence_ids=new_evidence_ids,
+                prior_reports=previous_reports,
+            )
+            if integrity_findings:
+                state.add_activity(
+                    "note", "Evidence integrity review",
+                    format_audit_note(integrity_findings),
                 )
         state.add_activity(
             "note", "Local reassessment",
