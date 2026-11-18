@@ -590,7 +590,12 @@ async def _run_local_tasks(
         triage_prompt,
     )
     from .assist import _looks_uninformative
+    from .information_gain import review_task_question
 
+    info_gain_mode = str(getattr(settings, "info_gain_mode", "observe")).lower()
+    if info_gain_mode not in ("off", "observe", "enforce"):
+        info_gain_mode = "observe"
+    information_gain = info_gain_mode == "enforce"
     run_task = getattr(provider, "run_task", None)
     if run_task is None:
         await _run_live_no_tools(state, provider, provider.model_label())
@@ -698,7 +703,7 @@ async def _run_local_tasks(
             _forge_kq = []
         reassess, task_warnings = await run_task(
             "reassess",
-            reassess_prompt(titles, observation, asked, thin_streak=thin, collector_capabilities=_forge_caps or None, knowledge_questions=_forge_kq or None, knowledge_context=_k_context or None)
+            reassess_prompt(titles, observation, asked, thin_streak=thin, collector_capabilities=_forge_caps or None, knowledge_questions=_forge_kq or None, knowledge_context=_k_context or None, information_gain=information_gain)
             + (" A newly authorized screenshot is attached: use only what is visible and do not invent unreadable text."
                if fresh_visual_observation else ""),
             images=fresh_images[:4] if fresh_visual_observation else None,
@@ -732,7 +737,7 @@ async def _run_local_tasks(
     else:
         triage, task_warnings = await run_task(
             "triage",
-            triage_prompt(state.problem, digest, state.target, knowledge_context=_k_context or None)
+            triage_prompt(state.problem, digest, state.target, knowledge_context=_k_context or None, information_gain=information_gain)
             + (" A screenshot is attached; say what it shows." if images else ""),
             images=images or None,
             cancel_scope=_scope_of(state),
@@ -742,6 +747,56 @@ async def _run_local_tasks(
             "note", "Local triage",
             "Triage answered." if triage else "Triage unusable; deterministic fallback fills in.",
         )
+    # M033-C: inspect only the model's own candidate questions. The quality
+    # score is a deterministic proxy for a useful decision split, not evidence
+    # that a particular root cause is true. Never add a model call.
+    question_task = "triage" if triage is not None else "reassess"
+    proposed = triage if triage is not None else reassess
+    if proposed is not None and info_gain_mode != "off":
+        active_titles = (
+            [str(item.get("title", "")) for item in
+             (triage.get("hypotheses") if isinstance(triage.get("hypotheses"), list) else [])
+             if isinstance(item, dict)]
+            if triage is not None
+            else [hyp.title for hyp in state.hypotheses if hyp.status == "active"]
+        )
+        refined, question_review = review_task_question(
+            question_task, proposed, problem=state.problem,
+            hypotheses=active_titles,
+            asked=[q.question for q in state.questions], target=state.target,
+        )
+        if information_gain:
+            if question_task == "triage":
+                triage = refined
+            else:
+                reassess = refined
+        if question_review is not None:
+            alt = question_review.alternative
+            score_text = (
+                f"model question={question_review.primary.score}/10"
+                + (f", alternate={alt.score}/10" if alt else "")
+                + (f", technician check={question_review.check.score}/10"
+                   if question_review.check else "")
+            )
+            state.add_activity(
+                "note", "Information gain review",
+                f"{'Selected' if information_gain else 'Would select'} "
+                f"{question_review.selected or 'no'} next move; "
+                f"{score_text}. Heuristic selection only, not diagnostic proof.",
+            )
+            if information_gain and question_review.check is not None and any(
+                signal.startswith("non-read-only:") or signal == "conflicting-reported-error-code"
+                for signal in question_review.check.signals
+            ):
+                state.warnings.append(
+                    "Model-proposed technician check withheld because it was "
+                    "not a safe read-only investigation step."
+                )
+            if information_gain and question_review.selected is None:
+                state.warnings.append(
+                    "A model-proposed question was withheld because no safe, "
+                    "usable question was available."
+                )
     if _cancel_requested(state):
         _clear_cancel(state)
         state.warnings.append("Round cancelled by the technician after the first model call.")
@@ -793,7 +848,7 @@ async def _run_local_tasks(
         )
     result, assembly_warnings, model_parts = assemble_assessment(
         state.problem, list(state.evidence), triage, plan, reassess, label, state.target,
-        plan_skipped=plan_skipped,
+        plan_skipped=plan_skipped, information_gain=information_gain,
     )
     state.warnings.extend(assembly_warnings)
     if not model_parts:

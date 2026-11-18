@@ -80,3 +80,25 @@ def test_missing_counterexample_does_not_pass() -> None:
         None,
     )
     assert passed is False
+
+
+def test_m033c_benchmark_records_question_selection_provenance() -> None:
+    from eval.challenge.simulator import snapshot
+
+    body = {
+        "stage": "CLARIFYING",
+        "questions": [],
+        "evidence": [],
+        "activity": [
+            {"title": "Information gain review", "detail": (
+                "Selected check next move; model question=2/10, technician check=6/10. "
+                "Heuristic selection only, not diagnostic proof."
+            )},
+        ],
+        "assessment": {},
+    }
+    first = snapshot(body, None, 0)
+    assert len(first.information_gain_reviews) == 1
+    assert "Selected check next move" in first.information_gain_reviews[0]
+    second = snapshot(body, first, 1, prev_activity_len=1)
+    assert not second.information_gain_reviews, "Historical reviews must not count twice"

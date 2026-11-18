@@ -219,3 +219,14 @@ def test_runbook_steps_classified_and_unsafe_actions_warned() -> None:
     assert result.next_steps[0].guidance_impact == "POTENTIALLY_DISRUPTIVE"
     assert "chkdsk" in result.next_steps[0].safety_note
     assert any("unsafe guidance" in w for w in result.validation_warnings)
+
+
+def test_registry_modification_verb_first_is_disruptive() -> None:
+    verdict = _classify("Can you edit the registry keys to restore access?")
+    assert verdict.impact == "POTENTIALLY_DISRUPTIVE"
+    assert "registry" in verdict.safety_note
+
+
+def test_merely_reading_registry_remains_manual_information() -> None:
+    verdict = _classify("Inspect the registry value without changing it.")
+    assert verdict.impact == "MANUAL_INFORMATION"

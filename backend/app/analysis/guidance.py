@@ -53,7 +53,7 @@ _TIERS: list[tuple[GuidanceImpact, list[tuple[str, str]]]] = [
             (r"reset\s+(this\s+)?pc|factory\s+reset|reinstall\s+windows", "OS reset/reinstall"),
             (r"system\s+restore", "System Restore (rolls back system state)"),
             (r"bios\s+update|firmware\s+update|uefi\s+update", "firmware update"),
-            (r"reg\s+(add|delete|edit)|regedit.{0,20}(edit|change|delete)|registry\s+(edit|change|delete|writ|modif)", "registry modification"),
+            (r"reg\s+(add|delete|edit)|regedit.{0,20}(edit|change|delete)|registry\s+(edit|change|delete|writ|modif)|\b(edit|change|delete|modify|write)\b.{0,30}\bregistry\b", "registry modification"),
             (r"reboot|shutdown\s+/[rs]|restart\s+(the\s+)?(computer|laptop|pc|server|machine|system)\b", "rebooting the machine"),
             (r"driver.{0,20}(reinstall|uninstall|rollback)|reinstall.{0,20}driver", "driver reinstall/uninstall"),
             (r"\bdefrag\b|disk\s+defragment", "disk defragmentation (long, heavy I/O)"),

@@ -55,6 +55,7 @@ def triage_prompt(
     evidence_digest: str,
     target: str,
     knowledge_context: str | None = None,
+    information_gain: bool = False,
 ) -> str:
     evidence = evidence_digest.strip() or "No diagnostic evidence collected yet."
     scope = (
@@ -63,21 +64,34 @@ def triage_prompt(
         if target != "local"
         else "Reason from the report and evidence below."
     )
+    guidance = (
+        "Pin the LAST successful observable step and FIRST failing step, "
+        "or compare the SAME action under one safe changed condition. "
+        "Choose a concrete question whose different answers distinguish "
+        "plausible causes. In why, name the decision difference. "
+        "Prefer a safe read-only comparison in next_check when the technician "
+        "cannot answer by memory. Avoid ritual scope or timing asks. Never "
+        "request known facts, unavailable technical details, privileged "
+        "changes, or \"more details\". Copy reported error codes verbatim; "
+        "never invent a different code."
+        if information_gain else
+        "The question must name something concrete (a symptom, timing, scope, "
+        "or error text); never ask for \"more details\" in general. Ask the "
+        "question whose answer most narrows the cause, in this order: scope "
+        "(one or many? which machine? which users?), timing (when did it "
+        "start? what changed?), exact symptoms. Never ask for readings "
+        "already present in Evidence, and avoid version-number or "
+        "have-you-rebooted openers unless the report points there. Ask only "
+        "what the technician must answer; anything a safe read-only check "
+        "could settle belongs in next_check instead."
+    )
     prompt = (
         "You are FieldRook, a Windows troubleshooting assistant. Reply with ONLY "
         "this JSON object, no other text: {\"question\": \"<one clarifying question>\", "
         "\"why\": \"<why the answer changes the diagnosis>\", \"hypotheses\": "
         "[{\"title\": \"<possible cause>\", \"why\": \"<one line>\"}], \"next_check\": "
         "\"<one safe read-only check>\", \"unknowns\": [\"<what is still unknown>\"]}. "
-        "At most 2 hypotheses and 2 unknowns. The question must name something "
-        "concrete (a symptom, timing, scope, or error text); never ask for "
-        "\"more details\" in general. Ask the question whose answer most "
-        "narrows the cause, in this order: scope (one or many? which machine? "
-        "which users?), timing (when did it start? what changed?), exact "
-        "symptoms. Never ask for readings already present in Evidence, and "
-        "avoid version-number or have-you-rebooted openers unless the report "
-        "points there. Ask only what the technician must answer; anything a "
-        "safe read-only check could settle belongs in next_check instead. "
+        f"At most 2 hypotheses and 2 unknowns. {guidance} "
         f"{scope} Problem: {problem.strip()[:800]} Evidence: {evidence[:1500]}"
     )
     if knowledge_context and knowledge_context.strip():
@@ -130,6 +144,7 @@ def reassess_prompt(
     collector_capabilities: list[str] | None = None,
     knowledge_questions: list[str] | None = None,
     knowledge_context: str | None = None,
+    information_gain: bool = False,
 ) -> str:
     titles = "; ".join(t for t in hypothesis_titles if t)[:600] or "none tracked yet"
     # FORGE DELTA (c): collector capabilities + open knowledge questions ride
@@ -147,6 +162,20 @@ def reassess_prompt(
         if asked
         else ""
     )
+    guidance = (
+        "Prefer a question that can discriminate between causes: its different "
+        "answers should lead to DIFFERENT next checks. Pin the last observable "
+        "successful step before the failure or compare the same action under "
+        "one safe changed condition. Otherwise propose one read-only technician "
+        "check. Avoid unknown details and repeat asks. When a new observation "
+        "contradicts a hypothesis, pursue alternatives rather than a hypothesis "
+        "just ruled out."
+        if information_gain else
+        "When the observation contradicts the open hypotheses, prefer a "
+        "question whose answer would discriminate the new possibilities over "
+        "another check. Never ask about a hypothesis this observation just "
+        "ruled out; pursue the surviving alternatives."
+    )
     prompt = (
         "You are FieldRook, a Windows troubleshooting assistant. Reply with ONLY "
         "this JSON object, no other text: {\"verdict\": \"<one sentence: what the new "
@@ -155,10 +184,7 @@ def reassess_prompt(
         "Missing information, an unknown answer, or an inability to perform a "
         "check is NOT evidence against a hypothesis. If the reply supplies no "
         "new diagnostic facts, set weakened to [] and ask a different safe "
-        "discriminating question or check. When the observation contradicts "
-        "the open hypotheses, prefer a question whose answer would discriminate the new "
-        "possibilities over another check. Never ask about a hypothesis this "
-        "observation just ruled out; pursue the surviving alternatives. "
+        f"discriminating question or check. {guidance} "
         + (
             f"Note: the last {thin_streak} technician answers gave no usable "
             "information. Switch to a different branch or propose a concrete "
@@ -255,6 +281,7 @@ def assemble_assessment(
     model_label: str,
     target: str,
     plan_skipped: bool = False,
+    information_gain: bool = False,
 ) -> tuple[Any, list[str], list[str]]:
     """Build one AnalysisResult from validated task parts.
 
@@ -449,8 +476,11 @@ def assemble_assessment(
         runbook.safety_note = rb_verdict.safety_note[:1000]
 
     missing = [q.question for q in suggested_questions]
-    if not missing and reassess is None:
-        # Technician-meaningful fallback asks. These render as questions and
+    if not missing and reassess is None and (not information_gain or not suggested_steps):
+        # Technician-meaningful fallback asks only when NO model question
+        # or technician check gives direction. A chosen safe check must not
+        # spawn two generic fallback questions.
+        # These render as questions and
         # plan steps when the model says nothing usable, so they must never
         # be internal notes (M018: placeholder text leaked to technicians).
         missing = [

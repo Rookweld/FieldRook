@@ -70,6 +70,7 @@ class Settings:
     local_api: str = "auto"  # "auto" | "openai" | "ollama"
     local_think: str = "auto"  # "auto" | "on" | "off" (auto disables thinking for task calls)
     local_num_gpu: int | None = None  # None = server decides; 0 forces CPU-only
+    info_gain_mode: str = "observe"  # off|observe|enforce; default does not change model decisions
 
 
 def load_settings() -> Settings:
@@ -98,6 +99,9 @@ def load_settings() -> Settings:
             local_num_gpu = max(0, int(_num_gpu_raw))
         except ValueError:
             local_num_gpu = None
+    info_gain_mode = os.environ.get("FIELDROOK_INFO_GAIN_MODE", "observe").strip().lower()
+    if info_gain_mode not in ("off", "observe", "enforce"):
+        info_gain_mode = "observe"
     return Settings(
         model_api_key=raw_key or None,
         model_base_url=os.environ.get("MODEL_BASE_URL", DEFAULT_MODEL_BASE_URL).strip()
@@ -116,4 +120,5 @@ def load_settings() -> Settings:
         local_api=local_api,
         local_think=local_think,
         local_num_gpu=local_num_gpu,
+        info_gain_mode=info_gain_mode,
     )

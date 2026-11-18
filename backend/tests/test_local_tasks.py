@@ -788,3 +788,219 @@ def test_m033_reassessment_does_not_resend_historical_images() -> None:
     })
     assert _attached_images(state) == ["b2xk", "bmV3"]
     assert _attached_images(state, latest_only=True) == ["bmV3"]
+
+
+# ---------------------------------------------------------------------------
+# M033-C: information-gain review in the actual local task pipeline
+# ---------------------------------------------------------------------------
+
+
+def test_m033c_initial_round_chooses_model_alternative_without_new_calls() -> None:
+    state = _pipeline_state(target="remote")
+    triage = {
+        "question": "Which users are affected?",
+        "why": "Learn the affected scope.",
+        "hypotheses": [
+            {"title": "Desktop client issue", "why": "Client might differ from web."},
+            {"title": "Account access issue", "why": "Access might differ per user."},
+        ],
+        "next_check": "Inspect the reported error code in the affected app.",
+        "unknowns": ["Whether browser access works."],
+        "alternative_question": (
+            "Does the affected user open the same file in a browser but not the desktop client?"
+        ),
+        "alternative_why": (
+            "Compare account access against desktop client behavior; "
+            "this separates a client issue from user account access."
+        ),
+    }
+    provider = _TaskProvider({"triage": triage})
+    asyncio.run(_run_local_tasks(state, provider, _settings(info_gain_mode="enforce"), False))
+    assert provider.calls == ["triage"], "M033-C must not add an inference call"
+    assert state.tool_calls_made == 0, "remote target must not trigger local diagnostics"
+    assert state.assessment is not None
+    assert len(state.assessment.suggested_questions) == 1
+    assert "browser but not the desktop client" in state.assessment.suggested_questions[0].question
+    assert any(
+        "Selected alternative next move" in entry.detail
+        for entry in state.activity
+        if entry.title == "Information gain review"
+    )
+
+
+def test_m033c_followup_selects_a_safer_differential_question() -> None:
+    from app.schemas import Hypothesis
+
+    state = _pipeline_state(target="remote")
+    state.hypotheses.append(Hypothesis(hypothesis_id="h-1", title="Client configuration"))
+    state.hypotheses.append(Hypothesis(hypothesis_id="h-2", title="User access restriction"))
+    state.messages.append({
+        "role": "user", "content": "Technician answer: I don't have that information."
+    })
+    provider = _TaskProvider({
+        "reassess": {
+            "verdict": "No diagnostic facts yet.",
+            "weakened": ["Client configuration"],
+            "next_step": "Which users are affected?",
+            "alternative_question": "Can the user open the file through a browser but not the desktop client?",
+            "alternative_why": "Contrast the client-specific path with user account access.",
+        }
+    })
+    asyncio.run(_run_local_tasks(state, provider, _settings(info_gain_mode="enforce"), True))
+    assert provider.calls == ["reassess"]
+    assert state.assessment is not None
+    assert state.assessment.suggested_hypotheses == [], "M033-B is still enforced"
+    assert any(
+        "browser but not the desktop client" in q.question
+        for q in state.assessment.suggested_questions
+    )
+    assert any(e.title == "Hypothesis integrity guard" for e in state.activity)
+    assert any(e.title == "Information gain review" for e in state.activity)
+
+
+def test_m033c_unsafe_question_withheld_without_extra_model_call() -> None:
+    state = _pipeline_state(target="remote")
+    triage = {
+        "question": "Can you disable Windows Defender to see if it fixes the problem?",
+        "why": "Guess.",
+        "hypotheses": [],
+        "next_check": "Read the affected application's error log.",
+        "unknowns": [],
+    }
+    provider = _TaskProvider({"triage": triage})
+    asyncio.run(_run_local_tasks(state, provider, _settings(info_gain_mode="enforce"), False))
+    assert provider.calls == ["triage"]
+    assert state.assessment is not None
+    assert not any(
+        "disable Windows Defender" in q.question
+        for q in state.assessment.suggested_questions
+    )
+    assert state.assessment.suggested_plan is not None
+    assert any("read the affected" in s.instruction.lower()
+               for s in state.assessment.suggested_plan.steps)
+    assert any("model-proposed question was withheld" in w.lower() for w in state.warnings)
+
+
+def test_m033c_check_first_never_spawns_fallback_interrogation() -> None:
+    state = _pipeline_state(target="remote")
+    triage = {
+        "question": "Which users are affected?",
+        "why": "Broad scope.",
+        "hypotheses": [
+            {"title": "User profile issue", "why": "User-specific."},
+            {"title": "Application add-in", "why": "Normal startup-only."},
+        ],
+        "next_check": "Try launching the application in safe mode to compare startup results.",
+        "unknowns": [],
+    }
+    provider = _TaskProvider({"triage": triage})
+    asyncio.run(_run_local_tasks(state, provider, _settings(info_gain_mode="enforce"), False))
+    assert provider.calls == ["triage"]
+    assert state.assessment is not None
+    assert not state.assessment.suggested_questions
+    assert not state.assessment.missing_evidence, "Do not fabricate two default questions"
+    assert state.assessment.suggested_plan is not None
+    assert "safe mode" in state.assessment.suggested_plan.steps[0].instruction
+    assert any(
+        "Selected check next move" in a.detail
+        for a in state.activity if a.title == "Information gain review"
+    )
+
+
+def test_m033c_bad_model_check_is_suppressed_before_plan_assembly() -> None:
+    state = _pipeline_state(target="remote")
+    triage = {
+        "question": "Can the same user access the resource in a browser?",
+        "why": "Compare access routes.",
+        "hypotheses": [],
+        "next_check": "Disable the firewall to get rid of the error.",
+        "unknowns": [],
+    }
+    provider = _TaskProvider({"triage": triage})
+    asyncio.run(_run_local_tasks(state, provider, _settings(info_gain_mode="enforce"), False))
+    assert provider.calls == ["triage"]
+    assert state.assessment is not None
+    assert not state.assessment.suggested_plan
+    assert any("technician check withheld" in w for w in state.warnings)
+    assert any("browser" in q.question for q in state.assessment.suggested_questions)
+
+
+# ---------------------------------------------------------------------------
+# M033-C opt-in modes: default/shadow must never change the next move
+# ---------------------------------------------------------------------------
+
+
+def _m033c_two_questions() -> dict:
+    return {
+        "question": "Which users are affected?",
+        "why": "Determine affected scope.",
+        "hypotheses": [{"title": "Desktop client issue", "why": "Client may fail."}],
+        "next_check": "Inspect the reported error text.",
+        "unknowns": [],
+        "alternative_question": "Does the exact same user succeed in the browser but fail in the desktop client?",
+        "alternative_why": "Different results distinguish client-specific from account-wide failure.",
+    }
+
+
+def test_m033c_default_observe_records_but_does_not_select_alternative() -> None:
+    state = _pipeline_state(target="remote")
+    provider = _TaskProvider({"triage": _m033c_two_questions()})
+    asyncio.run(_run_local_tasks(state, provider, _settings(), False))
+    assert provider.calls == ["triage"]
+    assert state.assessment is not None
+    assert state.assessment.suggested_questions[0].question == "Which users are affected?"
+    assert any(
+        "Would select alternative next move" in a.detail
+        for a in state.activity if a.title == "Information gain review"
+    )
+    assert not any("Information gain" in w for w in state.warnings)
+
+
+def test_m033c_off_does_not_modify_or_log_any_decision() -> None:
+    state = _pipeline_state(target="remote")
+    provider = _TaskProvider({"triage": _m033c_two_questions()})
+    asyncio.run(_run_local_tasks(state, provider, _settings(info_gain_mode="off"), False))
+    assert provider.calls == ["triage"]
+    assert state.assessment is not None
+    assert state.assessment.suggested_questions[0].question == "Which users are affected?"
+    assert not any(a.title == "Information gain review" for a in state.activity)
+
+
+def test_m033c_enforce_changes_selection_only_when_explicit() -> None:
+    state = _pipeline_state(target="remote")
+    provider = _TaskProvider({"triage": _m033c_two_questions()})
+    asyncio.run(_run_local_tasks(state, provider, _settings(info_gain_mode="enforce"), False))
+    assert provider.calls == ["triage"]
+    assert state.assessment is not None
+    assert "browser but fail" in state.assessment.suggested_questions[0].question
+    assert any(
+        "Selected alternative next move" in a.detail
+        for a in state.activity if a.title == "Information gain review"
+    )
+
+
+def test_m033c_prompt_uses_baseline_until_opted_in() -> None:
+    old = triage_prompt("App fails", "ev-1", "remote")
+    experiment = triage_prompt("App fails", "ev-1", "remote", information_gain=True)
+    assert "scope (one or many?" in old
+    assert "LAST successful" not in old
+    assert "LAST successful" in experiment
+    old_followup = reassess_prompt(["File permission issue"], "No further details.")
+    new_followup = reassess_prompt(
+        ["File permission issue"], "No further details.", information_gain=True,
+    )
+    assert "When the observation contradicts" in old_followup
+    assert "Pin the last observable" in new_followup
+    assert "Pin the last observable" not in old_followup
+
+
+def test_m033c_load_settings_default_and_invalid_mode_fail_safe(monkeypatch) -> None:
+    from app.config import load_settings
+
+    monkeypatch.setenv("FIELDROOK_OFFLINE", "1")
+    monkeypatch.delenv("FIELDROOK_INFO_GAIN_MODE", raising=False)
+    assert load_settings().info_gain_mode == "observe"
+    monkeypatch.setenv("FIELDROOK_INFO_GAIN_MODE", "enforce")
+    assert load_settings().info_gain_mode == "enforce"
+    monkeypatch.setenv("FIELDROOK_INFO_GAIN_MODE", "banana")
+    assert load_settings().info_gain_mode == "observe"

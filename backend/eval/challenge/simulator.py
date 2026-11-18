@@ -98,6 +98,7 @@ class TurnRecord:
     proposals: int = 0
     model_calls: int = 0  # task-call notes added this turn
     notes: list[str] = field(default_factory=list)  # M019: new activity titles this turn
+    information_gain_reviews: list[str] = field(default_factory=list)  # M033-C: score/choice, not model text
 
 
 def snapshot(
@@ -160,6 +161,11 @@ def snapshot(
         proposals=len(body.get("proposals", [])),
         model_calls=len(new_notes),
         notes=fresh_titles,
+        information_gain_reviews=[
+            str(a.get("detail") or "")[:360]
+            for a in activity[prev_activity_len:]
+            if a.get("title") == "Information gain review"
+        ],
     )
 
 
@@ -694,6 +700,8 @@ def _render_state(rec: TurnRecord) -> str:
     unusable = [w for w in rec.warnings if "no usable output" in w]
     if unusable:
         lines.append(f"  model-output-failed: {len(unusable)} task(s) unusable ({unusable[0][:120]})")
+    for detail in rec.information_gain_reviews:
+        lines.append(f"  information-gain: {detail}")
     for q in rec.questions:
         if q["status"] == "open":
             lines.append(f"  Q(open): {q['text'][:300]}")

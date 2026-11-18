@@ -184,7 +184,12 @@ def main() -> int:
     parser.add_argument("--live", action="store_true",
                         help="allow cloud provider (requires MODEL_API_KEY; never default)")
     parser.add_argument("--results-dir", default=None)
+    parser.add_argument(
+        "--info-gain-mode", choices=("off", "observe", "enforce"),
+        default="observe", help="M033-C: shadow analysis by default; enforce is experimental",
+    )
     args = parser.parse_args()
+    os.environ["FIELDROOK_INFO_GAIN_MODE"] = args.info_gain_mode
 
     if args.provider == "meta" and not args.live:
         print("refusing cloud provider without --live (explicit authorization required)")
@@ -230,7 +235,7 @@ def main() -> int:
     client = TestClient(app)
     model_tag = args.model.replace(":", "-")
 
-    print(f"challenge: model={args.model} provider={args.provider} suite={args.suite} scenarios={len(selected)}")
+    print(f"challenge: model={args.model} provider={args.provider} suite={args.suite} scenarios={len(selected)} info_gain={args.info_gain_mode}")
     sys.stdout.flush()
 
     results: list[dict] = []
@@ -273,6 +278,19 @@ def main() -> int:
                     "stall_notes": run.get("stall_notes", 0),
                     "unsafe_flags": run.get("unsafe_flags", 0),
                     "hyp_revisions": run.get("hyp_revisions", 0),
+                    "information_gain_reviews": [
+                        detail
+                        for rec in run["records"]
+                        for detail in rec.information_gain_reviews
+                    ],
+                    "information_gain_checks_selected": sum(
+                        "Selected check next move" in detail
+                        for rec in run["records"] for detail in rec.information_gain_reviews
+                    ),
+                    "information_gain_alternatives_selected": sum(
+                        "Selected alternative next move" in detail
+                        for rec in run["records"] for detail in rec.information_gain_reviews
+                    ),
                 }
             )
             transcript = render_transcript(scenario, run, checks)
@@ -331,6 +349,7 @@ def main() -> int:
         "model": args.model,
         "provider": args.provider,
         "suite": args.suite,
+        "info_gain_mode": args.info_gain_mode,
         "num_gpu": args.num_gpu,
         "results": [
             {k: v for k, v in entry.items() if k != "trace"} for entry in results
