@@ -42,7 +42,9 @@ OutputBaseFilename=FieldRook-Setup-{#PackageVersion}
 SetupIconFile={#IconPath}
 UninstallDisplayIcon={app}\FieldRook.exe
 UsePreviousAppDir=yes
-AppMutex=Global\FieldRookDesktopM026
+; Do not use the application's global mutex here: a portable FieldRook
+; running from ANOTHER directory must not block installing this one.
+; Restart Manager below handles only target files actively in use.
 CloseApplications=yes
 RestartApplications=no
 SetupLogging=yes
