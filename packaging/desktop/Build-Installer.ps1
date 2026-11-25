@@ -89,8 +89,22 @@ $Installer = Join-Path $OutDir ("FieldRook-Setup-" + $Version + ".exe")
 if (-not (Test-Path -LiteralPath $Installer -PathType Leaf)) {
     throw "Installer executable missing: $Installer"
 }
-$hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $Installer).Hash.ToLowerInvariant()
-$zipHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $Zip).Hash.ToLowerInvariant()
+# Use the same .NET SHA256 implementation as build.ps1 and Build-Shell.ps1.
+# Windows PowerShell 5.1 may inherit PowerShell 7's PSModulePath, making
+# Get-FileHash auto-import fail even on a supported Windows build machine.
+function Get-Sha256Hex {
+    param([string]$Path)
+    $sha = [Security.Cryptography.SHA256]::Create()
+    try {
+        $stream = [IO.File]::OpenRead($Path)
+        try { $bytes = $sha.ComputeHash($stream) }
+        finally { $stream.Dispose() }
+    }
+    finally { $sha.Dispose() }
+    return ([BitConverter]::ToString($bytes)).Replace("-", "").ToLowerInvariant()
+}
+$hash = Get-Sha256Hex -Path $Installer
+$zipHash = Get-Sha256Hex -Path $Zip
 @(
     "$hash  $(Split-Path -Leaf $Installer)"
     "$zipHash  $(Split-Path -Leaf $Zip)"

@@ -190,7 +190,7 @@ $checksums | Set-Content (Join-Path $OutDir "SHA256SUMS.txt")
 $gitCommit = ""
 try { $gitCommit = (git -C $RepoRoot rev-parse HEAD 2>$null).Trim() } catch { $gitCommit = "unknown" }
 $freezeList = (& $buildPython -m pip freeze) -join "`n"
-$releaseLockSha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath $ReleaseRequirements).Hash.ToLowerInvariant()
+$releaseLockSha256 = Get-Sha256Hex -Path $ReleaseRequirements
 @"
 FieldRook Desktop $Version — build BOM (M025)
 =============================================
