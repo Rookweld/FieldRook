@@ -592,6 +592,7 @@ async def _run_local_tasks(
     from .assist import _looks_uninformative
     from .information_gain import review_task_question
     from .evidence_integrity import audit_reassessment, format_audit_note
+    from .technical_signals import excluded_port_from_reports, reported_context, reported_failure_layers
     from .hypothesis_decisions import review_hypothesis_changes, technician_report_refs
 
     decision_mode = str(getattr(settings, "hypothesis_decision_mode", "observe")).lower()
@@ -655,6 +656,15 @@ async def _run_local_tasks(
     plan: dict[str, Any] | None = None
     reassess: dict[str, Any] | None = None
     digest = evidence_digest([item.model_dump() for item in state.evidence])
+    # Model input: technician reports are data, not independent host readings.
+    # Same-report, mathematical port correlation is available as a labelled
+    # hint, never as permission to change the affected Windows machine.
+    technician_reports = [
+        str(message.get("content")) for message in state.messages
+        if message.get("role") == "user" and isinstance(message.get("content"), str)
+    ]
+    port_signal = excluded_port_from_reports(technician_reports)
+    reported_layers = reported_failure_layers(technician_reports)
     # M022: one fresh retrieval per local round; quoted context only.
     try:
         _excerpts = reference_excerpts_for(
@@ -709,6 +719,13 @@ async def _run_local_tasks(
         reassess, task_warnings = await run_task(
             "reassess",
             reassess_prompt(titles, observation, asked, thin_streak=thin, collector_capabilities=_forge_caps or None, knowledge_questions=_forge_kq or None, knowledge_context=_k_context or None, information_gain=information_gain)
+            + (
+                " Earlier independent startup blockers reported by the technician: "
+                + " -> ".join(reported_layers) + ". Do not collapse them into one "
+                "cause; do not mistake reports for host measurements."
+                if len(reported_layers) >= 2 else ""
+            )
+            + (" " + port_signal.prompt_note() if port_signal else "")
             + (" A newly authorized screenshot is attached: use only what is visible and do not invent unreadable text."
                if fresh_visual_observation else "")
             + (
@@ -938,6 +955,18 @@ async def _run_local_tasks(
         plan_skipped=plan_skipped, information_gain=information_gain,
     )
     state.warnings.extend(assembly_warnings)
+    # A bounded diagnostic interpretation of technician *reports*: surface
+    # chronological blockers and an overlapping Windows excluded-port range
+    # even if a small model misses the correlation. Do not convert these
+    # into measured evidence, verified root causes, or executable actions.
+    correlation = reported_context(technician_reports)
+    if correlation:
+        result.understanding = (correlation + " " + result.understanding)[:2000]
+        state.add_activity(
+            "note", "Reported diagnostic correlation",
+            "Cross-checked technician reports only; no affected-host measurement "
+            "or corrective action was performed by FieldRook.",
+        )
     if not model_parts:
         _substitute_simulated(
             state,

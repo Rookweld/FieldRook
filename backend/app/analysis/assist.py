@@ -486,7 +486,7 @@ def merge_plan(state: InvestigationState, round_no: int) -> str:
         registered = bool(item.tool_name) and item.tool_name in REGISTRY
         kind = item.kind
         if kind == "AUTOMATED_READ_ONLY" and not registered:
-            # The registry — not the model — decides what FieldRook may run.
+            # The registry â€” not the model â€” decides what FieldRook may run.
             kind = "TECHNICIAN_CHECK"
         verdict = _guidance_verdict_for(item, state, registered)
         match = open_existing.pop(_normalize(instruction), None)
@@ -598,6 +598,100 @@ def _question_exists(state: InvestigationState, text: str) -> bool:
     return False
 
 
+def _report_content_tokens(text: str) -> set[str]:
+    """Light inflection folding for conservative already-answered YES/NO asks.
+
+    Do not use this to infer an answer from mere subject overlap on open-ended
+    questions (e.g. "Why did VPN fail?" or "What is the error code?").
+    """
+    canonical: set[str] = set()
+    for word in _content_tokens(text):
+        if len(word) > 5 and word.endswith("ing"):
+            word = word[:-3]
+        elif len(word) > 5 and word.endswith("ly"):
+            word = word[:-2]
+        elif len(word) > 4 and word.endswith("es"):
+            word = word[:-2]
+        elif len(word) > 4 and word.endswith("s"):
+            word = word[:-1]
+        canonical.add(word)
+    return canonical
+
+
+def _already_answered_in_reports(state: InvestigationState, question: str) -> bool:
+    """Conservative deterministic check; only with explicit textual support.
+
+    This prevents a model repeating initial facts, but it must not hide a
+    valid *new* diagnostic comparison or infer one person's state from
+    another. Checks are either target resolution, explicitly reported error,
+    or high-overlap factual yes/no questions.
+    """
+    text = (question or "").strip()
+    lower = text.lower()
+    if (
+        state.target in ("local", "remote")
+        and ("affected computer" in lower or "computer is affected" in lower)
+        and any(term in lower for term in ("this host", "this one", "another machine", "different machine", "which computer"))
+    ):
+        return True
+    reports = [state.problem] + [
+        message["content"] for message in state.messages
+        if message.get("role") == "user" and isinstance(message.get("content"), str)
+    ]
+    # Error-description questions are settled only after a distinctive error
+    # has actually been supplied, not just when the word "error" occurs.
+    if re.search(r"\b(?:exact\s+error|error\s+(?:text|code|message))\b", lower):
+        if any(re.search(
+            r"(?:\b0x[0-9a-f]{4,}\b|\bstderr\s*[:=]|"
+            r"\b(?:error(?:\s+(?:message|text|code))?)\s*[:=]|"
+            r"\bcould\s+not\s+be\s+loaded\b)",
+            source, re.IGNORECASE
+        ) for source in reports[-12:]):
+            return True
+    # A prior check only becomes obsolete after the technician explicitly
+    # reports the relevant startup gate is passed. Merely knowing a file
+    # exists does not prove a program successfully loaded it.
+    if ("profile" in lower or "yaml" in lower) and (
+        "path" in lower or "directory" in lower
+    ) and any(re.search(
+        r"(?:\b(?:profile|yaml)\b.{0,100}\b(?:now\s+loads?|"
+        r"load(?:ed|ing)\s+successfully|read(?:s)?\s+successfully)\b|"
+        r"\bnow\s+reads\s+(?:its|the)\s+yaml\b|"
+        r"\bprofile\s+lookup\s+(?:is\s+)?fixed\b)",
+        source, re.IGNORECASE
+    ) for source in reports[-12:]):
+        return True
+    if ("launcher" in lower and "tunnel-client" in lower and (
+        "execute" in lower or "permissions" in lower or "path" in lower
+    )) and any(re.search(
+        r"\btunnel[- ]client\b.{0,80}\b(?:now\s+launches|"
+        r"now\s+starts|started\s+successfully)\b",
+        source, re.IGNORECASE
+    ) for source in reports[-12:]):
+        return True
+
+    # Support a generic wrapper around a model's yes/no question. The
+    # deterministic fallback can prefix the actual question; the prefix is
+    # not a technical detail that needs to be repeated in the report.
+    core = re.sub(
+        r"^can\s+you\s+provide\s+or\s+check\s+the\s+following:\s*",
+        "", text, flags=re.IGNORECASE,
+    )
+    # Require five meaningful overlapping terms and at least 75% coverage
+    # in a *single* report. Ignore open-ended questions even if vocabulary
+    # overlaps: their requested explanation is not in a list of topic terms.
+    if not re.match(r"^(?:does|did|is|was|were|has|have)\b", core.lower()):
+        return False
+    sought = _report_content_tokens(core)
+    if len(sought) < 5:
+        return False
+    return any(
+        len(sought & _report_content_tokens(source)) >= 5
+        and len(sought & _report_content_tokens(source)) / len(sought) >= 0.75
+        for source in reports[-12:]
+    )
+
+
 def merge_questions(
     state: InvestigationState, round_no: int
 ) -> tuple[list[str], list[str]]:
@@ -626,7 +720,7 @@ def merge_questions(
         text = (item.question or "").strip()
         if not text:
             continue
-        if _question_exists(state, text):
+        if _question_exists(state, text) or _already_answered_in_reports(state, text):
             withheld.append(text[:300])
             continue
         question = ClarifyingQuestion(
@@ -643,7 +737,7 @@ def merge_questions(
     if state.assessment is not None and not any(q.status == "open" for q in state.questions):
         for missing in state.assessment.missing_evidence[:2]:
             text = f"Can you provide or check the following: {missing}"
-            if _question_exists(state, text):
+            if _question_exists(state, text) or _already_answered_in_reports(state, text):
                 withheld.append(text[:300])
                 continue
             question = ClarifyingQuestion(
@@ -695,6 +789,10 @@ def _settle_questions(
             question.status = "retired"
             question.retired_note = "The diagnostic target is now known."
             notes.append(f"{question.question_id} retired: target known.")
+        elif _already_answered_in_reports(state, question.question):
+            question.status = "retired"
+            question.retired_note = "Already covered by a technician report; kept for history."
+            notes.append(f"{question.question_id} retired: report already answers it.")
         elif (
             question.source == "fallback"
             and new_model
