@@ -977,7 +977,13 @@ async def _run_local_tasks(
     _accept_assessment(state, result, label)
     stats = getattr(provider, "last_stats", {}) or {}
     if stats:
-        detail = f"Last call: {stats.get('wall_s', '?')}s wall"
+        wall = stats.get("task_wall_s", stats.get("wall_s", "?"))
+        detail = f"Last call: {wall}s wall"
+        if stats.get("task"):
+            detail += f"; task={stats['task']}"
+            detail += f"; result={stats.get('status', 'unknown')}"
+        if stats.get("retry_used"):
+            detail += f"; attempts={stats.get('attempts', 2)} (one timeout retry)"
         if stats.get("eval_count"):
             detail += (
                 f", {stats.get('eval_count', '?')} tokens "

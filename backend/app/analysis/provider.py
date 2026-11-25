@@ -614,6 +614,26 @@ class LocalEndpointProvider(ModelProvider):
         }
         return {"role": "assistant", "content": "".join(content_parts)}
 
+    @staticmethod
+    def _task_timeout_is_transient(error: Exception) -> bool:
+        """Retry only timeouts, never malformed requests or model errors.
+
+        httpx timeout exceptions arrive wrapped by the Ollama stream as
+        ModelAnalysisError. Do not retry HTTP 4xx, invalid configs, or
+        malformed JSON under the guise of a model cold start.
+        """
+        cause: BaseException | None = error
+        for _ in range(5):
+            if isinstance(cause, (asyncio.TimeoutError, httpx.TimeoutException)):
+                return True
+            cause = cause.__cause__
+            if cause is None:
+                break
+        return any(
+            word in str(error).lower()
+            for word in ("readtimeout", "connecttimeout", "pooltimeout", "timeout")
+        )
+
     async def run_task(
         self,
         task: str,
@@ -622,15 +642,17 @@ class LocalEndpointProvider(ModelProvider):
         images: list[str] | None = None,
         cancel_scope: CancelScope | None = None,
     ) -> tuple[dict[str, Any] | None, list[str]]:
-        """Run one pipeline task; returns (parsed payload or None, warnings).
+        """One bounded task wall-clock budget, with one timeout-only triage retry.
 
-        One bounded repair retry on JSON-parse failure; schema gaps return
-        partial content with a warning instead of retrying forever.
-        `images` (base64, no data prefix) attaches screenshots for
-        vision-capable models; callers must capability-gate first.
-        Raises RoundCancelled (never swallowed as failure) when the
-        technician cancels mid-flight.
+        Prior behavior gave EACH HTTP read a fresh timeout and could then
+        invoke an unbounded second JSON repair call. On a cold Ollama load
+        this meant a '120 s' triage could exceed its advertised budget.
+        A short second chance may recover a transient first-load timeout,
+        but both attempts AND JSON repair share one deadline.
+        RoundCancelled propagates immediately and is never a fallback.
         """
+        import time as _time
+
         from .local_tasks import TASK_LIMITS, extract_json, missing_keys
 
         limits = TASK_LIMITS.get(task, {"num_predict": 300, "timeout": 120})
@@ -640,7 +662,17 @@ class LocalEndpointProvider(ModelProvider):
         if not model:
             raise ModelAnalysisError("FIELDROOK_LOCAL_MODEL_NAME is not set.")
         warnings: list[str] = []
-        timeout = timeout_s or float(limits["timeout"])
+        total_budget = float(timeout_s or limits["timeout"])
+        if total_budget <= 0:
+            raise ModelAnalysisError("Local task timeout must be positive.")
+        started = _time.monotonic()
+        deadline = started + total_budget
+        self.last_stats = {
+            "task": task,
+            "status": "started",
+            "attempts": 0,
+            "retry_used": False,
+        }
         num_predict = int(limits["num_predict"])
         try:
             from .local_profiles import resolve_profile
@@ -649,6 +681,7 @@ class LocalEndpointProvider(ModelProvider):
             num_predict = int(num_predict * scale)
         except Exception:  # noqa: BLE001 - profile failure keeps defaults
             pass
+
         if images:
             content: str | list[dict[str, Any]] = [{"type": "text", "text": prompt}]
             for blob in images[:4]:
@@ -661,33 +694,135 @@ class LocalEndpointProvider(ModelProvider):
             messages: list[dict[str, Any]] = [{"role": "user", "content": content}]
         else:
             messages = [{"role": "user", "content": prompt}]
-        try:
+
+        # Triage alone gets a reserved tail of up to 25s for one transient
+        # timeout retry; other tasks use a single attempt to avoid duplicate
+        # work on slow local hardware. No retry for invalid JSON.
+        retry_reserve = min(25.0, total_budget * 0.25) if task == "triage" else 0.0
+        first_attempt_budget = max(0.01, total_budget - retry_reserve)
+        attempts = 0
+        retry_used = False
+
+        async def invoke() -> dict[str, Any]:
+            # Probing and inference are both inside the wall-clock deadline.
             style = await _await_cancellable(self.api_style_async(), cancel_scope)
+            remaining = max(0.01, deadline - _time.monotonic())
             if style == "ollama":
-                reply = await self._ollama_chat(
-                    base, model, messages, True, num_predict, timeout, cancel_scope
+                return await self._ollama_chat(
+                    base, model, messages, True, num_predict, remaining, cancel_scope
                 )
-            else:
-                url = base + "/chat/completions"
-                reply = await _chat_completions(
-                    url, model, messages, None, True, timeout, None, "Local model",
-                    cancel_scope,
+            return await _chat_completions(
+                base + "/chat/completions", model, messages, None,
+                True, remaining, None, "Local model", cancel_scope,
+            )
+
+        reply: dict[str, Any] | None = None
+        for attempt in range(1, 3 if task == "triage" else 2):
+            remaining = deadline - _time.monotonic()
+            if remaining <= 0:
+                break
+            per_attempt_budget = min(
+                remaining, first_attempt_budget if attempt == 1 else remaining
+            )
+            attempts = attempt
+            self.last_stats["attempts"] = attempts
+            try:
+                reply = await asyncio.wait_for(
+                    invoke(), timeout=per_attempt_budget
                 )
-        except ModelAnalysisError as exc:
-            return None, [f"{task} call failed ({exc}); deterministic fallback fills in."]
+                break
+            except (asyncio.TimeoutError, ModelAnalysisError) as exc:
+                elapsed = _time.monotonic() - started
+                transient = self._task_timeout_is_transient(exc)
+                if (
+                    task == "triage"
+                    and attempt == 1
+                    and transient
+                    and deadline - _time.monotonic() > 0.01
+                ):
+                    retry_used = True
+                    warnings.append(
+                        "triage first model attempt timed out; one bounded "
+                        "retry within the same task deadline."
+                    )
+                    continue
+                self.last_stats.update({
+                    "status": "failed",
+                    "attempts": attempts,
+                    "retry_used": retry_used,
+                    "task_wall_s": round(elapsed, 2),
+                    "failure_kind": "timeout" if transient else "model_error",
+                })
+                return None, warnings + [
+                    f"{task} model call failed "
+                    f"({'timeout' if transient else 'model error'}); "
+                    "no model reasoning; deterministic fallback fills in."
+                ]
+
+        if reply is None:
+            self.last_stats.update({
+                "status": "failed",
+                "attempts": attempts,
+                "retry_used": retry_used,
+                "task_wall_s": round(_time.monotonic() - started, 2),
+                "failure_kind": "deadline",
+            })
+            return None, warnings + [
+                f"{task} exceeded its {total_budget:g}s wall-clock budget; "
+                "no model reasoning; deterministic fallback fills in."
+            ]
+
         text = str(reply.get("content") or "")
         parsed = extract_json(text)
         if parsed is None:
-            repaired = await self._repair_json(
-                task, text, base, model, num_predict, timeout, cancel_scope
-            )
+            remaining = deadline - _time.monotonic()
+            repaired = None
+            if remaining > 0.1:
+                try:
+                    repaired = await asyncio.wait_for(
+                        self._repair_json(
+                            task, text, base, model, num_predict, remaining,
+                            cancel_scope,
+                        ),
+                        timeout=remaining,
+                    )
+                except asyncio.TimeoutError:
+                    warnings.append(
+                        f"{task} JSON repair exceeded the shared task deadline."
+                    )
             if repaired is None:
-                return None, [f"{task} returned unparseable output; deterministic fallback fills in."]
+                self.last_stats.update({
+                    "task": task,
+                    "status": "failed",
+                    "attempts": attempts,
+                    "retry_used": retry_used,
+                    "task_wall_s": round(_time.monotonic() - started, 2),
+                    "failure_kind": "invalid_json",
+                })
+                return None, warnings + [
+                    f"{task} returned unusable JSON; no model reasoning; "
+                    "deterministic fallback fills in."
+                ]
             warnings.append(f"{task} needed one JSON repair retry.")
             parsed = repaired
+
         gaps = missing_keys(parsed, task)
         if gaps:
             warnings.append(f"{task} is missing keys {gaps}; partial content used.")
+        # Keep successful per-model token stats from the transport, with new
+        # task-level provenance. No stale success stats on a failed task.
+        self.last_stats.update({
+            "task": task,
+            "status": "model",
+            "attempts": attempts,
+            "retry_used": retry_used,
+            "task_wall_s": round(_time.monotonic() - started, 2),
+        })
+        if retry_used:
+            warnings.append(
+                f"{task} recovered on its single bounded timeout retry; "
+                "model-generated output was returned."
+            )
         return parsed, warnings
 
     async def _repair_json(
