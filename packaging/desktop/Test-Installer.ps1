@@ -7,7 +7,8 @@ Does not close or modify portable instances. Does NOT delete case data.
 param(
     [Parameter(Mandatory)][string]$InstallerPath,
     [Parameter(Mandatory)][string]$Version,
-    [string]$TestRoot = ""
+    [string]$TestRoot = "",
+    [ValidateRange(0,65535)][int]$SmokePort = 0
 )
 $ErrorActionPreference = "Stop"
 $InstallerPath = (Resolve-Path -LiteralPath $InstallerPath).Path
@@ -21,6 +22,27 @@ $marker = Join-Path $local "FieldRook\keep-this-case.txt"
 $logInstall = Join-Path $TestRoot "install.log"
 $logReinstall = Join-Path $TestRoot "reinstall.log"
 $logUninstall = Join-Path $TestRoot "uninstall.log"
+# Select a free OS-assigned loopback port instead of assuming 8199 is
+# available; Windows excluded ranges can make an unused port unbindable.
+# Explicit overrides are preflight-tested without touching TCP exclusions.
+function Get-SmokePort {
+    param([int]$Requested)
+    $listener = $null
+    try {
+        $listener = [Net.Sockets.TcpListener]::new(
+            [Net.IPAddress]::Loopback, $Requested)
+        $listener.Start()
+        return [int]$listener.LocalEndpoint.Port
+    }
+    catch {
+        throw "Smoke port $Requested cannot be bound on 127.0.0.1: $($_.Exception.Message)"
+    }
+    finally {
+        if ($null -ne $listener) { $listener.Stop() }
+    }
+}
+$SmokePort = Get-SmokePort -Requested $SmokePort
+Write-Host "M044 isolated native smoke port: $SmokePort (bind preflight OK)"
 $regPath = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\{8A7EAFA3-3BD4-4DA1-82F3-885D214F92D1}_is1'
 $shortcut = Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs\FieldRook.lnk"
 if (Test-Path -LiteralPath $regPath) { throw "A FieldRook installer registration exists. Refusing to replace it." }
@@ -56,7 +78,7 @@ function Read-OwnedRegistration {
 try {
     New-Item -ItemType Directory -Force -Path (Join-Path $local "FieldRook") | Out-Null
     Set-Content -LiteralPath $marker -Value "M039 sentinel: preserve user data"
-    Write-Host "M039 installing $Version to disposable path $installDir"
+    Write-Host "M044 installing $Version to disposable path $installDir"
     Invoke-Setup -Executable $InstallerPath -LogFile $logInstall
     $installed = Read-OwnedRegistration
     $cleanupOwned = $true
@@ -82,10 +104,10 @@ try {
     $originalDemo = $env:FIELDROOK_DEMO_STATE
     try {
         $env:LOCALAPPDATA = $local
-        $env:FIELDROOK_PORT = "8199"
+        $env:FIELDROOK_PORT = [string]$SmokePort
         $env:FIELDROOK_DB_PATH = Join-Path $local "FieldRook\smoke.db"
         $env:FIELDROOK_DEMO_STATE = Join-Path $local "FieldRook\demo"
-        $p = Start-Process -FilePath $exe -ArgumentList @("--smoke","--port","8199","--wait-seconds","35") -PassThru -Wait
+        $p = Start-Process -FilePath $exe -ArgumentList @("--smoke","--port",[string]$SmokePort,"--wait-seconds","35") -PassThru -Wait
         if ($p.ExitCode -ne 0) {throw "Installed native smoke exit $($p.ExitCode)"}
     }
     finally {
@@ -122,7 +144,7 @@ try {
     $passed = $true
     Write-Host "UNINSTALL_AND_DATA_RETENTION_PASS"
     Write-Host "PORTABLE_INSTANCES_UNTOUCHED=$($baseline.Count)"
-    Write-Host "M039_ACCEPTANCE_PASS"
+    Write-Host "M044_ACCEPTANCE_PASS"
 }
 finally {
     # On an unexpected test error, only attempt cleanup if registration STILL
@@ -139,5 +161,5 @@ finally {
         }
         catch {Write-Warning "Manual cleanup of test installation may be needed: $_"}
     }
-    if (-not $passed) {Write-Warning "M039 acceptance did not finish cleanly; inspect test root $TestRoot"}
+    if (-not $passed) {Write-Warning "M044 acceptance did not finish cleanly; inspect test root $TestRoot"}
 }
