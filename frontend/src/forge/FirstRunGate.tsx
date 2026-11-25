@@ -47,7 +47,7 @@ function isAutomated(): boolean {
   return typeof navigator !== "undefined" && navigator.webdriver === true;
 }
 
-export function FirstRunGate() {
+export function FirstRunGate({ onBegin }: { onBegin?: () => void }) {
   const [open, setOpen] = useState<boolean>(() => !readMarker());
   const [automated] = useState<boolean>(isAutomated);
 
@@ -74,6 +74,7 @@ export function FirstRunGate() {
       onStart={() => {
         writeMarker();
         setOpen(false);
+        onBegin?.();
       }}
       onDismiss={() => setOpen(false)}
       onReset={() => {

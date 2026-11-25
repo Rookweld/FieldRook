@@ -15,7 +15,9 @@ import type {
   InvestigationResponse,
   ProviderOption,
   ServiceSummary,
+  StatusResponse,
 } from "../types";
+import "./../signalforge/intake-simplicity.css";
 import { ActionCenter } from "./ActionCenter";
 import { CaseDispositionCard } from "./CaseDispositionCard";
 import { CaseReportCard } from "./CaseReportCard";
@@ -116,10 +118,12 @@ function revealAnalysisTop(): void {
 export function ProblemWorkstation({
   initial,
   onInvestigationChange,
+  status,
 }: {
   initial?: InvestigationResponse | null;
   /** M026 BETA: read-only mirror for the SIGNALFORGE shell. Notify-only. */
   onInvestigationChange?: ((inv: InvestigationResponse | null) => void) | null;
+  status?: StatusResponse | null;
 }) {
   const [services, setServices] = useState<ServiceSummary[]>([]);
   const [providers, setProviders] = useState<ProviderOption[]>([]);
@@ -437,6 +441,21 @@ export function ProblemWorkstation({
     setPendingPackage(null);
   }, []);
 
+  const localConfigured = providers.some((item) => item.name === "local" && item.available);
+  const modeLabel = useFixtures
+    ? "Example diagnostic data is ON — observations are not collected from your PC."
+    : provider === "local"
+      ? "Local AI selected. Requires an accessible local model server; no connection test has run."
+      : provider === "simulated"
+        ? "Simulated reasoning selected. No live AI model will be consulted."
+        : provider === "auto"
+          ? !status
+            ? "Backend status unavailable. Check the connection before starting."
+            : status.model_mode === "live"
+              ? "Default live AI selected. A cloud provider may transmit redacted investigation context."
+              : "Default simulated reasoning. It can organize a case, but is not live AI inference."
+          : "Selected provider: " + provider + ". Review its processing location before sharing data.";
+
   return (
     <>
       {error && (
@@ -451,11 +470,9 @@ export function ProblemWorkstation({
         <section className="card surface-hero" id="sf-engine-intake">
           <div className="hero">
             <div className="hero-copy">
-              <h2>Name the symptom.</h2>
+              <h2>What is going wrong?</h2>
               <p className="lede">
-                FieldRook runs read-only Windows diagnostics, cites every claim to
-                timestamped evidence, and verifies fixes by measurement — never by
-                assumption.
+                Describe what fails. FieldRook helps you check the evidence, one step at a time.
               </p>
               <div className="preset-row" role="group" aria-label="Investigation templates">
             {PRESETS.map((preset) => (
@@ -472,11 +489,11 @@ export function ProblemWorkstation({
             <span className="muted">templates — or describe the problem free-form</span>
           </div>
           <label className="field">
-            <span>Problem description</span>
+            <span>What do you notice?</span>
             <textarea
               id="sf-engine-problem"
               className="problem"
-              rows={4}
+              rows={3}
               maxLength={4000}
               placeholder="My VPN disconnects every 10 minutes. Sometimes Windows says the network adapter is unavailable."
               value={problem}
@@ -484,22 +501,8 @@ export function ProblemWorkstation({
               disabled={busy !== null}
             />
           </label>
-          <div className="controls">
-            <label className="field">
-              <span>Suspected service (optional)</span>
-              <select
-                value={serviceName}
-                onChange={(e) => setServiceName(e.target.value)}
-                disabled={busy !== null}
-              >
-                <option value="">No specific service</option>
-                {services.map((s) => (
-                  <option key={s.name} value={s.name}>
-                    {s.display_name} ({s.name}) — {s.status}
-                  </option>
-                ))}
-              </select>
-            </label>
+          <p className="fr-intake-focus">Choose the computer with the problem. No need to know the cause yet.</p>
+          <div className="fr-intake-options">
             <label className="field">
               <span>Affected computer</span>
               <select
@@ -521,54 +524,96 @@ export function ProblemWorkstation({
               {busy === "investigating" ? "Investigating…" : "Investigate"}
             </button>
           </div>
-          <div className="file-row">
-            <label className="field">
-              <span>Screenshot (optional, PNG/JPEG, max 5MB)</span>
-              <input
-                ref={fileInput}
-                type="file"
-                accept="image/png,image/jpeg"
-                onChange={(e) => onFileChange(e.currentTarget)}
-                disabled={busy !== null}
-              />
-            </label>
-            {previewUrl && (
-              <div className="preview-box">
-                <img src={previewUrl} alt="Attached screenshot preview" className="preview" />
-                <button type="button" className="link-button" onClick={clearFile}>
-                  Remove
-                </button>
-              </div>
+          <p className="fr-intake-help">
+            {target === "remote"
+              ? "FieldRook will not inspect the other computer. Use observations or a consented Collector package."
+              : target === "unknown"
+                ? "You can describe the issue now; identify the affected computer before relying on host diagnostics."
+                : "Read-only host checks, when available, are performed on this computer only."}
+          </p>
+          <div className="fr-intake-readiness" aria-label="Selected analysis mode">
+            <strong>Analysis before you start</strong>
+            <p role="status" aria-live="polite">{modeLabel}</p>
+            {localConfigured && provider !== "local" && (
+              <button type="button" onClick={() => setProviderChoice("local")} disabled={busy !== null}>
+                Use configured local AI ↗
+              </button>
             )}
+            {provider === "local" && (
+              <button type="button" onClick={() => setProviderChoice("auto")} disabled={busy !== null}>
+                Use default analysis
+              </button>
+            )}
+            <small>
+              A configured local model is not necessarily reachable. No model or fix is installed automatically.
+            </small>
           </div>
-          <details className="fr-details fr-intake-extras">
-            <summary>Attach a diagnostic Collector package (optional)</summary>
-            <IntakeCollectorCard
-              onImport={(form) => setPendingPackage(form)}
-              onError={setError}
-              disabled={busy !== null}
-            />
-            {pendingPackage && !file && (
-              <p className="muted">Package attached — it joins the evidence once analysis starts.</p>
-            )}
-          </details>
-          {file && (
-            <>
-              <label className="check">
-                <input
-                  type="checkbox"
-                  checked={consent}
-                  onChange={(e) => setConsent(e.target.checked)}
+          <details className="fr-details fr-intake-optional">
+            <summary>More options: screenshot, Windows service or Collector package</summary>
+            <div className="fr-intake-optional-content">
+              <label className="field">
+                <span>Suspected service (optional)</span>
+                <select
+                  value={serviceName}
+                  onChange={(e) => setServiceName(e.target.value)}
+                  disabled={busy !== null}
+                >
+                  <option value="">No specific service</option>
+                  {services.map((svc) => (
+                    <option key={svc.name} value={svc.name}>
+                      {svc.display_name} ({svc.name}) — {svc.status}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <div className="file-row">
+                <label className="field">
+                  <span>Screenshot (optional, PNG/JPEG, max 5MB)</span>
+                  <input
+                    ref={fileInput}
+                    type="file"
+                    accept="image/png,image/jpeg"
+                    onChange={(e) => onFileChange(e.currentTarget)}
+                    disabled={busy !== null}
+                  />
+                </label>
+                {previewUrl && (
+                  <div className="preview-box">
+                    <img src={previewUrl} alt="Attached screenshot preview" className="preview" />
+                    <button type="button" className="link-button" onClick={clearFile}>Remove</button>
+                  </div>
+                )}
+              </div>
+              {file && (
+                <>
+                  <label className="check">
+                    <input
+                      type="checkbox"
+                      checked={consent}
+                      onChange={(e) => setConsent(e.target.checked)}
+                      disabled={busy !== null}
+                    />
+                    <span>I am authorized to share this screenshot for analysis with the selected provider.</span>
+                  </label>
+                  <p className="warn">
+                    Screenshots can include sensitive data. Only share images you are authorized to use.
+                    An active provider may process the image outside this computer.
+                  </p>
+                </>
+              )}
+              <details className="fr-details fr-intake-extras">
+                <summary>Attach a diagnostic Collector package (optional)</summary>
+                <IntakeCollectorCard
+                  onImport={(form) => setPendingPackage(form)}
+                  onError={setError}
                   disabled={busy !== null}
                 />
-                <span>I am authorized to share this screenshot for analysis with the selected provider.</span>
-              </label>
-              <p className="warn">
-                Screenshots may contain sensitive information. Only attach images you are
-                authorized to share. FieldRook does not store screenshots.
-              </p>
-            </>
-          )}
+                {pendingPackage && (
+                  <p className="muted">Package attached — imported only after the case is started.</p>
+                )}
+              </details>
+            </div>
+          </details>
           <details className="advanced">
             <summary>Advanced: fixture mode, provider (development and demos)</summary>
             <label className="check">
@@ -588,7 +633,7 @@ export function ProblemWorkstation({
                 disabled={busy !== null}
                 aria-label="Inference provider"
               >
-                <option value="auto">auto (Meta cloud when a key is set, else simulated)</option>
+                <option value="auto">auto (configured default; may be cloud or simulated)</option>
                 {providers.map((p) => (
                   <option key={p.name} value={p.name} disabled={!p.available}>
                     {p.name} — {p.reason}

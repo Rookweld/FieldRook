@@ -14,14 +14,7 @@ type ProviderStatus =
   | { state: "ready"; providers: ProviderOption[] }
   | { state: "unavailable" };
 
-/**
- * First-run welcome card (M025 GAMMA). Explains what FieldRook diagnoses,
- * what "local target" means, Collector packages, providers incl. live
- * local-AI status, when cloud calls need consent, and what works with no
- * model at all. Content mirrors docs/FIELD_KIT.md; honesty rules from
- * docs/M025_CONTRACTS.md apply (no small-model CPU-responsiveness claims,
- * local AI optional, cloud needs consent, offline stays useful).
- */
+/** A single short path to the first real case. Technical detail stays optional. */
 export function FirstRunPanel({ onStart, onDismiss, onReset }: FirstRunPanelProps) {
   const [providers, setProviders] = useState<ProviderStatus>({ state: "loading" });
 
@@ -41,111 +34,61 @@ export function FirstRunPanel({ onStart, onDismiss, onReset }: FirstRunPanelProp
   }, []);
 
   return (
-    <section
-      className="card firstrun"
-      data-testid="forge-first-run"
-      aria-label="First-run guide"
-    >
-      <div className="card-head">
-        <h2>
-          <span className="eyebrow">Welcome to FieldRook</span>
-        </h2>
-        <span className="muted">first-run guide · dismiss any time</span>
+    <section className="card firstrun firstrun-simple" data-testid="forge-first-run" aria-label="First-run guide">
+      <div className="firstrun-intro">
+        <span className="eyebrow">WELCOME TO FIELDROOK</span>
+        <h2>Bring a real Windows problem.</h2>
+        <p>
+          No setup wizard or fictional case required. Describe something that actually
+          fails and follow one check at a time.
+        </p>
       </div>
 
-      <div className="firstrun-grid">
-        <div>
-          <h3 className="story-head">What FieldRook diagnoses</h3>
-          <p>
-            Evidence-backed diagnosis of Windows problems: a failing service
-            (Settings → Standalone service diagnostics) or a symptom in your own
-            words (Workbench intake). Diagnostics are read-only and bounded; the only
-            thing FieldRook can ever change is its own demo worker, and only
-            through propose → approve → execute with a single-use token.
-          </p>
-        </div>
+      <ol className="firstrun-steps" aria-label="Your first investigation in three steps">
+        <li><strong>Describe the symptom</strong><span>What fails, and when?</span></li>
+        <li><strong>Choose the computer</strong><span>This PC, or a different authorized PC.</span></li>
+        <li><strong>Check and record</strong><span>Separate observations from guesses. Verify the result.</span></li>
+      </ol>
 
-        <div>
-          <h3 className="story-head">What “local target” means</h3>
-          <p>
-            The <em>local target</em> is this machine: live diagnostics run
-            here via PowerShell and describe this computer only. The header
-            badge says <span className="badge badge-live">LIVE DIAGNOSTICS</span>{" "}
-            when this host can do that, or{" "}
-            <span className="badge badge-sim">FIXTURES ONLY</span> when it
-            cannot. Anything about a <em>different</em> computer arrives as a
-            Collector package — never by reaching across the network.
-          </p>
-        </div>
+      <p className="firstrun-safety">
+        FieldRook never applies a fix automatically. Its local diagnostics inspect
+        this computer only; describing another PC does not scan it remotely.
+      </p>
 
-        <div>
-          <h3 className="story-head">Collector packages</h3>
+      <details className="firstrun-more">
+        <summary>How does AI and evidence collection work?</summary>
+        <div className="firstrun-more-content">
           <p>
-            The Collector runs on the affected computer, shows a per-category
-            consent screen, and writes a signed .zip package only after the
-            technician acknowledges it. Attach the package at intake or import
-            it mid-investigation with the sharing-consent box checked.
-            Packages are validated atomically — any failure rejects the whole
-            import — and nothing imported is ever executed. Imported evidence
-            cannot be re-checked from here; collect a fresh package instead.
-          </p>
-        </div>
-
-        <div>
-          <h3 className="story-head">AI providers, live status</h3>
-          <p>
-            Inference provider (where intelligence runs) is separate from
-            diagnostic target (which computer the evidence describes).
+            A simulated analysis can organize a case without using a live AI model.
+            It is labelled simulated and must not be treated as proof of a cause.
+            Local AI is optional and needs a separately configured model server;
+            nothing is downloaded automatically.
           </p>
           <ProviderStatusBlock status={providers} />
-          <p className="muted">
-            Local AI is optional: nothing is downloaded automatically, and the
-            connection test runs only when you trigger it. Local speed
-            depends on your hardware and model — measured true-CPU triage
-            for the default profile is tens of seconds (see
-            docs/PROVIDERS.md); no interactivity is promised.
-          </p>
-        </div>
-
-        <div>
-          <h3 className="story-head">When the cloud needs your consent</h3>
           <p>
-            Nothing leaves localhost except explicit live-model calls, which
-            carry only the current redacted investigation context. Screenshots
-            require the sharing-consent box and are never stored — only
-            metadata is kept. Switching an investigation to the Meta cloud
-            provider while it holds evidence, notes, or screenshots needs an
-            explicit confirmation, because that content would be transmitted
-            on the next model round.
+            A provider marked configured is <strong>not</strong> confirmed reachable.
+            Cloud AI, when configured and selected, can transmit redacted case context.
+            Only share data you have permission to use. Screenshots require explicit consent.
           </p>
-        </div>
-
-        <div>
-          <h3 className="story-head">What works with no model</h3>
           <p>
-            Everything except live reasoning: read-only diagnostics, evidence
-            collection, deterministic simulated analysis (honestly labeled{" "}
-            <span className="badge badge-sim">SIMULATED MODEL</span>), the
-            knowledge library, Collector import and validation, technician
-            plans, fix verification, and report export. Offline stays useful.
+            Read-only diagnostics can inspect this Windows PC; for a different
+            computer, use technician observations or an authorized Collector package.
+            Collector data is never executed as code. Review proposed changes
+            yourself before taking action.
           </p>
         </div>
-      </div>
+      </details>
 
       <div className="controls firstrun-actions">
         <button type="button" className="button" onClick={onStart}>
-          Start diagnosing
+          Start my first investigation ↗
         </button>
         <button type="button" className="button button-ghost" onClick={onDismiss}>
-          Dismiss for now
+          Not now
         </button>
-        <button
-          type="button"
-          className="button button-ghost firstrun-reset"
-          onClick={onReset}
-          title="Forget the dismissal so this guide opens on the next visit"
-        >
-          Show on next visit
+        <button type="button" className="button button-ghost firstrun-reset" onClick={onReset}
+          title="Show this guide automatically again on the next visit">
+          Show next time
         </button>
       </div>
     </section>
@@ -154,32 +97,17 @@ export function FirstRunPanel({ onStart, onDismiss, onReset }: FirstRunPanelProp
 
 function ProviderStatusBlock({ status }: { status: ProviderStatus }) {
   if (status.state === "loading") {
-    return <p className="muted">Checking provider status…</p>;
+    return <p className="muted">Reading configured providers…</p>;
   }
   if (status.state === "unavailable") {
-    return (
-      <p className="warn">
-        Provider status is unavailable (the backend did not answer). Simulated
-        offline analysis still works once the backend is up.
-      </p>
-    );
+    return <p className="warn">Provider configuration cannot be read until the backend responds.</p>;
   }
   return (
     <ul className="firstrun-providers">
-      {status.providers.map((p) => (
-        <li key={p.name}>
-          <span
-            className={p.available ? "badge badge-live" : "badge badge-sim"}
-            title={p.reason}
-          >
-            {p.name}: {p.available ? "ready" : "not configured"}
-          </span>{" "}
-          <span className="muted">
-            {p.model} · {p.processing_location}
-            {p.name === "local" && !p.available
-              ? " · optional, nothing auto-downloads"
-              : ""}
-          </span>
+      {status.providers.map((provider) => (
+        <li key={provider.name}>
+          <strong>{provider.name}</strong> — {provider.available ? "configured" : "not configured"}
+          <span className="muted"> · {provider.processing_location}</span>
         </li>
       ))}
     </ul>

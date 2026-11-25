@@ -90,3 +90,74 @@
     transition: none !important;
   }
 }
+
+/* M043 — a compact welcome rather than a six-section technical manual. */
+.firstrun-simple {
+  padding: 17px 22px;
+}
+.firstrun-intro .eyebrow {
+  color: var(--lime);
+  font-weight: 900;
+  font-size: 10px;
+  letter-spacing: .12em;
+}
+.firstrun-intro h2 {
+  font-family: var(--title);
+  font-size: clamp(22px, 2.6vw, 30px);
+  color: var(--offwhite);
+  line-height: 1.2;
+  margin: 7px 0 6px;
+}
+.firstrun-intro p { max-width: 66ch; color: var(--peach); margin: 3px 0 10px; }
+.firstrun-steps {
+  list-style: decimal;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 9px;
+  padding: 0;
+  margin: 10px 0;
+  counter-reset: frstep;
+}
+.firstrun-steps li {
+  list-style: none;
+  counter-increment: frstep;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 11px 13px 11px 43px;
+  position: relative;
+}
+.firstrun-steps li::before {
+  content: counter(frstep, decimal-leading-zero);
+  position: absolute;
+  left: 10px;
+  top: 9px;
+  font-weight: 900;
+  font-size: 18px;
+  color: var(--lime);
+}
+.firstrun-steps li strong { display: block; color: var(--offwhite); font-size: 13px; }
+.firstrun-steps li span { color: var(--muted); font-size: 12px; }
+.firstrun-safety {
+  color: var(--peach);
+  font-size: 12px;
+  margin: 10px 0;
+}
+.firstrun-more {
+  border-top: 1px solid var(--line);
+  margin: 10px 0;
+  padding-top: 8px;
+  color: var(--peach);
+}
+.firstrun-more > summary {
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--lime);
+  font-weight: 800;
+}
+.firstrun-more-content { max-width: 74ch; font-size: 12px; line-height: 1.6; }
+.firstrun-more-content p { margin: 9px 0; }
+.firstrun-more-content ul { padding-left: 15px; }
+.firstrun-actions .button:first-child { font-weight: 850; }
+@media (max-width: 900px) {
+  .firstrun-steps { grid-template-columns: 1fr; }
+}

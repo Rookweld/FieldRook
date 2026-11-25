@@ -1,0 +1,61 @@
+/* M043: compact, honest first-case options; same palette tokens as SIGNALFORGE. */
+.fr-intake-readiness {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--plum) 84%, var(--void));
+  padding: 12px 14px;
+  margin: 12px 0;
+}
+.fr-intake-readiness strong { color: var(--offwhite); font-size: 13px; }
+.fr-intake-readiness p {
+  margin: 6px 0;
+  color: var(--peach);
+  line-height: 1.5;
+  font-size: 12px;
+}
+.fr-intake-readiness small { color: var(--muted); font-size: 11px; display: block; }
+.fr-intake-readiness button {
+  border: 1px solid var(--lime);
+  background: transparent;
+  color: var(--lime);
+  border-radius: 6px;
+  padding: 6px 10px;
+  margin-top: 7px;
+  cursor: pointer;
+  font-weight: 800;
+  font-size: 12px;
+}
+.fr-intake-readiness button:disabled { opacity: .5; cursor: not-allowed; }
+.fr-intake-focus { font-size: 12px; margin: 7px 0; color: var(--peach); }
+.fr-intake-optional { margin: 10px 0; }
+.fr-intake-optional > summary {
+  cursor: pointer;
+  color: var(--peach);
+  font-size: 12px;
+  font-weight: 800;
+}
+.fr-intake-optional[open] > summary { margin-bottom: 9px; }
+.fr-intake-optional-content { margin: 0 12px 12px; }
+.fr-intake-options { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; }
+.fr-intake-options .field { flex: 1 1 210px; }
+.fr-intake-options .button { flex: 0 0 auto; }
+.fr-intake-options .field select { width: 100%; }
+.fr-intake-help { color: var(--muted); font-size: 11px; margin: 2px 0 6px; }
+@media (max-width: 700px) {
+  .fr-intake-options { flex-direction: column; align-items: stretch; }
+  .fr-intake-options .field { flex: 0 0 auto; width: 100%; }
+  .fr-intake-options .button { width: 100%; }
+}
+
+/* M043 — keep the primary Investigate action in the first desktop viewport. */
+.sf-work-content-intake { padding-top: 8px; gap: 8px; }
+.sf-intake-heading { padding: 0 4px 5px; gap: 8px; }
+.sf-intake-heading p { margin: 2px 0; }
+#sf-engine-intake .hero-copy h2 { margin: 0 0 4px; }
+#sf-engine-intake .hero-copy .lede { margin-bottom: 5px; max-width: 95ch; font-size: 12px; }
+#sf-engine-intake .hero-copy > .field { margin: 5px 0; }
+#sf-engine-intake .preset-row { margin-bottom: 0; gap: 6px; }
+#sf-engine-intake .fr-intake-focus { margin: 5px 0; }
+#sf-engine-intake .fr-intake-options .field { margin: 0; }
+#sf-engine-intake .fr-intake-options .button { align-self: end; }
+#sf-engine-intake textarea.problem { min-height: 78px; }

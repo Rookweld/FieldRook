@@ -263,7 +263,7 @@ export function App() {
       onGoEvidence={() => navigate("evidence")}
       onGoWorkbench={() => navigate("workbench")}
     >
-      {route.view === "launchpad" && <FirstRunGate />}
+      {route.view === "launchpad" && <FirstRunGate onBegin={startNew} />}
       <ErrorBoundary
         key={`${route.view}:${route.investigationId ?? "none"}:${session}`}
         onReset={() => {
@@ -301,6 +301,7 @@ export function App() {
             <ProblemWorkstation
               key={`${seeded?.investigation_id ?? "new"}:${session}`}
               initial={seeded}
+              status={status}
               onInvestigationChange={handleMirror}
             />
           </Workbench>

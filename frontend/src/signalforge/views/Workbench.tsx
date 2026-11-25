@@ -193,8 +193,8 @@ export function Workbench({
               </p>
               <span className="sf-minihelp">
                 {status ? (status.model_mode === "live"
-      ? "Default: live AI · select a provider under Advanced"
-      : "Default: simulation · select local AI under Advanced") : "Service unavailable — check Settings"}
+      ? "Default analysis: live model · review data processing below"
+      : "Default analysis: simulated · live AI is optional") : "Service unavailable — check Settings"}
               </span>
             </div>
             <button type="button" className="sf-btn sf-btn-dark sf-btn-sm" onClick={onImport}>
