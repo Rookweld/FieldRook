@@ -7,8 +7,9 @@ test.use({ storageState: { cookies: [], origins: [] } });
 
 test("launchpad is the fresh landing with working nav and recents", async ({ page }) => {
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: /be curious/i })).toBeVisible();
-  await expect(page.getByRole("button", { name: "New investigation" })).toBeVisible();
+  // Current launchpad language is "FOLLOW THE EVIDENCE."
+  await expect(page.getByRole("heading", { name: /follow the evidence/i })).toBeVisible();
+  await expect(page.getByRole("button", { name: /New investigation/i }).first()).toBeVisible();
   await expect(page.getByRole("navigation", { name: "Primary" }).getByRole("button", { name: "Launchpad", exact: true })).toBeVisible();
   await expect(page.getByRole("navigation", { name: "Primary" }).getByRole("button", { name: "Workbench", exact: true })).toBeVisible();
 

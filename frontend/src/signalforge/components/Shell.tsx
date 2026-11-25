@@ -1,5 +1,5 @@
 import { useEffect, useRef, type ReactNode } from "react";
-import type { StatusResponse } from "../../types";
+import type { InvestigationResponse, StatusResponse } from "../../types";
 import type { ShellProps, SignalView } from "../types";
 import { CircuitVeins } from "../motion";
 import { FieldKitDock } from "../dock/FieldKitDock";
@@ -21,20 +21,45 @@ export function RookFigure() {
   );
 }
 
-/** One honest operational signal; details live in Settings. */
-function ModeBadges({ status }: { status: StatusResponse | null }) {
+/** Use an open case's actual inference provenance, not the global default. */
+function ModeBadges({
+  status,
+  investigation,
+}: {
+  status: StatusResponse | null;
+  investigation: InvestigationResponse | null;
+}) {
   if (!status) {
-    return <span className="sf-badge sf-badge-sim" role="status">Connecting to service…</span>;
+    return <span className="sf-badge sf-badge-sim" role="status">Service unavailable</span>;
   }
-  const model = status.model_mode === "live" ? "AI connected" : "Simulated analysis";
-  const tools = status.live_diagnostics_available ? "local read-only tools" : "fixture diagnostics";
+  if (investigation) {
+    const live = investigation.analysis_mode === "live";
+    const engine = live
+      ? (investigation.model.startsWith("local/") ? "Local AI" : "Live AI")
+      : "Simulated analysis";
+    const evidence = investigation.uses_fixtures
+      ? "fixture data"
+      : investigation.evidence.length + " evidence records";
+    return (
+      <span
+        className={live ? "sf-badge sf-badge-live" : "sf-badge sf-badge-sim"}
+        title={"This case used " + investigation.model + " (" + investigation.analysis_mode + "); " +
+          evidence + ". Case history does not prove the model is connected now."}
+        role="status"
+      >
+        Case: {engine} · {evidence}
+      </span>
+    );
+  }
+  const live = status.model_mode === "live";
   return (
     <span
-      className={status.model_mode === "live" ? "sf-badge sf-badge-live" : "sf-badge sf-badge-sim"}
-      title={`${status.model_name} · ${model} · ${tools}. See Settings for details.`}
+      className={live ? "sf-badge sf-badge-live" : "sf-badge sf-badge-sim"}
+      title={"Default: " + status.model_name + " (" + status.model_mode +
+        "). A particular investigation may use a different inference provider."}
       role="status"
     >
-      {model} · {status.live_diagnostics_available ? "local tools" : "demo data"}
+      Default: {live ? "Live AI" : "Simulation"} · {status.live_diagnostics_available ? "local tools" : "demo data"}
     </span>
   );
 }
@@ -123,8 +148,10 @@ export function SignalFrame({
   };
 
   const statusLine = status
-    ? `${status.service} · v${status.version} · ${status.model_name} (${status.model_mode})`
-    : "Waiting for the backend on this machine";
+    ? status.service + " · v" + status.version + " · " + (investigation
+      ? "case " + investigation.model + " (" + investigation.analysis_mode + ")"
+      : "default " + status.model_name + " (" + status.model_mode + ")")
+    : "Service unavailable — case results may be historical";
 
   const bodyClass =
     visibility === "collapsed"
@@ -152,7 +179,7 @@ export function SignalFrame({
           <span className="sf-top-meta">Diagnose · Verify · Resolve</span>
           <div className="sf-top-spacer" />
           <div className="sf-badges">
-            <ModeBadges status={status} />
+            <ModeBadges status={status} investigation={investigation} />
           </div>
         </header>
         <div className={bodyClass}>

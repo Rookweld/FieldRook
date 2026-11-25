@@ -13,8 +13,8 @@ async function investigateRemote(page, problem: string) {
 test("guided remote investigation answers questions and works the plan", async ({ page }) => {
   await investigateRemote(page, "E2E guide probe: Excel will not open files from Teams.");
   await expect(page.getByText("OTHER PC", { exact: true })).toBeVisible();
-  // Assistant strip on Findings points at the Guide.
-  await expect(page.getByLabel("Assistant summary")).toBeVisible();
+  // M034+ workbench uses the next-step card instead of the old assistant strip.
+  await expect(page.locator(".sf-next")).toBeVisible();
   await page.getByRole("tab", { name: "Guide" }).click();
 
   // Answer the first clarifying question inline.
@@ -46,8 +46,8 @@ test("guided remote investigation answers questions and works the plan", async (
 
   // The observation is labeled technician-reported evidence.
   await page.getByRole("tab", { name: /Evidence/ }).click();
-  await expect(page.getByText("Technician reports").first()).toBeVisible();
-  await expect(page.getByText("TECHNICIAN-REPORTED").first()).toBeVisible();
+  await expect(page.locator(".view-panel").getByText("Technician reports").first()).toBeVisible();
+  await expect(page.locator(".view-panel").getByText("TECHNICIAN-REPORTED").first()).toBeVisible();
   await page.screenshot({ path: "test-results/shot-guide.png" });
 });
 

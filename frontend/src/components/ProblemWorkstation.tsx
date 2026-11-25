@@ -100,6 +100,19 @@ function PendingPanel({ what }: { what: string }) {
   );
 }
 
+/** On accepted analysis, reveal the newest case summary, not the old form.
+ * No scrolling for failed requests; don't force animation on reduced motion.
+ */
+function revealAnalysisTop(): void {
+  window.requestAnimationFrame(() => {
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const behavior = reduced ? "instant" : "smooth";
+    document.getElementById("sf-main")?.scrollTo({ top: 0, behavior });
+    // Narrow screens can also scroll the document itself (outside sf-main).
+    window.scrollTo({ top: 0, behavior });
+  });
+}
+
 export function ProblemWorkstation({
   initial,
   onInvestigationChange,
@@ -301,6 +314,7 @@ export function ProblemWorkstation({
       }
       setInvestigation(current);
       setView("findings");
+      revealAnalysisTop();
     } catch (e) {
       if (e instanceof ApiError) {
         setError(`Request failed (HTTP ${e.status}): ${e.message}`);
@@ -323,6 +337,7 @@ export function ProblemWorkstation({
       );
       setInvestigation(result);
       setFollowup("");
+      revealAnalysisTop();
     } catch (e) {
       if (e instanceof ApiError) {
         setError(`Follow-up failed (HTTP ${e.status}): ${e.message}`);

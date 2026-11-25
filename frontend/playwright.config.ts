@@ -4,6 +4,9 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 
 const configDir = path.dirname(fileURLToPath(import.meta.url));
+// Port 8123 may be inside a Windows TCP excluded range (e.g. 8119–8218).
+// Override when necessary; keep the existing default for older specs.
+const apiPort = process.env.FIELDROOK_E2E_API_PORT || "8123";
 const resultsDir = path.join(configDir, "test-results");
 const backendDir = path.join(configDir, "..", "backend");
 // Prefer the checkout's own venv; fall back to the dev machine's venv.
@@ -35,9 +38,9 @@ export default defineConfig({
   webServer: [
     {
       // Dedicated port: never collides with a developer's live backend on :8000.
-      command: `"${pythonExe}" -m uvicorn app.main:app --host 127.0.0.1 --port 8123`,
+      command: `"${pythonExe}" -m uvicorn app.main:app --host 127.0.0.1 --port ${apiPort}`,
       cwd: backendDir,
-      url: "http://127.0.0.1:8123/api/status",
+      url: "http://127.0.0.1:" + apiPort + "/api/status",
       timeout: 60000,
       reuseExistingServer: false,
       env: {
@@ -55,7 +58,7 @@ export default defineConfig({
       timeout: 90000,
       reuseExistingServer: false,
       env: {
-        FIELDROOK_API_PORT: "8123",
+        FIELDROOK_API_PORT: apiPort,
       },
     },
   ],

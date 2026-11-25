@@ -19,8 +19,9 @@ test("fixture network investigation shows activity, evidence, assessment", async
   await expect(page.getByText("Diagnostic activity")).toBeVisible();
   await expect(page.getByText(/get_network_adapters|get_ip_config/).first()).toBeVisible();
   await page.getByRole("tab", { name: "Findings" }).click();
-  // Evidence cards and assessment with cited facts.
-  await expect(page.getByText("ev-1").first()).toBeVisible();
+  // M034+ keeps detailed assessment in a disclosure.
+  await page.locator(".fr-deep-findings > summary").click();
+  await expect(page.locator(".fr-deep-findings").getByText("ev-1").first()).toBeVisible();
   await expect(page.getByText(/OBSERVED|Observed facts/).first()).toBeVisible();
   // Resolution banner: diagnosed, nothing verified.
   await expect(page.getByText(/UNRESOLVED — diagnosed/i)).toBeVisible();
@@ -45,5 +46,6 @@ test("bare task question collects scheduled-tasks evidence (M010-1)", async ({
   await page.getByRole("button", { name: "Investigate", exact: true }).click();
   await expect(page.getByText("FIXTURES", { exact: true })).toBeVisible({ timeout: 30000 });
   await page.getByRole("tab", { name: /Evidence/ }).click();
-  await expect(page.getByText("Scheduled tasks").first()).toBeVisible({ timeout: 15000 });
+  // Scope to the visible Evidence tab, not an older hidden overview copy.
+  await expect(page.locator(".view-panel").getByText("Scheduled tasks").first()).toBeVisible({ timeout: 15000 });
 });

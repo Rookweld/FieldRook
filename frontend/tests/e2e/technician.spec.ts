@@ -30,9 +30,10 @@ test("crash investigation shows overview, grouped evidence, runbook", async ({
   await page.getByRole("tab", { name: /Evidence/ }).click();
   await expect(page.getByText("search_application_crashes").first()).toBeVisible();
   await expect(page.getByRole("heading", { name: /Applications/ })).toBeVisible();
-  // Runbook steps with impact badges.
+  // Extended technician diagnosis is intentionally collapsed by default.
   await page.getByRole("tab", { name: "Findings" }).click();
-  await expect(page.getByText("Technician next steps")).toBeVisible();
+  await page.locator(".fr-deep-findings > summary").click();
+  await expect(page.locator(".fr-deep-findings").getByText("Technician next steps")).toBeVisible();
   await expect(page.getByText("read-only").first()).toBeVisible();
   await page.screenshot({ path: "test-results/shot-technician.png" });
 });

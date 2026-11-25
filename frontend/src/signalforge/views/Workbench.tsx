@@ -20,6 +20,19 @@ function targetLabel(inv: InvestigationResponse): string {
   }
 }
 
+/** Show a compact title; never discard the actual technician report. */
+function caseHeadline(problem: string): { title: string; shortened: boolean } {
+  const report = problem.trim().replace(/\s+/g, " ");
+  const firstSentence = report.match(/^.{28,130}?[.!?](?=\s|$)/)?.[0] ?? "";
+  let title = firstSentence || report;
+  if (title.length > 130) {
+    const slice = title.slice(0, 127);
+    const boundary = slice.lastIndexOf(" ");
+    title = (boundary >= 74 ? slice.slice(0, boundary) : slice).trim() + "…";
+  }
+  return { title, shortened: title !== report };
+}
+
 function NextPanel({ investigation, onOpenGuide }: { investigation: InvestigationResponse; onOpenGuide: () => void }) {
   const steps = investigation.plan?.steps ?? [];
   const current =
@@ -179,7 +192,9 @@ export function Workbench({
                 <button type="button" className="sf-inline-link" onClick={onGoLaunchpad}>Open history</button>.
               </p>
               <span className="sf-minihelp">
-                {status ? (status.model_mode === "live" ? "AI analysis available" : "Simulation mode") : "Connecting to backend"}
+                {status ? (status.model_mode === "live"
+      ? "Default: live AI · select a provider under Advanced"
+      : "Default: simulation · select local AI under Advanced") : "Service unavailable — check Settings"}
               </span>
             </div>
             <button type="button" className="sf-btn sf-btn-dark sf-btn-sm" onClick={onImport}>
@@ -203,6 +218,7 @@ export function Workbench({
 
   const steps = investigation.plan?.steps ?? [];
   const done = steps.filter((step) => step.status === "done").length;
+  const headline = caseHeadline(investigation.problem);
 
   return (
     <section className="sf-screen" aria-label="Workbench">
@@ -217,14 +233,24 @@ export function Workbench({
             CASE · {investigation.investigation_id.slice(0, 8)} · {targetLabel(investigation)}
           </span>
         </div>
-        <h1>{investigation.problem}</h1>
+        <p className="sf-hero-eyebrow">REPORTED SYMPTOM</p>
+        <h1 id="sf-case-headline" title={headline.shortened ? investigation.problem : undefined}>
+          {headline.title}
+        </h1>
         <div className="sf-hero-details">
           <span>{new Date(investigation.created_at).toLocaleString()}</span>
-          <span>{investigation.analysis_mode === "live" ? "Live analysis" : "Simulated analysis"}</span>
-          <span>{investigation.uses_fixtures ? "Fixture data" : "Collected data"}</span>
+          <span>{investigation.analysis_mode === "live"
+            ? (investigation.model.startsWith("local/") ? "Local AI analysis" : "Live AI analysis")
+            : "Simulated analysis"}</span>
+          <span>{investigation.uses_fixtures ? "Fixture evidence" : investigation.evidence.length + " evidence records"}</span>
           {steps.length > 0 && <span>{done}/{steps.length} plan steps recorded</span>}
         </div>
-
+        {headline.shortened && (
+          <details className="sf-case-original">
+            <summary>Read the full problem report</summary>
+            <p>{investigation.problem}</p>
+          </details>
+        )}
       </div>
       <div className="sf-work-content">
         {investigation.disposition && investigation.disposition !== "open" ? (

@@ -148,6 +148,8 @@
 }
 
 .sf-next {
+  /* Keep the full next action visible even when the title wraps. */
+  flex-shrink: 0;
   background: linear-gradient(
     118deg,
     var(--tangerine) 0%,
@@ -467,7 +469,51 @@
   margin: 12px 0 0;
   line-height: 1.12;
 }
-.sf-hero-case .sf-hero-details { margin-top: 11px; gap: 12px; }
+/* M042: large raw intake reports must not dominate the entire workbench. */
+.sf-hero-case h1 {
+  font-size: clamp(24px, 2.35vw, 34px);
+  max-width: 990px;
+  letter-spacing: -0.045em;
+  line-height: 1.14;
+  text-wrap: pretty;
+  margin-top: 7px;
+}
+.sf-hero-eyebrow {
+  position: relative;
+  z-index: 3;
+  margin: 16px 0 0;
+  color: var(--void);
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+}
+.sf-hero-case .sf-hero-details { margin-top: 12px; gap: 12px; }
+.sf-case-original {
+  position: relative;
+  z-index: 4;
+  max-width: 980px;
+  margin-top: 11px;
+  font-size: 12px;
+}
+.sf-case-original > summary {
+  cursor: pointer;
+  display: inline-block;
+  font-weight: 800;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.sf-case-original > summary:hover { color: var(--aubergine); }
+.sf-case-original > p {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-width: 820px;
+  line-height: 1.5;
+  margin: 10px 0 0;
+  padding: 12px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--peach) 80%, transparent);
+}
+
 .sf-deep-dive {
   border: 1px solid var(--line);
   background: color-mix(in srgb, var(--aubergine) 73%, var(--void));
@@ -487,7 +533,7 @@
 .sf-case-actions .sf-inline-link { margin-left: auto; color: var(--peach); font-size: 12px; }
 @media (max-width: 700px) {
   .sf-hero-case { min-height: 0; flex-basis: auto; padding: 17px; }
-  .sf-hero-case h1 { font-size: 30px; }
+  .sf-hero-case h1 { font-size: 25px; line-height: 1.19; }
   .sf-intake-heading { align-items: flex-start; }
   .sf-case-actions .sf-inline-link { margin-left: 0; }
 }
