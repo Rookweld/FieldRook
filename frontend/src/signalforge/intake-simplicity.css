@@ -59,3 +59,41 @@
 #sf-engine-intake .fr-intake-options .field { margin: 0; }
 #sf-engine-intake .fr-intake-options .button { align-self: end; }
 #sf-engine-intake textarea.problem { min-height: 78px; }
+
+
+/* M045-B: the technician's question, next check and reply are the workspace.
+   Extended analysis and provider controls remain below, not ahead of action. */
+.fr-guided-primary {
+  display: grid;
+  gap: 12px;
+  scroll-margin-top: 16px;
+  outline: none;
+}
+.fr-guided-primary:focus-visible {
+  outline: 2px solid var(--lime);
+  outline-offset: 4px;
+  border-radius: 10px;
+}
+.fr-guided-primary-label {
+  color: var(--lime);
+  font-weight: 900;
+  letter-spacing: .12em;
+  font-size: 11px;
+  padding: 2px 3px 0;
+}
+.fr-guided-primary > .card { margin: 0; }
+.fr-guided-primary .guide-focus,
+.fr-guided-primary .guide-current {
+  border-color: color-mix(in srgb, var(--lime) 54%, var(--line));
+}
+.fr-guided-primary .guide-input, .fr-guided-primary textarea {
+  font-size: 14px;
+  line-height: 1.5;
+}
+.fr-guided-context {
+  border-color: color-mix(in srgb, var(--line) 60%, var(--void));
+}
+@media (max-width: 700px) {
+  .fr-guided-primary { gap: 9px; }
+  .fr-guided-primary > .card { padding: 14px; }
+}

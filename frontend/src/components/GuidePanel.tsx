@@ -708,7 +708,146 @@ export function GuidePanel({
 
   return (
     <div className="guide">
-      <section className="card guide-status">
+      <div className="fr-guided-primary" aria-label="Your next investigation actions" tabIndex={-1}>
+        <div className="fr-guided-primary-label">WORK ON THIS CASE</div>
+      {openQuestions.length > 0 && (
+        <section className="card">
+          <div className="card-head">
+            <h2>Questions for you</h2>
+            <span className="muted">{openQuestions.length} open</span>
+          </div>
+          <ul className="guide-list">
+            {openQuestions.map((q, i) => (
+              <QuestionCard
+                key={q.question_id}
+                question={q}
+                invId={invId}
+                disabled={working !== null}
+                onUpdate={onUpdate}
+                onError={onError}
+                isCurrent={i === 0}
+              />
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {currentStep && (
+        <section className="card guide-current">
+          <div className="card-head">
+            <h2>Recommended next step</h2>
+            <span className="muted">{KIND_LABELS[currentStep.kind]}</span>
+          </div>
+          <ul className="guide-list">
+            <StepCard
+              step={currentStep}
+              isCurrent
+              invId={invId}
+              disabled={working !== null}
+              onUpdate={onUpdate}
+              onError={onError}
+              onEvidenceClick={onEvidenceClick}
+            />
+          </ul>
+        </section>
+      )}
+
+      <section className="card">
+        <div className="card-head">
+          <h2>Talk to FieldRook</h2>
+          <span className="muted">continues this investigation</span>
+        </div>
+        <div className="guide-turn-row">
+          <label className="field">
+            <span>This is…</span>
+            <select
+              value={turnKind}
+              onChange={(e) => setTurnKind(e.target.value as TurnKind)}
+              disabled={working !== null}
+              aria-label="Turn kind"
+            >
+              {TURN_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+        <label className="field">
+          <span>What did you see, try, or want to ask?</span>
+          <textarea
+            id="turn-input"
+            className="problem"
+            rows={3}
+            maxLength={2000}
+            placeholder="Excel opens local files fine — only files from Teams fail with 0x80070005."
+            value={turnText}
+            onChange={(e) => setTurnText(e.target.value)}
+            disabled={working !== null}
+          />
+        </label>
+        <div className="file-row">
+          <label className="field">
+            <span>Follow-up screenshot (optional)</span>
+            <input
+              type="file"
+              accept="image/png,image/jpeg"
+              onChange={(e) => setTurnFile(e.currentTarget.files?.[0] ?? null)}
+              disabled={working !== null}
+            />
+          </label>
+          {turnFile && (
+            <label className="check">
+              <input
+                type="checkbox"
+                checked={turnConsent}
+                onChange={(e) => setTurnConsent(e.target.checked)}
+                disabled={working !== null}
+              />
+              <span>I am authorized to share this screenshot for analysis.</span>
+            </label>
+          )}
+        </div>
+        <div className="controls">
+          <button
+            type="button"
+            className="button"
+            onClick={() => void send()}
+            disabled={working !== null || !turnText.trim()}
+          >
+            {working === "turn" ? "Sending…" : "Send to FieldRook"}
+          </button>
+          {working === "turn" && (
+            <span className="muted" role="status">
+              Working — elapsed {turnElapsed.toFixed(0)}s. The page updates when the round
+              completes.
+            </span>
+          )}
+          {working === "turn" && (
+            <button
+              type="button"
+              className="button button-ghost button-small"
+              onClick={() => void cancelTurn()}
+              disabled={cancelState !== "idle"}
+            >
+              {cancelState === "idle"
+                ? "Cancel this round"
+                : cancelState === "sending"
+                  ? "Cancelling…"
+                  : "Cancellation requested"}
+            </button>
+          )}
+          {working === "turn" && cancelState === "requested" && (
+            <span className="muted">
+              The current model call is interrupted, then the round stops. Evidence is kept.
+            </span>
+          )}
+        </div>
+      </section>
+      </div>
+
+      <section className="card guide-status fr-guided-context">
         <div className="card-head">
           <h2>Guided investigation</h2>
           <span className={`badge badge-${statusTone(investigation.stage === "RESOLVED" ? "confirmed" : investigation.stage === "BLOCKED" ? "blocked" : investigation.stage === "CLARIFYING" ? "current" : "mute")}`}>
@@ -818,48 +957,6 @@ export function GuidePanel({
           {investigation.assistant_message && (
             <p className="guide-assistant">{investigation.assistant_message}</p>
           )}
-        </section>
-      )}
-
-      {openQuestions.length > 0 && (
-        <section className="card">
-          <div className="card-head">
-            <h2>Questions for you</h2>
-            <span className="muted">{openQuestions.length} open</span>
-          </div>
-          <ul className="guide-list">
-            {openQuestions.map((q, i) => (
-              <QuestionCard
-                key={q.question_id}
-                question={q}
-                invId={invId}
-                disabled={working !== null}
-                onUpdate={onUpdate}
-                onError={onError}
-                isCurrent={i === 0}
-              />
-            ))}
-          </ul>
-        </section>
-      )}
-
-      {currentStep && (
-        <section className="card guide-current">
-          <div className="card-head">
-            <h2>Recommended next step</h2>
-            <span className="muted">{KIND_LABELS[currentStep.kind]}</span>
-          </div>
-          <ul className="guide-list">
-            <StepCard
-              step={currentStep}
-              isCurrent
-              invId={invId}
-              disabled={working !== null}
-              onUpdate={onUpdate}
-              onError={onError}
-              onEvidenceClick={onEvidenceClick}
-            />
-          </ul>
         </section>
       )}
 
@@ -984,99 +1081,6 @@ export function GuidePanel({
         </section>
       )}
 
-      <section className="card">
-        <div className="card-head">
-          <h2>Talk to FieldRook</h2>
-          <span className="muted">continues this investigation</span>
-        </div>
-        <div className="guide-turn-row">
-          <label className="field">
-            <span>This is…</span>
-            <select
-              value={turnKind}
-              onChange={(e) => setTurnKind(e.target.value as TurnKind)}
-              disabled={working !== null}
-              aria-label="Turn kind"
-            >
-              {TURN_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-        <label className="field">
-          <span>What did you see, try, or want to ask?</span>
-          <textarea
-            id="turn-input"
-            className="problem"
-            rows={3}
-            maxLength={2000}
-            placeholder="Excel opens local files fine — only files from Teams fail with 0x80070005."
-            value={turnText}
-            onChange={(e) => setTurnText(e.target.value)}
-            disabled={working !== null}
-          />
-        </label>
-        <div className="file-row">
-          <label className="field">
-            <span>Follow-up screenshot (optional)</span>
-            <input
-              type="file"
-              accept="image/png,image/jpeg"
-              onChange={(e) => setTurnFile(e.currentTarget.files?.[0] ?? null)}
-              disabled={working !== null}
-            />
-          </label>
-          {turnFile && (
-            <label className="check">
-              <input
-                type="checkbox"
-                checked={turnConsent}
-                onChange={(e) => setTurnConsent(e.target.checked)}
-                disabled={working !== null}
-              />
-              <span>I am authorized to share this screenshot for analysis.</span>
-            </label>
-          )}
-        </div>
-        <div className="controls">
-          <button
-            type="button"
-            className="button"
-            onClick={() => void send()}
-            disabled={working !== null || !turnText.trim()}
-          >
-            {working === "turn" ? "Sending…" : "Send to FieldRook"}
-          </button>
-          {working === "turn" && (
-            <span className="muted" role="status">
-              Working — elapsed {turnElapsed.toFixed(0)}s. The page updates when the round
-              completes.
-            </span>
-          )}
-          {working === "turn" && (
-            <button
-              type="button"
-              className="button button-ghost button-small"
-              onClick={() => void cancelTurn()}
-              disabled={cancelState !== "idle"}
-            >
-              {cancelState === "idle"
-                ? "Cancel this round"
-                : cancelState === "sending"
-                  ? "Cancelling…"
-                  : "Cancellation requested"}
-            </button>
-          )}
-          {working === "turn" && cancelState === "requested" && (
-            <span className="muted">
-              The current model call is interrupted, then the round stops. Evidence is kept.
-            </span>
-          )}
-        </div>
-      </section>
     </div>
   );
 }

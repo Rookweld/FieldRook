@@ -188,9 +188,14 @@ export function App() {
     window.setTimeout(() => {
       const guide = document.getElementById("sf-engine-tab-guide");
       guide?.click(); // Select the actual tab, not just its focus ring.
-      const el = guide ?? document.getElementById("sf-engine-problem");
-      el?.scrollIntoView({ block: "center" });
-      el?.focus({ preventScroll: true });
+      // Guide renders synchronously after selecting its view. Land at the
+      // actual question/step/composer, not at a navigation tab above it.
+      window.requestAnimationFrame(() => {
+        const action = document.querySelector<HTMLElement>(".fr-guided-primary");
+        const destination = action ?? guide ?? document.getElementById("sf-engine-problem");
+        destination?.scrollIntoView({ block: "start", behavior: "instant" });
+        destination?.focus({ preventScroll: true });
+      });
     }, 80);
   }, [go]);
 
