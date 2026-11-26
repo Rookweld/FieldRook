@@ -45,9 +45,23 @@ export function Launchpad({
   const followUps = recents.filter((item) => item.disposition === "needs_followup");
   const openCases = recents.filter((item) => (item.disposition ?? "open") === "open");
   const continueCase = followUps[0] ?? openCases[0] ?? recents[0] ?? null;
+  // Keep the landing context truthful: this is backend connectivity, not a
+  // claim that diagnostics or the model are healthy.
+  const connectionLabel = status ? "Workspace connected" : "Connecting to workspace";
 
   return (
     <section className="sf-screen" aria-label="Launchpad">
+      <div className="sf-home-context" role="status">
+        <span className={status ? "sf-home-connection is-connected" : "sf-home-connection"}>
+          <span className="sf-connection-dot" aria-hidden="true" />
+          {connectionLabel}
+        </span>
+        <span className="sf-home-counts" aria-label="Investigation overview">
+          <span><strong>{openCases.length}</strong> open</span>
+          <span><strong>{followUps.length}</strong> follow-up</span>
+          <span><strong>{recents.length}</strong> total</span>
+        </span>
+      </div>
       <div className={recents.length > 0 ? "sf-homehero sf-homehero-compact" : "sf-homehero"}>
         <RookFigure />
         <div className="sf-eyebrow">Diagnose / Verify / Resolve</div>
@@ -62,7 +76,7 @@ export function Launchpad({
         </p>
         <div className="sf-home-actions">
           <button type="button" className="sf-btn sf-btn-lime" onClick={onNew}>
-            + New investigation ↗
+            Start a new investigation ↗
           </button>
           <button type="button" className="sf-btn sf-btn-dark" onClick={onImport}>
             ⇩ Import Collector package
@@ -175,7 +189,7 @@ export function Launchpad({
         </div>
         {continueCase ? (
           <div className="sf-paper-panel sf-continue-panel">
-            <h3>PICK UP WHERE YOU LEFT OFF</h3>
+            <h3>CONTINUE YOUR WORK</h3>
             <div className="sf-continue-stats" aria-label="Case status counts">
               <div><strong>{openCases.length}</strong><span>OPEN</span></div>
               <div><strong>{followUps.length}</strong><span>FOLLOW-UP</span></div>
