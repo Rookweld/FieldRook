@@ -9,6 +9,7 @@ test("evidence links open a compact preview without jumping the page", async ({ 
   await page.getByText("Force fixture data").click();
   await page.getByRole("button", { name: "Investigate", exact: true }).click();
 
+  await page.locator(".fr-case-assessment > summary").click();
   const ref = page.locator(".overview .chip-button").first();
   await expect(ref).toBeVisible({ timeout: 30000 });
   const id = (await ref.innerText()).trim();

@@ -15,7 +15,7 @@ import { expect, test, type Page } from "@playwright/test";
  * the remote-target no-measurement guard.
  */
 
-const BACKEND = "http://127.0.0.1:8123";
+const BACKEND = `http://127.0.0.1:${process.env.FIELDROOK_E2E_API_PORT || "8123"}`;
 
 async function investigateFixture(page: Page, problem: string) {
   await page.goto("/");

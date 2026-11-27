@@ -14,7 +14,7 @@ import { expect, test, type Page } from "@playwright/test";
  * refresh_of/refreshes linkage, contradiction citations, no false diffs.
  */
 
-const BACKEND = "http://127.0.0.1:8123";
+const BACKEND = `http://127.0.0.1:${process.env.FIELDROOK_E2E_API_PORT || "8123"}`;
 const NETWORK_PROBLEM =
   "E2E lens probe: the network is down on this machine, I am sure the cable is unplugged.";
 

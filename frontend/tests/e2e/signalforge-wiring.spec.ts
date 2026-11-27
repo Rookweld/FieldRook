@@ -6,7 +6,7 @@ import { expect, test } from "@playwright/test";
  * identity, investigation lifecycle reads, export formats, providers,
  * tools, and knowledge reads. Request-level only; no DOM needed.
  */
-const BACKEND = "http://127.0.0.1:8123";
+const BACKEND = `http://127.0.0.1:${process.env.FIELDROOK_E2E_API_PORT || "8123"}`;
 
 test("status carries the desktop-identity fields", async ({ request }) => {
   const res = await request.get(`${BACKEND}/api/status`);

@@ -11,7 +11,7 @@ import { expect, test, type APIRequestContext, type Page, type TestInfo } from "
  * collector manifest/archive path. No fixtures are smuggled into the UI.
  */
 
-const API = "http://127.0.0.1:8123";
+const API = `http://127.0.0.1:${process.env.FIELDROOK_E2E_API_PORT || "8123"}`;
 const specDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(specDir, "..", "..", "..");
 const backendDir = path.join(repoRoot, "backend");

@@ -17,6 +17,7 @@ async function investigateFixture(page: Page, problem: string) {
   await page.getByText("Advanced: fixture mode").click();
   await page.getByText("Force fixture data").click();
   await page.getByRole("button", { name: "Investigate", exact: true }).click();
+  await page.locator(".fr-tools > summary").click();
   await expect(page.getByTestId("forge-workspace")).toBeVisible({ timeout: 30000 });
 }
 
@@ -28,6 +29,8 @@ const HEAD_VIEW: [RegExp, string][] = [
 
 test("intake offers collector package entry with consent gating", async ({ page }) => {
   await page.goto("/");
+  await page.locator(".fr-intake-optional > summary").click();
+  await page.locator(".fr-intake-extras > summary").click();
   const card = page.getByTestId("forge-intake-collector");
   await expect(card).toBeVisible();
 

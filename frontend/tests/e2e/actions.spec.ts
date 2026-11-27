@@ -9,6 +9,7 @@ async function startWorkerInvestigation(page) {
   await page.getByText("Force fixture data").click();
   await page.getByRole("button", { name: "Investigate", exact: true }).click();
   await page.getByRole("tab", { name: "Resolve" }).click();
+  await page.locator(".fr-technical-resolution > summary").click();
   await expect(page.getByText("recover_demo_worker").first()).toBeVisible({
     timeout: 30000,
   });
@@ -19,6 +20,7 @@ test("reject leaves the proposal rejected with zero executions", async ({ page }
   await page.getByRole("button", { name: "Reject action" }).click();
   await expect(page.getByText("REJECTED").first()).toBeVisible({ timeout: 15000 });
   await page.getByRole("tab", { name: "Findings" }).click();
+  await page.locator(".fr-case-assessment > summary").click();
   await expect(page.getByText(/NO ACTION — rejected/i)).toBeVisible();
   await expect(page.getByText(/^Execution exe-/)).toHaveCount(0);
   await page.screenshot({ path: "test-results/shot-rejected.png" });

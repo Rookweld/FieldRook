@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-const API = "http://127.0.0.1:8123";
+const API = `http://127.0.0.1:${process.env.FIELDROOK_E2E_API_PORT || "8123"}`;
 
 async function investigate(page, problem: string, useFixtures = true) {
   await page.goto("/");
@@ -10,7 +10,7 @@ async function investigate(page, problem: string, useFixtures = true) {
     await page.getByText("Force fixture data").click();
   }
   await page.getByRole("button", { name: "Investigate", exact: true }).click();
-  await expect(page.getByText("FIXTURES", { exact: true })).toBeVisible({ timeout: 30000 });
+  await expect(page.locator(".guide-focus-only .fr-live-source")).toContainText("Example evidence", { timeout: 30000 });
 }
 
 test("service evidence renders a status module, not plain text", async ({ page, request }) => {
@@ -60,6 +60,7 @@ test("crash evidence renders newest-first incident cards", async ({ page }) => {
 test("findings tell the story: observations, unknowns, coverage", async ({ page }) => {
   await investigate(page, "Is the Windows Update service healthy? It shows as stopped in services.msc.");
   await page.getByRole("tab", { name: "Findings" }).click();
+  await page.locator(".fr-case-assessment > summary").click();
   const story = page.locator(".view-panel");
   await expect(story.getByText("Key observations")).toBeVisible();
   await expect(story.getByText("Still unknown")).toBeVisible();
@@ -92,6 +93,7 @@ test("timeline shows a kind-colored rail with clickable refs", async ({ page }) 
 test("resolve plans show stages and before/after criteria", async ({ page }) => {
   await investigate(page, "E2E probe: the FieldRook demo worker is down.");
   await page.getByRole("tab", { name: "Resolve" }).click();
+  await page.locator(".fr-technical-resolution > summary").click();
   await expect(page.getByRole("heading", { name: /Resolution workspace/ })).toBeVisible();
   await page.getByRole("button", { name: "New resolution plan" }).click();
   await page.getByRole("button", { name: "Use demo-worker recovery template" }).click();
