@@ -114,3 +114,43 @@
 @media (max-width: 700px) {
   .guide-focus-only .fr-guided-primary { padding: 10px; }
 }
+
+
+/* M045-D ? One coherent work surface and truthful activity status. */
+.fr-live-header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 18px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 13px 15px;
+  border: 1px solid color-mix(in srgb, var(--line) 68%, var(--void));
+  background: color-mix(in srgb, var(--aubergine) 58%, var(--void));
+  border-radius: 11px;
+}
+.fr-live-header-copy { display: grid; gap: 5px; min-width: 0; }
+.fr-live-title-row { display: flex; align-items: center; gap: 10px; color: var(--offwhite); }
+.fr-live-title-row strong { font-size: 17px; line-height: 1.25; letter-spacing: -0.018em; }
+.fr-live-subtitle { color: var(--peach); font-size: 12px; line-height: 1.45; overflow-wrap: anywhere; }
+.fr-live-dot { width: 9px; height: 9px; border-radius: 50%; flex: none; background: var(--green); box-shadow: 0 0 0 4px color-mix(in srgb, var(--green) 14%, transparent); }
+.fr-live-dot-waiting, .fr-live-dot-blocked { background: var(--tangerine); box-shadow: 0 0 0 4px color-mix(in srgb, var(--tangerine) 16%, transparent); }
+.fr-live-dot-busy { background: var(--lime); box-shadow: 0 0 0 4px color-mix(in srgb, var(--lime) 15%, transparent); animation: fr-live-pulse 1.4s ease-in-out infinite; }
+.fr-live-source {
+  font-size: 11px; font-weight: 700;
+  border: 1px solid var(--line); padding: 7px 9px;
+  border-radius: 999px; color: var(--muted); white-space: nowrap;
+}
+.fr-live-composer { border-color: color-mix(in srgb, var(--lime) 22%, var(--line)); }
+.fr-live-composer textarea.problem { min-height: 88px; resize: vertical; }
+.fr-live-composer .controls { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.fr-live-composer .controls > .button:first-child { min-height: 43px; min-width: 170px; }
+.fr-live-composer .guide-turn-row { margin-bottom: 10px; }
+.fr-live-composer :is(textarea, select, button):focus-visible { outline: 2px solid var(--lime); outline-offset: 3px; }
+.guide-focus-only .fr-guided-primary { gap: 10px; padding: 12px; }
+@keyframes fr-live-pulse { 50% { opacity: .45; box-shadow: 0 0 0 7px color-mix(in srgb, var(--lime) 8%, transparent); } }
+@media (prefers-reduced-motion: reduce) { .fr-live-dot-busy { animation: none; } }
+@media (max-width: 700px) {
+  .fr-live-header { padding: 12px; }
+  .fr-live-title-row strong { font-size: 15px; }
+  .fr-live-composer .controls > .button:first-child { width: 100%; }
+}

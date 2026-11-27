@@ -600,6 +600,19 @@ export function GuidePanel({
   const otherSteps = (investigation.plan?.steps ?? []).filter(
     (s) => s.step_id !== investigation.plan?.current_step_id,
   );
+  // Display only state we can actually prove. This is an activity indicator,
+  // not an invented progress percentage or a model-generated "thinking" claim.
+  const actionStatus = working === "turn"
+    ? { label: "Processing your update", detail: "Waiting for the analysis response", tone: "busy" }
+    : working
+      ? { label: "Saving your change", detail: "The current action is still in progress", tone: "busy" }
+      : investigation.blocked_reason
+        ? { label: "Needs your attention", detail: investigation.blocked_reason, tone: "blocked" }
+        : openQuestions.length > 0
+          ? { label: "Your answer is needed", detail: "Answer the question below to continue", tone: "waiting" }
+          : currentStep
+            ? { label: "Next check is ready", detail: "Record what you observe before moving on", tone: "ready" }
+            : { label: "Ready for your update", detail: "Share an observation or ask FieldRook a question", tone: "ready" };
   const budgetLeft = investigation.tool_calls_max - investigation.tool_calls_used;
   const providerName = investigation.provider_info?.name ?? "simulated";
   const sensitive = investigation.has_screenshot || investigation.evidence.length > 0 || investigation.notes.length > 0;
@@ -710,7 +723,19 @@ export function GuidePanel({
 
   const primaryActions = (
       <div className="fr-guided-primary" aria-label="Your next investigation actions" tabIndex={-1}>
-        <div className="fr-guided-primary-label">WORK ON THIS CASE</div>
+        <div className="fr-live-header">
+          <div className="fr-live-header-copy">
+            <span className="fr-guided-primary-label">CURRENT WORK</span>
+            <div className="fr-live-title-row">
+              <span className={`fr-live-dot fr-live-dot-${actionStatus.tone}`} aria-hidden="true" />
+              <strong>{actionStatus.label}</strong>
+            </div>
+            <span className="fr-live-subtitle">{actionStatus.detail}</span>
+          </div>
+          <span className="fr-live-source" title="Shows the source of evidence in this specific investigation">
+            {investigation.uses_fixtures ? "Example evidence" : "Case evidence"}
+          </span>
+        </div>
       {openQuestions.length > 0 && (
         <section className="card">
           <div className="card-head">
@@ -753,10 +778,10 @@ export function GuidePanel({
         </section>
       )}
 
-      <section className="card">
+      <section className="card fr-live-composer">
         <div className="card-head">
-          <h2>Talk to FieldRook</h2>
-          <span className="muted">continues this investigation</span>
+          <h2>Tell FieldRook what happened</h2>
+          <span className="muted">same case ? next investigation round</span>
         </div>
         <div className="guide-turn-row">
           <label className="field">
