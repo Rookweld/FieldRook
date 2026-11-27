@@ -597,6 +597,12 @@ export function GuidePanel({
   const currentStep =
     investigation.plan?.steps.find((s) => s.step_id === investigation.plan?.current_step_id) ??
     null;
+  // Avoid duplicating the exact current question as a separate plan card.
+  const currentStepDuplicatesQuestion =
+    currentStep?.kind === "CLARIFYING_QUESTION" &&
+    openQuestions.some((question) =>
+      currentStep.instruction.toLowerCase().includes(question.question.trim().toLowerCase())
+    );
   const otherSteps = (investigation.plan?.steps ?? []).filter(
     (s) => s.step_id !== investigation.plan?.current_step_id,
   );
@@ -758,7 +764,7 @@ export function GuidePanel({
         </section>
       )}
 
-      {currentStep && (
+      {currentStep && (!focusOnly || !currentStepDuplicatesQuestion) && (
         <section className="card guide-current">
           <div className="card-head">
             <h2>Recommended next step</h2>
@@ -781,7 +787,7 @@ export function GuidePanel({
       <section className="card fr-live-composer">
         <div className="card-head">
           <h2>Tell FieldRook what happened</h2>
-          <span className="muted">same case ? next investigation round</span>
+          <span className="muted">Same case, next round</span>
         </div>
         <div className="guide-turn-row">
           <label className="field">
