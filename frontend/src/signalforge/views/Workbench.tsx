@@ -267,7 +267,7 @@ export function Workbench({
           </div>
         ) : (
           <details className="sf-next-summary">
-            <summary>See next-step summary</summary>
+            <summary>Next-step reference <span className="sf-reference-hint">? optional context</span></summary>
             <NextPanel investigation={investigation} onOpenGuide={onOpenGuide} />
           </details>
         )}

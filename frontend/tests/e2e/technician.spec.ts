@@ -22,8 +22,10 @@ test("crash investigation shows overview, grouped evidence, runbook", async ({
   await page.getByText("Force fixture data").click();
   await page.getByRole("button", { name: "Investigate", exact: true }).click();
 
-  await expect(page.getByText("FIXTURES", { exact: true })).toBeVisible({ timeout: 30000 });
-  // Incident overview with leading hypothesis and coverage.
+  // Provenance remains available in the optional assessment, not a headline.
+  await expect(page.locator(".guide-focus-only")).toBeVisible({ timeout: 30000 });
+  await page.locator(".fr-case-assessment > summary").click();
+  await expect(page.getByText("FIXTURES", { exact: true })).toBeVisible();
   await expect(page.getByText("Incident overview")).toBeVisible();
   await expect(page.getByText("Leading hypothesis")).toBeVisible();
   // Grouped evidence: the crash tool ran.
@@ -49,6 +51,7 @@ test("technician note saves and survives reopen", async ({ page }) => {
   await expect(page.getByText("Diagnostic activity")).toBeVisible({ timeout: 30000 });
   await page.getByRole("tab", { name: "Findings" }).click();
 
+  await page.locator(".fr-case-utilities > summary").click();
   const noteText = `E2E note ${Date.now()}: user confirmed the dialog text.`;
   await page.getByPlaceholder(/user showed the error dialog/i).fill(noteText);
   await page.locator(".view-panel section.card", { has: page.locator("ul.notes") }).getByRole("button", { name: "Save note" }).click();
@@ -62,5 +65,6 @@ test("technician note saves and survives reopen", async ({ page }) => {
   await page.getByRole("tab", { name: /Evidence/ }).click();
   await expect(page.getByText("Diagnostic activity")).toBeVisible({ timeout: 15000 });
   await page.getByRole("tab", { name: "Findings" }).click();
+  await page.locator(".fr-case-utilities > summary").click();
   await expect(page.locator(".view-panel ul.notes").getByText(noteText)).toBeVisible({ timeout: 15000 });
 });

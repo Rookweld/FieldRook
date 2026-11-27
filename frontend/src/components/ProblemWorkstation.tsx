@@ -663,9 +663,7 @@ export function ProblemWorkstation({
       ) : (
         <>
           <div className="contextbar">
-            <p className="contextbar-problem" title={investigation.problem}>
-              {investigation.problem}
-            </p>
+            <span className="fr-context-title">CASE WORKSPACE</span>
             <span className="contextbar-meta">
               {investigation.investigation_id} ·{" "}
               {new Date(investigation.created_at).toLocaleString()} · {investigation.status}
@@ -745,33 +743,6 @@ export function ProblemWorkstation({
             </button>
           </nav>
 
-          <details className="fr-details fr-tools" data-testid="fr-additional-tools">
-            <summary>Additional investigation tools <span className="muted">· collection, queue &amp; reference details</span></summary>
-            <p className="muted">
-              Open this section for the extended technician workspace. The main Guide,
-              Findings, Evidence and Resolve flows remain available above.
-            </p>
-            <WorkspaceShell
-              investigation={investigation}
-              onUpdate={setInvestigation}
-              onEvidenceClick={setSelectedEvidence}
-              onAction={forgeAction}
-              onView={(v) => setView(v)}
-              onError={setError}
-              disabled={busy !== null}
-              references={references}
-              citations={citations}
-              hideDockComposer={view === "guide"}
-              hideDockNotes={view === "findings"}
-            />
-            <CollectorImportCard
-              investigationId={investigation.investigation_id}
-              onAction={forgeAction}
-              onError={setError}
-              disabled={busy !== null}
-            />
-          </details>
-
           {view === "guide" && (
             <div className="view-panel">
               <GuidePanel
@@ -792,12 +763,15 @@ export function ProblemWorkstation({
                 onEvidenceClick={setSelectedEvidence}
                 onError={setError}
               />
-              <OverviewPanel
-                investigation={investigation}
-                onEvidenceClick={setSelectedEvidence}
-                onOpenEvidence={() => setView("evidence")}
-                onAction={runNextAction}
-              />
+              <details className="fr-details fr-case-assessment" data-testid="fr-case-assessment">
+                <summary>Evidence &amp; assessment <span className="muted">? conclusions, uncertainties and next-step reasoning</span></summary>
+                <OverviewPanel
+                  investigation={investigation}
+                  onEvidenceClick={setSelectedEvidence}
+                  onOpenEvidence={() => setView("evidence")}
+                  onAction={runNextAction}
+                />
+              </details>
               <details className="fr-details fr-deep-findings" data-testid="fr-deep-findings">
                 <summary>Full diagnosis &amp; history <span className="muted">· detailed findings</span></summary>
                 <ProgressPanel
@@ -821,6 +795,8 @@ export function ProblemWorkstation({
                   onEvidenceClick={setSelectedEvidence}
                 />
               </details>
+              <details className="fr-details fr-case-utilities" data-testid="fr-case-utilities">
+                <summary>More ways to contribute <span className="muted">? follow-up requests and technician notes</span></summary>
               <section className="card">
                 <div className="card-head">
                   <h2>Follow-up</h2>
@@ -896,6 +872,7 @@ export function ProblemWorkstation({
                   </button>
                 </div>
               </section>
+              </details>
             </div>
           )}
 
@@ -938,6 +915,33 @@ export function ProblemWorkstation({
               />
             </div>
           )}
+          <details className="fr-details fr-tools" data-testid="fr-additional-tools">
+            <summary>Additional investigation tools <span className="muted">· collection, queue &amp; reference details</span></summary>
+            <p className="muted">
+              Open this section for the extended technician workspace. The main Guide,
+              Findings, Evidence and Resolve flows remain available above.
+            </p>
+            <WorkspaceShell
+              investigation={investigation}
+              onUpdate={setInvestigation}
+              onEvidenceClick={setSelectedEvidence}
+              onAction={forgeAction}
+              onView={(v) => setView(v)}
+              onError={setError}
+              disabled={busy !== null}
+              references={references}
+              citations={citations}
+              hideDockComposer={view === "guide"}
+              hideDockNotes={view === "findings"}
+            />
+            <CollectorImportCard
+              investigationId={investigation.investigation_id}
+              onAction={forgeAction}
+              onError={setError}
+              disabled={busy !== null}
+            />
+          </details>
+
         </>
       )}
     </>

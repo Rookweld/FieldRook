@@ -173,6 +173,10 @@ export function App() {
         // before focusing the notes field, or the target isn't in the DOM.
         document.getElementById("sf-engine-tab-findings")?.click();
         window.setTimeout(() => {
+          // Reveal the actual editor before focusing it. The ordinary
+          // workbench remains uncluttered until the technician asks for notes.
+          const notes = document.querySelector<HTMLDetailsElement>(".fr-case-utilities");
+          if (notes) notes.open = true;
           const el =
             document.getElementById("sf-engine-note") ?? document.getElementById("sf-engine-problem");
           el?.scrollIntoView({ block: "center" });

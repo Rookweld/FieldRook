@@ -154,3 +154,41 @@
   .fr-live-title-row strong { font-size: 15px; }
   .fr-live-composer .controls > .button:first-child { width: 100%; }
 }
+
+
+/* M045-E ? the primary work area is for action, not repeated summaries. */
+.fr-context-title {
+  font-size: 10px; letter-spacing: .13em; font-weight: 850;
+  color: var(--lime); white-space: nowrap;
+}
+.fr-case-assessment, .fr-case-utilities {
+  border: 1px solid color-mix(in srgb, var(--line) 66%, var(--void));
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--panel) 80%, var(--void));
+}
+.fr-case-assessment > summary, .fr-case-utilities > summary {
+  cursor: pointer; padding: 13px 15px; font-size: 13px;
+  font-weight: 800; color: var(--offwhite);
+}
+.fr-case-assessment > summary .muted, .fr-case-utilities > summary .muted {
+  font-weight: 500; font-size: 11px;
+}
+.fr-case-assessment[open] > summary, .fr-case-utilities[open] > summary {
+  border-bottom: 1px solid var(--line); margin-bottom: 12px;
+}
+.fr-case-assessment > .overview, .fr-case-utilities > .card {
+  margin: 10px 12px 12px;
+}
+.fr-case-assessment > summary:hover, .fr-case-utilities > summary:hover,
+.fr-case-assessment > summary:focus-visible, .fr-case-utilities > summary:focus-visible {
+  color: var(--lime);
+}
+.fr-case-assessment > summary:focus-visible, .fr-case-utilities > summary:focus-visible {
+  outline: 2px solid var(--lime); outline-offset: 3px;
+}
+.fr-tools { margin-top: 14px; }
+@media (max-width: 700px) {
+  .fr-case-assessment > summary .muted, .fr-case-utilities > summary .muted {
+    display: block; margin-top: 4px;
+  }
+}

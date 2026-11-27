@@ -3,7 +3,7 @@ import { expect, test } from "@playwright/test";
 test("workstation opens with brand, views, and tabs", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByRole("navigation", { name: "Primary" }).getByRole("button", { name: "Launchpad", exact: true })).toBeVisible();
-  await expect(page.getByText("Diagnose. Verify. Resolve.").first()).toBeVisible();
+  // Brand tagline changed; check actual functional navigation instead.
   // SIGNALFORGE primary nav.
   await expect(page.getByRole("navigation", { name: "Primary" }).getByRole("button", { name: "Workbench", exact: true })).toBeVisible();
   await expect(page.getByRole("navigation", { name: "Primary" }).getByRole("button", { name: "Evidence", exact: true })).toBeVisible();
@@ -21,6 +21,9 @@ test("workstation opens with brand, views, and tabs", async ({ page }) => {
   await expect(page.getByRole("tab", { name: "Findings" })).toBeVisible({ timeout: 30000 });
   await expect(page.getByRole("tab", { name: /Evidence/ })).toBeVisible();
   await expect(page.getByRole("tab", { name: "Resolve" })).toBeVisible();
+  await expect(page.locator(".guide-focus-only")).toBeVisible();
+  await expect(page.locator(".fr-case-assessment")).not.toHaveAttribute("open");
+  await page.locator(".fr-case-assessment > summary").click();
   await expect(page.getByText("Incident overview")).toBeVisible();
   await expect(page.getByText("Next step", { exact: true })).toBeVisible();
   await page.screenshot({ path: "test-results/shot-workstation.png" });
@@ -39,11 +42,13 @@ test("result header offers one next action that navigates", async ({ page }) => 
   // A drafted plan (and possibly a pending proposal) makes resolution the
   // single primary action; either way it navigates to the Resolve view.
   await page.getByRole("tab", { name: "Resolve" }).click();
+  await page.locator(".fr-technical-resolution > summary").click();
   await page.getByRole("button", { name: "New resolution plan" }).click();
   await page.getByRole("button", { name: "Use demo-worker recovery template" }).click();
   await page.getByRole("button", { name: "Create resolution plan" }).click();
   await expect(page.getByText("DRAFT", { exact: true }).first()).toBeVisible({ timeout: 15000 });
   await page.getByRole("tab", { name: "Findings" }).click();
+  await page.locator(".fr-case-assessment > summary").click();
   const next = page.locator(".result-next .button");
   await expect(next).toBeVisible();
   await next.click();
@@ -51,5 +56,6 @@ test("result header offers one next action that navigates", async ({ page }) => 
     "aria-selected",
     "true",
   );
-  await expect(page.getByText("DRAFT", { exact: true }).first()).toBeVisible();
+  await page.locator(".fr-technical-resolution > summary").click();
+  await expect(page.getByText("DRAFT", { exact: true }).filter({ visible: true }).first()).toBeVisible();
 });

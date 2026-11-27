@@ -24,6 +24,10 @@ test("M042 concise headline keeps the complete original problem report", async (
   await page.setViewportSize({ width: 1600, height: 900 });
   await startFixtureCase(page);
   await page.screenshot({ path: "test-results/m042-desktop-1600.png" });
+  // Startup scroll is tested BEFORE opening a reference section that scrolls.
+  await expect.poll(async () => page.locator("#sf-main").evaluate((el) => el.scrollTop))
+    .toBeLessThan(70);
+  await page.locator(".sf-next-summary > summary").click();
   const frame = await page.locator(".sf-next").boundingBox();
   const cta = await page.locator(".sf-next .sf-btn-lime").boundingBox();
   expect(frame).not.toBeNull();
@@ -31,8 +35,6 @@ test("M042 concise headline keeps the complete original problem report", async (
   expect(cta!.y + cta!.height).toBeLessThanOrEqual(frame!.y + frame!.height - 2);
   const heading = page.locator("#sf-case-headline");
   await expect(heading).toHaveText("A Windows diagnostic bridge flashes ONLINE then OFFLINE.");
-  await expect.poll(async () => page.locator("#sf-main").evaluate((el) => el.scrollTop))
-    .toBeLessThan(70);
   await expect(page.getByText("Read the full problem report")).toBeVisible();
   await page.getByText("Read the full problem report").click();
   await expect(page.locator(".sf-case-original p")).toHaveText(BROKEN_BRIDGE);
@@ -70,6 +72,7 @@ test("M042 badge reports case inference, not the server default", async ({ page 
 test("M042 follow-up presents updated analysis at top of workbench", async ({ page }) => {
   await startFixtureCase(page);
   const main = page.locator("#sf-main");
+  await page.locator(".fr-case-utilities > summary").click();
   await page.locator("#followup-input").scrollIntoViewIfNeeded();
   await page.locator("#followup-input").fill(
     "Technician observation: Windows PowerShell 5.1 cannot import Microsoft.PowerShell.Security."
