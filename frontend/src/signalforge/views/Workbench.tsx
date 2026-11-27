@@ -252,7 +252,12 @@ export function Workbench({
           </details>
         )}
       </div>
-      <div className="sf-work-content">
+      <div className="sf-work-content sf-work-content-case">
+        {/* Keep the engine instance stable across intake -> active case; put
+            real question/answer controls before optional supporting detail. */}
+        <section key="sf-engine" className="sf-engine" aria-label="Investigation workspace">
+          {children}
+        </section>
         {investigation.disposition && investigation.disposition !== "open" ? (
           <div className="sf-case-filed" role="status">
             This case is filed as <strong>{caseDispositionLabel(investigation.disposition)}</strong>.
@@ -261,7 +266,10 @@ export function Workbench({
             </button>
           </div>
         ) : (
-          <NextPanel investigation={investigation} onOpenGuide={onOpenGuide} />
+          <details className="sf-next-summary">
+            <summary>See next-step summary</summary>
+            <NextPanel investigation={investigation} onOpenGuide={onOpenGuide} />
+          </details>
         )}
         <details className="sf-deep-dive">
           <summary>Case context &amp; recent activity</summary>
@@ -287,10 +295,6 @@ export function Workbench({
             New case
           </button>
         </div>
-        {/* Same stable key as the no-case branch above (BLOCKER-1). */}
-        <section key="sf-engine" className="sf-engine" aria-label="Investigation workspace">
-          {children}
-        </section>
       </div>
     </section>
   );

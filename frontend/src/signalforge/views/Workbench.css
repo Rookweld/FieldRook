@@ -540,3 +540,18 @@
 
 /* Invisible sibling preserves the existing engine instance across case creation. */
 .sf-hero-placeholder { display: none; }
+
+
+/* M045-C: primary technician controls before optional case chrome. */
+.sf-work-content-case { gap: 13px; }
+.sf-work-content-case > .sf-engine { order: 0; min-width: 0; }
+.sf-work-content-case > .sf-next-summary { order: 2; }
+.sf-work-content-case > .sf-deep-dive { order: 3; }
+.sf-work-content-case > .sf-case-actions { order: 4; }
+.sf-next-summary > summary {
+  cursor: pointer; padding: 10px 14px; border: 1px solid var(--line);
+  border-radius: 9px; color: var(--muted); font-weight: 700; font-size: 12px;
+}
+.sf-next-summary[open] > summary { margin-bottom: 10px; }
+.sf-next-summary > summary:hover,
+.sf-next-summary > summary:focus-visible { color: var(--lime); border-color: var(--lime); }

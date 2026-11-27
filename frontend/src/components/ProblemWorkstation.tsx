@@ -154,6 +154,17 @@ export function ProblemWorkstation({
       document.querySelector(".app")?.removeAttribute("data-view");
     };
   }, [view]);
+  // When opening the full Guide, land at its live action controls,
+  // whether navigation came from the case summary or the tab itself.
+  useEffect(() => {
+    if (view !== "guide") return;
+    const primary = document.querySelector<HTMLElement>(
+      ".view-panel .fr-guided-primary"
+    );
+    primary?.focus({ preventScroll: true });
+    primary?.scrollIntoView({ block: "start", behavior: "instant" });
+  }, [view]);
+
   const [pendingFocus, setPendingFocus] = useState<string | null>(null);
   const [pendingScroll, setPendingScroll] = useState<string | null>(null);
 
@@ -774,6 +785,13 @@ export function ProblemWorkstation({
 
           {view === "findings" && (
             <div className="view-panel">
+              <GuidePanel
+                focusOnly
+                investigation={investigation}
+                onUpdate={setInvestigation}
+                onEvidenceClick={setSelectedEvidence}
+                onError={setError}
+              />
               <OverviewPanel
                 investigation={investigation}
                 onEvidenceClick={setSelectedEvidence}

@@ -13,8 +13,8 @@ async function investigateRemote(page, problem: string) {
 test("guided remote investigation answers questions and works the plan", async ({ page }) => {
   await investigateRemote(page, "E2E guide probe: Excel will not open files from Teams.");
   await expect(page.getByText("OTHER PC", { exact: true })).toBeVisible();
-  // M034+ workbench uses the next-step card instead of the old assistant strip.
-  await expect(page.locator(".sf-next")).toBeVisible();
+  // M045: work on the next question directly before opening detailed Guide.
+  await expect(page.locator(".guide-focus-only")).toBeVisible();
   await page.getByRole("tab", { name: "Guide" }).click();
 
   // Answer the first clarifying question inline.
@@ -70,10 +70,10 @@ test("hypothesis judgment and blocked flow stay honest", async ({ page }) => {
     await impossible.click();
     await page.getByPlaceholder("Why is this step not possible?").fill("No access to that machine.");
     await page.getByRole("button", { name: "Mark impossible" }).click();
-    await expect(page.getByText("No access to that machine.").first()).toBeVisible();
+    await expect(page.getByText("No access to that machine.").filter({ visible: true }).first()).toBeVisible();
   }
   await expect(page.getByRole("heading", { name: "Blocked" })).toBeVisible();
-  await expect(page.getByText("No access to that machine.").first()).toBeVisible();
+  await expect(page.getByText("No access to that machine.").filter({ visible: true }).first()).toBeVisible();
 });
 
 test("provider and target switchers update the investigation", async ({ page }) => {

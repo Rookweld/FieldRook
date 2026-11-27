@@ -97,3 +97,20 @@
   .fr-guided-primary { gap: 9px; }
   .fr-guided-primary > .card { padding: 14px; }
 }
+
+
+/* M045-C: the live questions and observation composer are the focal point. */
+.guide-focus-only { margin-bottom: 14px; }
+.guide-focus-only .fr-guided-primary {
+  padding: 16px;
+  border: 1px solid color-mix(in srgb, var(--lime) 35%, var(--line));
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--panel) 78%, var(--void));
+}
+.guide-focus-only .fr-guided-primary-label { font-size: 12px; }
+.guide-focus-only .fr-guided-primary > .card:last-child {
+  border-color: color-mix(in srgb, var(--lime) 22%, var(--line));
+}
+@media (max-width: 700px) {
+  .guide-focus-only .fr-guided-primary { padding: 10px; }
+}

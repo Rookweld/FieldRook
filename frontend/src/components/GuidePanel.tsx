@@ -554,11 +554,13 @@ export function GuidePanel({
   onUpdate,
   onEvidenceClick,
   onError,
+  focusOnly = false,
 }: {
   investigation: InvestigationResponse;
   onUpdate: (inv: InvestigationResponse) => void;
   onEvidenceClick?: (id: string) => void;
   onError: (msg: string) => void;
+  focusOnly?: boolean;
 }) {
   const [providers, setProviders] = useState<ProviderOption[]>([]);
   const [turnKind, setTurnKind] = useState<TurnKind>("observation");
@@ -706,8 +708,7 @@ export function GuidePanel({
     }
   };
 
-  return (
-    <div className="guide">
+  const primaryActions = (
       <div className="fr-guided-primary" aria-label="Your next investigation actions" tabIndex={-1}>
         <div className="fr-guided-primary-label">WORK ON THIS CASE</div>
       {openQuestions.length > 0 && (
@@ -846,6 +847,14 @@ export function GuidePanel({
         </div>
       </section>
       </div>
+  );
+
+  // Focus mode reuses exactly the same questions and turn handlers as Guide.
+  if (focusOnly) return <div className="guide guide-focus-only">{primaryActions}</div>;
+
+  return (
+    <div className="guide">
+      {primaryActions}
 
       <section className="card guide-status fr-guided-context">
         <div className="card-head">
