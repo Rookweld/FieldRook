@@ -32,7 +32,7 @@ test("lab shows observed adapters, addresses, and DNS config with provenance", a
   await investigateFixture(page, "E2E lab probe: my VPN disconnects every 10 minutes.");
 
   // Fixture provenance is labeled on the case itself.
-  await expect(page.getByText("FIXTURES", { exact: true })).toBeVisible();
+  await expect(page.locator(".guide-focus-only .fr-live-source")).toContainText("Example evidence");
 
   await page.getByRole("tab", { name: /Evidence/ }).click();
   await expect(page.getByRole("heading", { name: /Network \(3\)/ })).toBeVisible();

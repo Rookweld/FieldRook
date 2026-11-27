@@ -1,198 +1,137 @@
 import { expect, test, type Page } from "@playwright/test";
 
 /**
- * FIELD KIT dock (M028.A): open/close/collapse, tool switching, up to 3
- * pinned favorites, and returning to the selected evidence record without
- * losing case state. The dock never remounts the engine, so every test
- * also pins engine continuity (Findings tab + evidence count).
- *
- * Locator note: the dock switcher deliberately uses plain buttons (NOT
- * role="tab") so the engine's Evidence/Findings/Resolve tabs stay the
- * only tab roles on the page for the M026 specs.
+ * M046: the operator dock contains only actually available instruments.
+ * The inactive/collapsed state is intentional and must remain reversible,
+ * keyboard accessible, and independent from case data.
  */
 test.use({ viewport: { width: 1280, height: 720 } });
 
 const dock = (page: Page) =>
   page.getByRole("complementary", { name: "Field Kit instrument dock" });
 
-async function startCase(page: Page, probe: string): Promise<void> {
+async function expandDock(page: Page) {
+  // On narrow layouts the dock may start fully hidden, not just collapsed.
+  // Opening it is a separate, intentional interaction.
+  if (!(await dock(page).isVisible())) {
+    const toggle = page.getByTestId("fieldkit-toggle");
+    await expect(toggle).toBeVisible();
+    await toggle.click();
+  }
+  await expect(dock(page)).toBeVisible();
+  const expand = dock(page).getByRole("button", { name: "Expand Field Kit dock" });
+  if (await expand.isVisible()) await expand.click();
+  await expect(dock(page).getByRole("group", { name: "Field Kit instruments" })).toBeVisible();
+}
+
+async function openFixtureCase(page: Page) {
   await page.goto("/");
-  await page.getByPlaceholder(/vpn disconnects/i).fill(probe);
+  await page.getByPlaceholder(/vpn disconnects/i).fill("Laptop loses internet over a phone hotspot.");
   await page.getByText("Advanced: fixture mode").click();
   await page.getByText("Force fixture data").click();
   await page.getByRole("button", { name: "Investigate", exact: true }).click();
   await expect(page.getByRole("tab", { name: "Findings" })).toBeVisible({ timeout: 30000 });
+  await expandDock(page);
 }
 
-async function evidenceButtons(page: Page) {
-  const group = dock(page).getByRole("group", { name: "Case evidence" });
-  await expect(group).toBeVisible({ timeout: 15000 });
-  return group.getByRole("button");
-}
-
-test("dock opens on the Evidence tab with case records, engine intact", async ({ page }) => {
-  await startCase(page, `E2E dock probe ${Date.now()}`);
-  const rail = dock(page);
-  await expect(rail).toBeVisible();
-  await expect(rail.getByRole("button", { name: "Evidence", exact: true })).toHaveAttribute(
-    "aria-current",
-    "true",
-  );
-  const buttons = await evidenceButtons(page);
-  expect(await buttons.count()).toBeGreaterThan(0);
-  // Coming-soon tools are listed but tagged honestly, never as usable.
-  await expect(
-    rail.getByRole("button", { name: "Process Watch, coming soon", exact: true }),
-  ).toBeVisible();
-  await expect(rail.getByText("SOON").first()).toBeVisible();
-  await expect(page.getByRole("tab", { name: "Findings" })).toBeVisible();
+test("M046 default compact dock can be expanded without opening another view", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.removeItem("fieldrook.dock.visibility.v1");
+  });
+  await page.goto("/");
+  await expect(page.getByTestId("fieldkit-strip")).toBeVisible();
+  await expandDock(page);
+  await expect(dock(page).getByRole("group", { name: "Field Kit instruments" }).getByRole("button", { name: "Evidence", exact: true })).toHaveAttribute("aria-current", "true");
 });
 
-test("switching tools and returning keeps the selected evidence and case", async ({ page }) => {
-  await startCase(page, `E2E dock switch probe ${Date.now()}`);
-  const rail = dock(page);
-  const buttons = await evidenceButtons(page);
-  const count = await buttons.count();
-  expect(count).toBeGreaterThan(0);
-  const target = buttons.nth(Math.min(1, count - 1));
-  await target.click();
-  await expect(target).toHaveAttribute("aria-current", "true");
-  const inspectorHeading = (await rail.locator(".sf-inspector h4").innerText()).trim();
-
-  // Switch away: the unavailable card is honest and offers no fake actions.
-  await rail.getByRole("button", { name: "Process Watch, coming soon", exact: true }).click();
-  const panel = rail.locator(".sf-dock-panel");
-  await expect(panel.getByText("COMING SOON")).toBeVisible();
-  await expect(panel.getByText(/not implemented in this build/)).toBeVisible();
-  await expect(panel.getByRole("button", { name: /run|scan|test|execute|measure/i })).toHaveCount(0);
-
-  // Return: same record selected, same inspector, engine untouched.
-  await rail.getByRole("button", { name: "Evidence", exact: true }).click();
-  const after = await evidenceButtons(page);
-  expect(await after.count()).toBe(count);
-  await expect(after.nth(Math.min(1, count - 1))).toHaveAttribute("aria-current", "true");
-  await expect(rail.locator(".sf-inspector h4")).toHaveText(inspectorHeading);
-  await expect(page.getByRole("tab", { name: "Findings" })).toBeVisible();
+test("M046 shows only ready instruments, not feature promises", async ({ page }) => {
+  await page.goto("/");
+  await expandDock(page);
+  const instruments = dock(page).getByRole("group", { name: "Field Kit instruments" });
+  await expect(instruments.getByRole("button", { name: "Evidence", exact: true })).toBeVisible();
+  for (const name of ["Process Watch", "Event Decoder", "Command Deck", "Field Notes"]) {
+    await expect(instruments.getByRole("button", { name: new RegExp(name) })).toHaveCount(0);
+  }
+  await expect(instruments.getByRole("button")).toHaveCount(2); // Evidence + its Pin control
 });
 
-test("collapse and expand preserves selection and focus", async ({ page }) => {
-  await startCase(page, `E2E dock collapse probe ${Date.now()}`);
-  const rail = dock(page);
-  const buttons = await evidenceButtons(page);
-  const target = buttons.nth(0);
-  await target.click();
-
-  await rail.getByRole("button", { name: "Collapse Field Kit dock" }).click();
-  const strip = page.getByTestId("fieldkit-strip");
-  await expect(strip).toBeVisible();
-  await expect(page.getByRole("button", { name: "Expand Field Kit dock" })).toBeFocused();
-  await expect(rail.getByRole("group", { name: "Field Kit instruments" })).toHaveCount(0);
-
-  // A strip tool opens the dock straight onto that instrument.
-  await strip.getByRole("button", { name: /Event Decoder/ }).click();
-  await expect(rail.locator(".sf-dock-panel").getByText("COMING SOON")).toBeVisible();
-  await rail.getByRole("button", { name: "Evidence", exact: true }).click();
-  await expect((await evidenceButtons(page)).nth(0)).toHaveAttribute("aria-current", "true");
-  await expect(page.getByRole("tab", { name: "Findings" })).toBeVisible();
+test("M046 selected case evidence survives collapse and reopen", async ({ page }) => {
+  await openFixtureCase(page);
+  const records = dock(page).getByRole("group", { name: "Case evidence" }).getByRole("button");
+  await expect(records.first()).toBeVisible();
+  await records.first().click();
+  await expect(records.first()).toHaveAttribute("aria-current", "true");
+  await dock(page).getByRole("button", { name: "Collapse Field Kit dock" }).click();
+  await expect(page.getByTestId("fieldkit-strip")).toBeVisible();
+  await page.getByTestId("fieldkit-strip").getByRole("button", { name: "Evidence", exact: true }).click();
+  await expect(records.first()).toHaveAttribute("aria-current", "true");
+  await expect(page.getByRole("tab", { name: "Findings" })).toHaveAttribute("aria-selected", "true");
 });
 
-test("close and reopen preserves the dock and refocuses the toggle", async ({ page }) => {
-  await startCase(page, `E2E dock close probe ${Date.now()}`);
-  const rail = dock(page);
-  await evidenceButtons(page);
+test("M046 close and reopen leave the case and evidence intact", async ({ page }) => {
+  await openFixtureCase(page);
+  await expect(dock(page).getByRole("group", { name: "Case evidence" })).toBeVisible();
+  await dock(page).getByRole("button", { name: "Close Field Kit dock" }).click();
+  await expect(dock(page)).toBeHidden();
   const toggle = page.getByTestId("fieldkit-toggle");
-
-  await rail.getByRole("button", { name: "Close Field Kit dock" }).click();
-  await expect(rail).toBeHidden();
   await expect(toggle).toBeFocused();
-
   await toggle.click();
-  await expect(rail).toBeVisible();
-  expect(await (await evidenceButtons(page)).count()).toBeGreaterThan(0);
+  await expandDock(page);
+  await expect(dock(page).getByRole("group", { name: "Case evidence" })).toBeVisible();
   await expect(page.getByRole("tab", { name: "Findings" })).toBeVisible();
 });
 
-test("pins cap at 3 favorites and survive reload", async ({ page }) => {
+test("M046 Evidence pin survives reload and can be removed", async ({ page }) => {
   await page.goto("/");
-  const rail = dock(page);
-  await expect(rail).toBeVisible();
-
-  await rail.getByRole("button", { name: "Pin Evidence", exact: true }).click();
-  await rail.getByRole("button", { name: "Pin Process Watch", exact: true }).click();
-  await rail.getByRole("button", { name: "Pin Event Decoder", exact: true }).click();
-  const pinned = page.getByTestId("fieldkit-pinned");
-  await expect(pinned.getByRole("button")).toHaveCount(3);
-  await expect(rail.getByText("Pinned Event Decoder (3 of 3).")).toBeVisible();
-  // Fourth pin is honestly refused: the control disables with a reason.
-  const fourth = rail.getByRole("button", { name: "Pin Command Deck", exact: true });
-  await expect(fourth).toBeDisabled();
-  expect(await fourth.getAttribute("title")).toContain("Pin limit reached");
-
+  await page.evaluate(() => localStorage.removeItem("fieldrook.dock.v1"));
   await page.reload();
-  await expect(page.getByTestId("fieldkit-pinned").getByRole("button")).toHaveCount(3);
-  const railAfter = dock(page);
-  await railAfter.getByRole("button", { name: "Unpin Evidence", exact: true }).click();
-  await expect(page.getByTestId("fieldkit-pinned").getByRole("button")).toHaveCount(2);
-  await expect(
-    railAfter.getByRole("button", { name: "Pin Command Deck", exact: true }),
-  ).toBeEnabled();
+  await expandDock(page);
+  await dock(page).getByRole("button", { name: "Pin Evidence", exact: true }).click();
+  await expect(dock(page).getByRole("button", { name: "Unpin Evidence", exact: true })).toBeVisible();
+  await page.reload();
+  await expandDock(page);
+  await expect(dock(page).getByRole("button", { name: "Unpin Evidence", exact: true })).toBeVisible();
+  await dock(page).getByRole("button", { name: "Unpin Evidence", exact: true }).click();
+  await expect(dock(page).getByRole("button", { name: "Pin Evidence", exact: true })).toBeVisible();
 });
 
-test("keyboard: arrows move between tools, Enter activates, Escape closes", async ({ page }) => {
+test("M046 obsolete instrument preferences cannot expose unfinished tools", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("fieldrook.dock.v1", JSON.stringify({
+      activeId: "process-watch", pins: ["process-watch", "evidence", "event-decoder"]
+    }));
+  });
   await page.goto("/");
-  const rail = dock(page);
-  await expect(rail).toBeVisible();
-  // Mounting the dock never steals focus (StrictMode-safe effect).
-  await expect(page.locator("body")).toBeFocused();
-  const evidenceTool = rail.getByRole("button", { name: "Evidence", exact: true });
-  await evidenceTool.focus();
-  await page.keyboard.press("ArrowRight");
-  await expect(
-    rail.getByRole("button", { name: "Process Watch, coming soon", exact: true }),
-  ).toBeFocused();
-  await page.keyboard.press("Enter");
-  await expect(rail.locator(".sf-dock-panel").getByText("COMING SOON")).toBeVisible();
-  await page.keyboard.press("ArrowLeft");
-  await expect(evidenceTool).toBeFocused();
+  await expandDock(page);
+  await expect(dock(page).getByRole("group", { name: "Field Kit instruments" }).getByRole("button", { name: "Evidence", exact: true })).toHaveAttribute("aria-current", "true");
+  await expect(dock(page).getByRole("button", { name: "Unpin Evidence", exact: true })).toBeVisible();
+  await expect(dock(page).getByRole("button", { name: /Process Watch|Event Decoder/ })).toHaveCount(0);
+});
 
-  // Escape inside the dock closes it and returns focus to the toggle.
+test("M046 Escape closes the dock and returns focus to its toggle", async ({ page }) => {
+  await page.goto("/");
+  await expandDock(page);
+  const evidence = dock(page).getByRole("button", { name: "Evidence", exact: true });
+  await evidence.focus();
+  await page.keyboard.press("ArrowRight");
+  await expect(evidence).toBeFocused(); // one ready instrument, so navigation wraps
   await page.keyboard.press("Escape");
-  await expect(rail).toBeHidden();
+  await expect(dock(page)).toBeHidden();
   await expect(page.getByTestId("fieldkit-toggle")).toBeFocused();
 });
 
-test("narrow overlay: toggle and Escape dismiss, focus returns", async ({ page }) => {
+test("M046 narrow layout preserves overlay close and reopen", async ({ page }) => {
   await page.setViewportSize({ width: 1100, height: 800 });
   await page.goto("/");
-  const rail = dock(page);
+  await expandDock(page);
   const toggle = page.getByTestId("fieldkit-toggle");
-  await expect(rail).toBeVisible();
   await expect(toggle).toBeVisible();
-
   await toggle.click();
-  await expect(rail).toBeHidden();
+  await expect(dock(page)).toBeHidden();
   await toggle.click();
-  await expect(rail).toBeVisible();
-  // Overlay semantics: Escape dismisses even from main-column focus.
+  await expect(dock(page)).toBeVisible();
   await page.getByRole("navigation", { name: "Primary" }).getByRole("button", { name: "Workbench", exact: true }).focus();
   await page.keyboard.press("Escape");
-  await expect(rail).toBeHidden();
+  await expect(dock(page)).toBeHidden();
   await expect(toggle).toBeFocused();
-});
-
-test("every coming-soon instrument is clearly unavailable", async ({ page }) => {
-  await page.goto("/");
-  const rail = dock(page);
-  for (const title of ["Process Watch", "Event Decoder", "Command Deck", "Field Notes"]) {
-    await rail.getByRole("button", { name: `${title}, coming soon`, exact: true }).click();
-    const panel = rail.locator(".sf-dock-panel");
-    await expect(panel.getByText("COMING SOON")).toBeVisible();
-    await expect(panel.getByText(/not implemented in this build/)).toBeVisible();
-    await expect(panel.getByRole("button", { name: "Back to Evidence" })).toBeVisible();
-  }
-  await rail.locator(".sf-dock-panel").getByRole("button", { name: "Back to Evidence" }).click();
-  await expect(rail.getByRole("button", { name: "Evidence", exact: true })).toHaveAttribute(
-    "aria-current",
-    "true",
-  );
 });
